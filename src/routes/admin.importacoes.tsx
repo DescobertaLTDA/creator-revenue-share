@@ -116,7 +116,7 @@ function ImportacoesPage() {
             row_number: e.row_number,
             field_name: e.field_name,
             error_message: e.error_message,
-            raw_payload: e.raw_payload,
+            raw_payload: e.raw_payload as unknown as never,
           }))
         );
       }
