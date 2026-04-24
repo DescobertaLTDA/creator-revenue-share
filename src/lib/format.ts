@@ -64,7 +64,8 @@ export function parseMixedDate(input: string): Date | null {
 export function parseNumberLoose(input: string | number | null | undefined): number {
   if (input == null || input === "") return 0;
   if (typeof input === "number") return input;
-  let s = String(input).trim().replace(/[R$\s]/g, "");
+  // Remove currency labels/symbols (ex: "R$", "US$", "USD") while preserving digits and separators.
+  let s = String(input).trim().replace(/[^\d,.\-]/g, "");
   if (s === "" || s === "-") return 0;
   const hasComma = s.includes(",");
   const hasDot = s.includes(".");
