@@ -1,16 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/app/PageHeader";
 import { KpiCard } from "@/components/app/KpiCard";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { EmptyState } from "@/components/app/EmptyState";
 import { formatBRL, formatDateTime, formatMonth } from "@/lib/format";
-import { DollarSign, Wallet, FileSpreadsheet, ArrowRight, TrendingUp, Eye, Users, Heart } from "lucide-react";
-import {
-  ResponsiveContainer, LineChart, Line, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-} from "recharts";
+import { DollarSign, Wallet, FileSpreadsheet, ArrowRight, TrendingUp, Eye, Heart } from "lucide-react";
+
+const DashboardCharts = lazy(() =>
+  import("@/components/app/DashboardCharts").then((m) => ({ default: m.DashboardCharts }))
+);
 
 export const Route = createFileRoute("/admin/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Rateio Creator" }] }),
@@ -39,7 +39,6 @@ const fmt = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M`
   : n >= 1_000 ? `${(n / 1_000).toFixed(1)}k`
   : String(n);
-
 function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [totalMonth, setTotalMonth] = useState(0);
@@ -175,68 +174,11 @@ function AdminDashboard() {
         </div>
       )}
 
-      {/* Gráfico: Receita por dia */}
+      {/* Gráficos — lazy para evitar SSR crash do recharts */}
       {chartData.length > 0 && (
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="font-medium mb-4">Receita por dia (BRL)</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={chartData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="dia" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `R$${v}`} width={52} />
-              <Tooltip formatter={(v: number) => formatBRL(v)} labelFormatter={(l) => `Dia: ${l}`} />
-              <Bar dataKey="receita" name="Receita" fill="#16a34a" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* Gráfico: Views e Alcance por dia */}
-      {chartData.length > 0 && (
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="font-medium mb-4">Views e Alcance por dia</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={chartData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="dia" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={fmt} width={52} />
-              <Tooltip formatter={(v: number) => v.toLocaleString("pt-BR")} labelFormatter={(l) => `Dia: ${l}`} />
-              <Legend />
-              <Line type="monotone" dataKey="views" name="Views" stroke="#16a34a" dot={false} strokeWidth={2} />
-              <Line type="monotone" dataKey="alcance" name="Alcance" stroke="#dc2626" dot={false} strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* Gráfico: Posts e Reações por dia */}
-      {chartData.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="bg-card border border-border rounded-xl p-5">
-            <h2 className="font-medium mb-4">Posts publicados por dia</h2>
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={chartData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="dia" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} width={32} allowDecimals={false} />
-                <Tooltip labelFormatter={(l) => `Dia: ${l}`} />
-                <Bar dataKey="posts" name="Posts" fill="#16a34a" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="bg-card border border-border rounded-xl p-5">
-            <h2 className="font-medium mb-4">Reações por dia</h2>
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={chartData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="dia" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={fmt} width={42} />
-                <Tooltip formatter={(v: number) => v.toLocaleString("pt-BR")} labelFormatter={(l) => `Dia: ${l}`} />
-                <Bar dataKey="reacoes" name="Reações" fill="#dc2626" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        <Suspense fallback={<div className="h-48 bg-muted/30 rounded-xl animate-pulse" />}>
+          <DashboardCharts data={chartData} />
+        </Suspense>
       )}
 
       {/* Importações recentes */}
