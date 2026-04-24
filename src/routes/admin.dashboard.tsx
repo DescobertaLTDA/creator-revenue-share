@@ -60,10 +60,25 @@ function AdminDashboard() {
 
   useEffect(() => {
     const load = async () => {
-      const [{ data: postsData }, { data: imports }] = await Promise.all([
-        supabase
-          .from("posts")
-          .select("published_at, monetization_approx, views, reach, reactions"),
+      const fetchAllPosts = async () => {
+        const PAGE = 5000;
+        let from = 0;
+        const all: Array<{ published_at: string | null; estimated_usd: number | null; views: number | null; reach: number | null; reactions: number | null }> = [];
+        while (true) {
+          const { data, error } = await supabase
+            .from("posts")
+            .select("published_at, estimated_usd, views, reach, reactions")
+            .range(from, from + PAGE - 1);
+          if (error || !data || data.length === 0) break;
+          all.push(...data);
+          if (data.length < PAGE) break;
+          from += PAGE;
+        }
+        return all;
+      };
+
+      const [postsData, { data: imports }] = await Promise.all([
+        fetchAllPosts(),
         supabase
           .from("csv_imports")
           .select("id, file_name, status, created_at, valid_rows, total_rows")
@@ -75,16 +90,16 @@ function AdminDashboard() {
 
       const byMonth: Record<string, number> = {};
       const byDay: Record<string, DayData> = {};
-      let geralSum = 0;
+      let geralSumUsd = 0;
       let viewsSum = 0;
       let reacoesSum = 0;
 
       for (const p of posts) {
-        const val = Number(p.monetization_approx ?? 0);
+        const val = Number(p.estimated_usd ?? 0);
         const views = Number(p.views ?? 0);
         const reacoes = Number(p.reactions ?? 0);
         const reach = Number(p.reach ?? 0);
-        geralSum += val;
+        geralSumUsd += val;
         viewsSum += views;
         reacoesSum += reacoes;
 
@@ -115,7 +130,7 @@ function AdminDashboard() {
 
       setActiveMonthRef(latestMonth);
       setTotalMonth(byMonth[latestMonth] ?? 0);
-      setTotalGeral(geralSum);
+      setTotalGeral(geralSumUsd);
       setTotalPosts(posts.length);
       setTotalViews(viewsSum);
       setTotalReacoes(reacoesSum);
@@ -143,10 +158,17 @@ function AdminDashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Receita do mês (BRL)" value={loading ? "…" : formatBRL(totalMonth)} icon={DollarSign} tone="success" />
         <KpiCard
-          label="Receita total (BRL)"
-          value={loading ? "…" : formatBRL(totalGeral)}
+          label="Receita do mês (USD)"
+          value={loading ? "…" : `$${totalMonth.toFixed(2)}`}
+          hint={usdBrl ? `≈ ${formatBRL(totalMonth * usdBrl)}` : undefined}
+          icon={DollarSign}
+          tone="success"
+        />
+        <KpiCard
+          label="Receita total (USD)"
+          value={loading ? "…" : `$${totalGeral.toFixed(2)}`}
+          hint={usdBrl ? `≈ ${formatBRL(totalGeral * usdBrl)}` : undefined}
           icon={Wallet}
           tone="warning"
         />
@@ -154,23 +176,26 @@ function AdminDashboard() {
         <KpiCard label="Total de reações" value={loading ? "…" : fmt(totalReacoes)} icon={Heart} />
       </div>
 
-      {/* Receita em USD */}
-      {usdBrl && !loading && (
+      {/* Posts count + cotação */}
+      {!loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase text-muted-foreground font-medium">Receita total em USD</p>
-              <p className="text-2xl font-bold mt-1">${(totalGeral / usdBrl).toFixed(2)}</p>
-            </div>
-            <DollarSign className="h-8 w-8 text-green-500 opacity-60" />
-          </div>
           <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
             <div>
               <p className="text-xs uppercase text-muted-foreground font-medium">Total de posts importados</p>
               <p className="text-2xl font-bold mt-1">{totalPosts.toLocaleString("pt-BR")}</p>
             </div>
-            <TrendingUp className="h-8 w-8 text-blue-500 opacity-60" />
+            <TrendingUp className="h-8 w-8 text-[#16a34a] opacity-60" />
           </div>
+          {usdBrl && (
+            <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase text-muted-foreground font-medium">Total em BRL (cotação atual)</p>
+                <p className="text-2xl font-bold mt-1">{formatBRL(totalGeral * usdBrl)}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">USD 1 = {formatBRL(usdBrl)}</p>
+              </div>
+              <DollarSign className="h-8 w-8 text-[#16a34a] opacity-60" />
+            </div>
+          )}
         </div>
       )}
 

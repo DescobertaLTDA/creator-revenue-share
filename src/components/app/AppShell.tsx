@@ -85,7 +85,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="h-7 w-7 rounded-md bg-primary flex items-center justify-center">
               <Wallet className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="font-semibold">Rateio Creator</span>
+            <span className="font-semibold text-foreground">Rateio Creator</span>
           </div>
         </header>
 
@@ -115,8 +115,8 @@ function SidebarContent({
           <Wallet className="h-4 w-4 text-primary-foreground" />
         </div>
         <div className="flex flex-col">
-          <span className="font-semibold leading-tight">Rateio Creator</span>
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <span className="font-semibold leading-tight text-sidebar-foreground">Rateio Creator</span>
+          <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50">
             {profile?.role === "admin" ? "Administração" : "Colaborador"}
           </span>
         </div>

@@ -2,7 +2,6 @@ import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";
-import { formatBRL } from "@/lib/format";
 
 interface DayData {
   dia: string;
@@ -25,14 +24,14 @@ export function DashboardCharts({ data }: { data: DayData[] }) {
     <div className="space-y-4">
       {/* Receita por dia */}
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-medium mb-4">Receita por dia (BRL)</h2>
+        <h2 className="font-medium mb-4">Receita por dia (USD)</h2>
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={data} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 88%)" />
             <XAxis dataKey="dia" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `R$${v}`} width={52} />
-            <Tooltip formatter={(v: number) => formatBRL(v)} labelFormatter={(l) => `Dia: ${l}`} />
-            <Bar dataKey="receita" name="Receita" fill="#16a34a" radius={[4, 4, 0, 0]} />
+            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} width={52} />
+            <Tooltip formatter={(v: number) => `$${v.toFixed(2)}`} labelFormatter={(l) => `Dia: ${l}`} />
+            <Bar dataKey="receita" name="Receita (USD)" fill="#16a34a" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
