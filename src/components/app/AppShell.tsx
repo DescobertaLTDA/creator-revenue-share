@@ -52,7 +52,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Sidebar desktop */}
-      <aside className="hidden lg:flex w-64 flex-col border-r border-border bg-sidebar">
+      <aside className="hidden lg:flex w-64 flex-col border-r border-border bg-sidebar h-screen sticky top-0 overflow-hidden">
         <SidebarContent nav={nav} pathname={location.pathname} onLogout={handleLogout} profile={profile} />
       </aside>
 
@@ -124,7 +124,7 @@ function SidebarContent({
         </div>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {nav.map((item) => {
           const active = pathname === item.to || pathname.startsWith(item.to + "/");
           const Icon = item.icon;
