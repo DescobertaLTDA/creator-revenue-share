@@ -49,6 +49,16 @@ interface SplitRule {
   active: boolean;
 }
 
+type BonusDistributionMode = "views" | "revenue" | "hybrid";
+
+interface ManualBonusRow {
+  id: string;
+  bonus_date: string;
+  amount_usd: number | string;
+  distribution_mode: BonusDistributionMode;
+  active: boolean;
+}
+
 interface PageOption { id: string; name: string }
 interface ColabOption { id: string; nome: string; hashtag: string | null }
 
@@ -133,6 +143,7 @@ function AdminDashboard() {
   const [splitRules, setSplitRules] = useState<SplitRule[]>([]);
   const [pages, setPages] = useState<PageOption[]>([]);
   const [colabs, setColabs] = useState<ColabOption[]>([]);
+  const [manualBonuses, setManualBonuses] = useState<ManualBonusRow[]>([]);
   const [recentImports, setRecentImports] = useState<RecentImport[]>([]);
   const [usdBrl, setUsdBrl] = useState<number | null>(null);
   const [usdUpdated, setUsdUpdated] = useState<Date | null>(null);
@@ -193,6 +204,42 @@ function AdminDashboard() {
       setLoading(false);
     };
     load();
+  }, []);
+
+  useEffect(() => {
+    const loadManualBonuses = async () => {
+      const { data, error } = await (supabase as any)
+        .from("manual_bonus_entries")
+        .select("id, bonus_date, amount_usd, distribution_mode, active")
+        .eq("active", true);
+
+      if (error) {
+        const message = String(error.message ?? "");
+        if (message.includes("manual_bonus_entries")) {
+          setManualBonuses([]);
+          return;
+        }
+        setManualBonuses([]);
+        return;
+      }
+
+      setManualBonuses((data ?? []) as ManualBonusRow[]);
+    };
+
+    loadManualBonuses();
+
+    const channel = supabase
+      .channel("admin-dashboard-manual-bonus")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "manual_bonus_entries" },
+        loadManualBonuses
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {
@@ -367,6 +414,114 @@ function AdminDashboard() {
       }
     }
 
+    const filteredBonuses = manualBonuses.filter((bonus) => {
+      if (!bonus.active) return false;
+      if (filterFrom && bonus.bonus_date < filterFrom) return false;
+      if (filterTo && bonus.bonus_date > filterTo) return false;
+      return true;
+    });
+
+    const merged = new Map(colabAgg);
+    for (const c of colabs) {
+      if (!merged.has(c.id)) {
+        merged.set(c.id, {
+          id: c.id,
+          nome: c.nome,
+          hashtag: c.hashtag,
+          posts: 0,
+          views: 0,
+          reacoes: 0,
+          receita: 0,
+        });
+      }
+    }
+    if (!merged.has(SEM_COLAB_ID)) {
+      merged.set(SEM_COLAB_ID, {
+        id: SEM_COLAB_ID,
+        nome: "Sem colaborador",
+        hashtag: null,
+        posts: 0,
+        views: 0,
+        reacoes: 0,
+        receita: 0,
+      });
+    }
+
+    const baseRevenueByColab = new Map<string, number>();
+    for (const [id, item] of merged.entries()) {
+      if (id === SEM_COLAB_ID) continue;
+      baseRevenueByColab.set(id, Number(item.receita ?? 0));
+    }
+
+    for (const bonus of filteredBonuses) {
+      const usd = Number(bonus.amount_usd ?? 0);
+      if (!Number.isFinite(usd) || usd <= 0) continue;
+
+      geralUsd += usd;
+      const bonusMonth = bonus.bonus_date.slice(0, 7);
+      byMonth[bonusMonth] = (byMonth[bonusMonth] ?? 0) + usd;
+
+      const [, month, day] = bonus.bonus_date.split("-");
+      const label = `${day}/${month}`;
+      const currentDay = byDay[bonus.bonus_date] ?? {
+        dia: label,
+        posts: 0,
+        views: 0,
+        alcance: 0,
+        reacoes: 0,
+        receita: 0,
+      };
+      currentDay.receita += usd;
+      byDay[bonus.bonus_date] = currentDay;
+
+      const eligibleIds = Array.from(merged.keys()).filter((id) => id !== SEM_COLAB_ID);
+      if (eligibleIds.length === 0) {
+        merged.get(SEM_COLAB_ID)!.receita += usd;
+        continue;
+      }
+
+      const totalViews = eligibleIds.reduce((sum, id) => sum + Number(merged.get(id)?.views ?? 0), 0);
+      const totalRevenue = eligibleIds.reduce((sum, id) => sum + Number(baseRevenueByColab.get(id) ?? 0), 0);
+
+      const weights = new Map<string, number>();
+      let totalWeight = 0;
+      for (const id of eligibleIds) {
+        const item = merged.get(id)!;
+        const viewShare = totalViews > 0 ? item.views / totalViews : 0;
+        const revenueShare = totalRevenue > 0 ? Number(baseRevenueByColab.get(id) ?? 0) / totalRevenue : 0;
+
+        let weight = 0;
+        if (bonus.distribution_mode === "views") {
+          weight = viewShare;
+        } else if (bonus.distribution_mode === "revenue") {
+          weight = revenueShare;
+        } else {
+          const hasViews = totalViews > 0;
+          const hasRevenue = totalRevenue > 0;
+          if (hasViews && hasRevenue) weight = (viewShare + revenueShare) / 2;
+          else if (hasViews) weight = viewShare;
+          else if (hasRevenue) weight = revenueShare;
+          else weight = 0;
+        }
+
+        weights.set(id, weight);
+        totalWeight += weight;
+      }
+
+      if (totalWeight <= 0) {
+        merged.get(SEM_COLAB_ID)!.receita += usd;
+        continue;
+      }
+
+      let remaining = usd;
+      eligibleIds.forEach((id, index) => {
+        const normalizedWeight = (weights.get(id) ?? 0) / totalWeight;
+        const share = index === eligibleIds.length - 1 ? remaining : usd * normalizedWeight;
+        remaining -= share;
+        merged.get(id)!.receita += share;
+      });
+    }
+
     const sortedMonths = Object.entries(byMonth).sort((a, b) => b[0].localeCompare(a[0]));
     const latestMonth = sortedMonths[0]?.[0] ?? new Date().toISOString().slice(0, 7);
 
@@ -384,25 +539,9 @@ function AdminDashboard() {
       },
       chartData: chart,
       activeMonthRef: latestMonth,
-      collabCards: (() => {
-        const merged = new Map(colabAgg);
-        for (const c of colabs) {
-          if (!merged.has(c.id)) {
-            merged.set(c.id, {
-              id: c.id,
-              nome: c.nome,
-              hashtag: c.hashtag,
-              posts: 0,
-              views: 0,
-              reacoes: 0,
-              receita: 0,
-            });
-          }
-        }
-        return Array.from(merged.values()).sort((a, b) => b.receita - a.receita || a.nome.localeCompare(b.nome, "pt-BR"));
-      })(),
+      collabCards: Array.from(merged.values()).sort((a, b) => b.receita - a.receita || a.nome.localeCompare(b.nome, "pt-BR")),
     };
-  }, [allPosts, postAuthors, splitRules, colabs, filterPage, filterColab, filterFrom, filterTo]);
+  }, [allPosts, postAuthors, splitRules, colabs, manualBonuses, filterPage, filterColab, filterFrom, filterTo]);
 
   const { totalMonth, totalGeral, totalPosts, totalViews, totalReacoes } = kpis;
 

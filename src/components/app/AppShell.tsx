@@ -9,6 +9,7 @@ import {
   Percent,
   CalendarCheck,
   Users,
+  HandCoins,
   LogOut,
   Wallet,
   Menu,
@@ -27,6 +28,7 @@ const adminNav: NavItem[] = [
   { to: "/admin/posts", label: "Posts", icon: FileText },
   { to: "/admin/regras-split", label: "Regras de Split", icon: Percent },
   { to: "/admin/fechamentos", label: "Fechamentos", icon: CalendarCheck },
+  { to: "/admin/bonus-manual", label: "Bonus Manual", icon: HandCoins },
   { to: "/admin/colaboradores", label: "Colaboradores", icon: Users },
 ];
 
