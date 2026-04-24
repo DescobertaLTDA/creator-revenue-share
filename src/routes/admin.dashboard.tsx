@@ -350,7 +350,23 @@ function AdminDashboard() {
       },
       chartData: chart,
       activeMonthRef: latestMonth,
-      collabCards: Array.from(colabAgg.values()).sort((a, b) => b.receita - a.receita),
+      collabCards: (() => {
+        const merged = new Map(colabAgg);
+        for (const c of colabs) {
+          if (!merged.has(c.id)) {
+            merged.set(c.id, {
+              id: c.id,
+              nome: c.nome,
+              hashtag: c.hashtag,
+              posts: 0,
+              views: 0,
+              reacoes: 0,
+              receita: 0,
+            });
+          }
+        }
+        return Array.from(merged.values()).sort((a, b) => b.receita - a.receita || a.nome.localeCompare(b.nome, "pt-BR"));
+      })(),
     };
   }, [allPosts, postAuthors, splitRules, colabs, filterPage, filterColab, filterFrom, filterTo]);
 
