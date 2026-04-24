@@ -469,8 +469,14 @@ function ruleEffectiveDay(rule: SplitRule): string {
                     <Users className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <div className="mt-3 space-y-1">
-                    <p className="text-xl font-bold text-[#16a34a]">${item.receita.toFixed(2)}</p>
-                    {usdBrl && <p className="text-xs text-muted-foreground">~ {formatBRL(item.receita * usdBrl)}</p>}
+                    {usdBrl ? (
+                      <>
+                        <p className="text-xl font-bold text-[#16a34a]">{formatBRL(item.receita * usdBrl)}</p>
+                        <p className="text-xs text-muted-foreground">~ ${item.receita.toFixed(2)}</p>
+                      </>
+                    ) : (
+                      <p className="text-xl font-bold text-[#16a34a]">${item.receita.toFixed(2)}</p>
+                    )}
                     <p className="text-xs text-muted-foreground">
                       {item.posts.toLocaleString("pt-BR")} posts • {fmt(item.views)} views • {fmt(item.reacoes)} reacoes
                     </p>
@@ -535,4 +541,6 @@ function ruleEffectiveDay(rule: SplitRule): string {
     </div>
   );
 }
+
+
 
