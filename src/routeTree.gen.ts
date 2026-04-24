@@ -13,6 +13,8 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ColaboradorRouteImport } from './routes/colaborador'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRegrasSplitRouteImport } from './routes/admin.regras-split'
+import { Route as AdminPostsRouteImport } from './routes/admin.posts'
 import { Route as AdminImportacoesRouteImport } from './routes/admin.importacoes'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 import { Route as AdminImportacoesIdRouteImport } from './routes/admin.importacoes.$id'
@@ -37,6 +39,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRegrasSplitRoute = AdminRegrasSplitRouteImport.update({
+  id: '/regras-split',
+  path: '/regras-split',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPostsRoute = AdminPostsRouteImport.update({
+  id: '/posts',
+  path: '/posts',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminImportacoesRoute = AdminImportacoesRouteImport.update({
   id: '/importacoes',
   path: '/importacoes',
@@ -60,6 +72,8 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/importacoes': typeof AdminImportacoesRouteWithChildren
+  '/admin/posts': typeof AdminPostsRoute
+  '/admin/regras-split': typeof AdminRegrasSplitRoute
   '/admin/importacoes/$id': typeof AdminImportacoesIdRoute
 }
 export interface FileRoutesByTo {
@@ -69,6 +83,8 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/importacoes': typeof AdminImportacoesRouteWithChildren
+  '/admin/posts': typeof AdminPostsRoute
+  '/admin/regras-split': typeof AdminRegrasSplitRoute
   '/admin/importacoes/$id': typeof AdminImportacoesIdRoute
 }
 export interface FileRoutesById {
@@ -79,6 +95,8 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/importacoes': typeof AdminImportacoesRouteWithChildren
+  '/admin/posts': typeof AdminPostsRoute
+  '/admin/regras-split': typeof AdminRegrasSplitRoute
   '/admin/importacoes/$id': typeof AdminImportacoesIdRoute
 }
 export interface FileRouteTypes {
@@ -90,6 +108,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/dashboard'
     | '/admin/importacoes'
+    | '/admin/posts'
+    | '/admin/regras-split'
     | '/admin/importacoes/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -99,6 +119,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/dashboard'
     | '/admin/importacoes'
+    | '/admin/posts'
+    | '/admin/regras-split'
     | '/admin/importacoes/$id'
   id:
     | '__root__'
@@ -108,6 +130,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/dashboard'
     | '/admin/importacoes'
+    | '/admin/posts'
+    | '/admin/regras-split'
     | '/admin/importacoes/$id'
   fileRoutesById: FileRoutesById
 }
@@ -148,6 +172,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/regras-split': {
+      id: '/admin/regras-split'
+      path: '/regras-split'
+      fullPath: '/admin/regras-split'
+      preLoaderRoute: typeof AdminRegrasSplitRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/posts': {
+      id: '/admin/posts'
+      path: '/posts'
+      fullPath: '/admin/posts'
+      preLoaderRoute: typeof AdminPostsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/importacoes': {
       id: '/admin/importacoes'
       path: '/importacoes'
@@ -186,11 +224,15 @@ const AdminImportacoesRouteWithChildren =
 interface AdminRouteChildren {
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminImportacoesRoute: typeof AdminImportacoesRouteWithChildren
+  AdminPostsRoute: typeof AdminPostsRoute
+  AdminRegrasSplitRoute: typeof AdminRegrasSplitRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminDashboardRoute: AdminDashboardRoute,
   AdminImportacoesRoute: AdminImportacoesRouteWithChildren,
+  AdminPostsRoute: AdminPostsRoute,
+  AdminRegrasSplitRoute: AdminRegrasSplitRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
