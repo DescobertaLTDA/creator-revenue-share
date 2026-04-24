@@ -62,7 +62,9 @@ const fmt = (n: number) =>
 async function fetchAllRows<T>(
   query: () => ReturnType<typeof supabase.from>
 ): Promise<T[]> {
-  const PAGE = 5000;
+  // Supabase/PostgREST commonly caps response size to 1000 rows per request.
+  // Keep page size at 1000 to ensure we can paginate through the full dataset.
+  const PAGE = 1000;
   let from = 0;
   const all: T[] = [];
   while (true) {
@@ -70,7 +72,7 @@ async function fetchAllRows<T>(
     if (error || !data || data.length === 0) break;
     all.push(...data);
     if (data.length < PAGE) break;
-    from += PAGE;
+    from += data.length;
   }
   return all;
 }
