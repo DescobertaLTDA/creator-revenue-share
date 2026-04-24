@@ -183,6 +183,42 @@ function ImportacoesPage() {
         }
       }
 
+      // 5) matching de hashtags → post_authors
+      const { data: collaborators } = await supabase
+        .from("collaborators")
+        .select("id, hashtag")
+        .eq("ativo", true)
+        .not("hashtag", "is", null);
+
+      if (collaborators && collaborators.length > 0) {
+        // busca todos os posts recém-upsertados com suas descrições
+        const allPageIds = Array.from(pageIdMap.values());
+        const { data: allPosts } = await supabase
+          .from("posts")
+          .select("id, description, title")
+          .in("page_id", allPageIds);
+
+        const authorRows: { post_id: string; collaborator_id: string; source: string }[] = [];
+
+        for (const post of allPosts ?? []) {
+          const text = `${post.title ?? ""} ${post.description ?? ""}`.toLowerCase();
+          for (const col of collaborators) {
+            if (!col.hashtag) continue;
+            // match de palavra inteira: #hashtag não seguido de letra/número
+            const regex = new RegExp(`#${col.hashtag.toLowerCase()}(?![a-z0-9_])`, "i");
+            if (regex.test(text)) {
+              authorRows.push({ post_id: post.id, collaborator_id: col.id, source: "hashtag" });
+            }
+          }
+        }
+
+        if (authorRows.length > 0) {
+          await supabase
+            .from("post_authors")
+            .upsert(authorRows, { onConflict: "post_id,collaborator_id", ignoreDuplicates: true });
+        }
+      }
+
       const status = parsed.errors.length === 0 ? "concluido" : parsed.errors.length === parsed.totalRows ? "falha" : "parcial";
       await supabase.from("csv_imports").update({ status, inserted_rows: inserted, updated_rows: updated }).eq("id", imp.id);
 
