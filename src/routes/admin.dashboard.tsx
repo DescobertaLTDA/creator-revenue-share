@@ -6,14 +6,14 @@ import { KpiCard } from "@/components/app/KpiCard";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { EmptyState } from "@/components/app/EmptyState";
 import { formatBRL, formatDateTime, formatMonth } from "@/lib/format";
-import { DollarSign, Wallet, FileSpreadsheet, ArrowRight, TrendingUp, Eye, Heart } from "lucide-react";
+import { DollarSign, Wallet, FileSpreadsheet, ArrowRight, TrendingUp, Eye, Heart, Users } from "lucide-react";
 
 const DashboardCharts = lazy(() =>
   import("@/components/app/DashboardCharts").then((m) => ({ default: m.DashboardCharts }))
 );
 
 export const Route = createFileRoute("/admin/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — Rateio Creator" }] }),
+  head: () => ({ meta: [{ title: "Dashboard - Rateio Creator" }] }),
   component: AdminDashboard,
 });
 
@@ -42,6 +42,13 @@ interface PostAuthorRow {
   collaborator_id: string;
 }
 
+interface SplitRule {
+  page_id: string;
+  effective_from: string;
+  collaborator_pct: number;
+  active: boolean;
+}
+
 interface PageOption { id: string; name: string }
 interface ColabOption { id: string; nome: string; hashtag: string | null }
 
@@ -54,6 +61,18 @@ interface DayData {
   receita: number;
 }
 
+interface ColabCard {
+  id: string;
+  nome: string;
+  hashtag: string | null;
+  posts: number;
+  views: number;
+  reacoes: number;
+  receita: number;
+}
+
+const SEM_COLAB_ID = "__sem_colaborador__";
+
 const fmt = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M`
   : n >= 1_000 ? `${(n / 1_000).toFixed(1)}k`
@@ -62,8 +81,6 @@ const fmt = (n: number) =>
 async function fetchAllRows<T>(
   query: () => ReturnType<typeof supabase.from>
 ): Promise<T[]> {
-  // Supabase/PostgREST commonly caps response size to 1000 rows per request.
-  // Keep page size at 1000 to ensure we can paginate through the full dataset.
   const PAGE = 1000;
   let from = 0;
   const all: T[] = [];
@@ -84,17 +101,36 @@ function fetchUsdBrl(): Promise<number | null> {
     .catch(() => null);
 }
 
+function getPostUsd(post: RawPost): number {
+  const monetizationApprox = Number(post.monetization_approx ?? 0);
+  const estimatedUsd = Number(post.estimated_usd ?? 0);
+  return monetizationApprox > 0 ? monetizationApprox : estimatedUsd;
+}
+
+function getCollaboratorPct(post: RawPost, rulesByPage: Map<string, SplitRule[]>): number {
+  const rules = rulesByPage.get(post.page_id) ?? [];
+  if (rules.length === 0) return 0;
+  const publishedDay = (post.published_at ?? "9999-12-31").slice(0, 10);
+  for (const rule of rules) {
+    const effectiveDay = (rule.effective_from ?? "0000-01-01").slice(0, 10);
+    if (effectiveDay <= publishedDay) {
+      return Number(rule.collaborator_pct ?? 0) / 100;
+    }
+  }
+  return 0;
+}
+
 function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [allPosts, setAllPosts] = useState<RawPost[]>([]);
   const [postAuthors, setPostAuthors] = useState<PostAuthorRow[]>([]);
+  const [splitRules, setSplitRules] = useState<SplitRule[]>([]);
   const [pages, setPages] = useState<PageOption[]>([]);
   const [colabs, setColabs] = useState<ColabOption[]>([]);
   const [recentImports, setRecentImports] = useState<RecentImport[]>([]);
   const [usdBrl, setUsdBrl] = useState<number | null>(null);
   const [usdUpdated, setUsdUpdated] = useState<Date | null>(null);
 
-  // Filters
   const [filterPage, setFilterPage] = useState("all");
   const [filterColab, setFilterColab] = useState("all");
   const [filterFrom, setFilterFrom] = useState("");
@@ -102,21 +138,24 @@ function AdminDashboard() {
 
   const usdIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load USD and poll every 60s
   useEffect(() => {
     const load = () =>
       fetchUsdBrl().then((v) => {
-        if (v) { setUsdBrl(v); setUsdUpdated(new Date()); }
+        if (v) {
+          setUsdBrl(v);
+          setUsdUpdated(new Date());
+        }
       });
     load();
     usdIntervalRef.current = setInterval(load, 60_000);
-    return () => { if (usdIntervalRef.current) clearInterval(usdIntervalRef.current); };
+    return () => {
+      if (usdIntervalRef.current) clearInterval(usdIntervalRef.current);
+    };
   }, []);
 
-  // Load all data
   useEffect(() => {
     const load = async () => {
-      const [posts, pas, { data: pagesData }, { data: colabsData }, { data: imports }] =
+      const [posts, pas, { data: pagesData }, { data: colabsData }, { data: rulesData }, { data: imports }] =
         await Promise.all([
           fetchAllRows<RawPost>(() =>
             supabase
@@ -129,6 +168,10 @@ function AdminDashboard() {
           supabase.from("pages").select("id, nome"),
           supabase.from("collaborators").select("id, nome, hashtag").eq("ativo", true),
           supabase
+            .from("split_rules")
+            .select("page_id, effective_from, collaborator_pct, active")
+            .eq("active", true),
+          supabase
             .from("csv_imports")
             .select("id, file_name, status, created_at, valid_rows, total_rows")
             .order("created_at", { ascending: false })
@@ -137,6 +180,7 @@ function AdminDashboard() {
 
       setAllPosts(posts);
       setPostAuthors(pas);
+      setSplitRules((rulesData as SplitRule[]) ?? []);
       setPages((pagesData ?? []).map((p: any) => ({ id: p.id, name: p.nome })));
       setColabs((colabsData ?? []).map((c: any) => ({ id: c.id, nome: c.nome, hashtag: c.hashtag })));
       setRecentImports((imports ?? []) as RecentImport[]);
@@ -145,16 +189,34 @@ function AdminDashboard() {
     load();
   }, []);
 
-  // Client-side filtering + aggregation
-  const { kpis, chartData, activeMonthRef } = useMemo(() => {
+  const { kpis, chartData, activeMonthRef, collabCards } = useMemo(() => {
+    const rulesByPage = new Map<string, SplitRule[]>();
+    for (const rule of splitRules) {
+      if (!rulesByPage.has(rule.page_id)) rulesByPage.set(rule.page_id, []);
+      rulesByPage.get(rule.page_id)!.push(rule);
+    }
+    for (const [, rules] of rulesByPage) {
+      rules.sort((a, b) => b.effective_from.localeCompare(a.effective_from));
+    }
+
+    const postToCollabs = new Map<string, Set<string>>();
+    for (const pa of postAuthors) {
+      if (!postToCollabs.has(pa.post_id)) postToCollabs.set(pa.post_id, new Set());
+      postToCollabs.get(pa.post_id)!.add(pa.collaborator_id);
+    }
+
     const colabPostIds =
-      filterColab !== "all"
+      filterColab !== "all" && filterColab !== SEM_COLAB_ID
         ? new Set(postAuthors.filter((pa) => pa.collaborator_id === filterColab).map((pa) => pa.post_id))
         : null;
 
     const filtered = allPosts.filter((p) => {
       if (filterPage !== "all" && p.page_id !== filterPage) return false;
+
+      const postCollabs = postToCollabs.get(p.id) ?? new Set<string>();
+      if (filterColab === SEM_COLAB_ID && postCollabs.size > 0) return false;
       if (colabPostIds && !colabPostIds.has(p.id)) return false;
+
       if (filterFrom && p.published_at && p.published_at.slice(0, 10) < filterFrom) return false;
       if (filterTo && p.published_at && p.published_at.slice(0, 10) > filterTo) return false;
       return true;
@@ -162,17 +224,20 @@ function AdminDashboard() {
 
     const byMonth: Record<string, number> = {};
     const byDay: Record<string, DayData> = {};
+    const colabAgg = new Map<string, ColabCard>();
+
+    const colabMap = new Map(colabs.map((c) => [c.id, c]));
+
     let geralUsd = 0;
     let viewsSum = 0;
     let reacoesSum = 0;
 
     for (const p of filtered) {
-      const monetizationApprox = Number(p.monetization_approx ?? 0);
-      const estimatedUsd = Number(p.estimated_usd ?? 0);
-      const val = monetizationApprox > 0 ? monetizationApprox : estimatedUsd;
+      const val = getPostUsd(p);
       const views = Number(p.views ?? 0);
       const reacoes = Number(p.reactions ?? 0);
       const reach = Number(p.reach ?? 0);
+
       geralUsd += val;
       viewsSum += views;
       reacoesSum += reacoes;
@@ -193,6 +258,46 @@ function AdminDashboard() {
         byDay[dayKey].reacoes += reacoes;
         byDay[dayKey].receita += val;
       }
+
+      const collaboratorIds = Array.from(postToCollabs.get(p.id) ?? []);
+      const collaboratorPct = getCollaboratorPct(p, rulesByPage);
+      const collaboratorRevenue = val * collaboratorPct;
+
+      if (collaboratorIds.length === 0) {
+        const current = colabAgg.get(SEM_COLAB_ID) ?? {
+          id: SEM_COLAB_ID,
+          nome: "Sem colaborador",
+          hashtag: null,
+          posts: 0,
+          views: 0,
+          reacoes: 0,
+          receita: 0,
+        };
+        current.posts += 1;
+        current.views += views;
+        current.reacoes += reacoes;
+        current.receita += collaboratorRevenue;
+        colabAgg.set(SEM_COLAB_ID, current);
+      } else {
+        const share = collaboratorRevenue / collaboratorIds.length;
+        for (const colabId of collaboratorIds) {
+          const colab = colabMap.get(colabId);
+          const current = colabAgg.get(colabId) ?? {
+            id: colabId,
+            nome: colab?.nome ?? "Colaborador removido",
+            hashtag: colab?.hashtag ?? null,
+            posts: 0,
+            views: 0,
+            reacoes: 0,
+            receita: 0,
+          };
+          current.posts += 1;
+          current.views += views;
+          current.reacoes += reacoes;
+          current.receita += share;
+          colabAgg.set(colabId, current);
+        }
+      }
     }
 
     const sortedMonths = Object.entries(byMonth).sort((a, b) => b[0].localeCompare(a[0]));
@@ -212,8 +317,9 @@ function AdminDashboard() {
       },
       chartData: chart,
       activeMonthRef: latestMonth,
+      collabCards: Array.from(colabAgg.values()).sort((a, b) => b.receita - a.receita),
     };
-  }, [allPosts, postAuthors, filterPage, filterColab, filterFrom, filterTo]);
+  }, [allPosts, postAuthors, splitRules, colabs, filterPage, filterColab, filterFrom, filterTo]);
 
   const { totalMonth, totalGeral, totalPosts, totalViews, totalReacoes } = kpis;
 
@@ -222,11 +328,11 @@ function AdminDashboard() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <PageHeader
           title="Dashboard"
-          description={`Visão geral — ${activeMonthRef ? formatMonth(activeMonthRef) : "…"}`}
+          description={`Visao geral - ${activeMonthRef ? formatMonth(activeMonthRef) : "..."}`}
         />
         {usdBrl && (
           <div className="text-right text-sm mt-1 shrink-0">
-            <span className="text-muted-foreground text-xs">Dólar agora</span>
+            <span className="text-muted-foreground text-xs">Dolar agora</span>
             <p className="font-semibold text-lg leading-tight">{formatBRL(usdBrl)}</p>
             {usdUpdated && (
               <p className="text-[10px] text-muted-foreground">
@@ -237,16 +343,15 @@ function AdminDashboard() {
         )}
       </div>
 
-      {/* Filters */}
       <div className="bg-card border border-border rounded-xl px-4 py-3 flex flex-wrap gap-3 items-end">
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Página</label>
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Pagina</label>
           <select
             value={filterPage}
             onChange={(e) => setFilterPage(e.target.value)}
             className="h-8 rounded-md border border-input bg-background px-2 text-sm min-w-[140px]"
           >
-            <option value="all">Todas as páginas</option>
+            <option value="all">Todas as paginas</option>
             {pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </div>
@@ -255,9 +360,10 @@ function AdminDashboard() {
           <select
             value={filterColab}
             onChange={(e) => setFilterColab(e.target.value)}
-            className="h-8 rounded-md border border-input bg-background px-2 text-sm min-w-[160px]"
+            className="h-8 rounded-md border border-input bg-background px-2 text-sm min-w-[170px]"
           >
             <option value="all">Todos</option>
+            <option value={SEM_COLAB_ID}>Sem colaborador</option>
             {colabs.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nome}{c.hashtag ? ` (#${c.hashtag})` : ""}
@@ -275,7 +381,7 @@ function AdminDashboard() {
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Até</label>
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Ate</label>
           <input
             type="date"
             value={filterTo}
@@ -293,27 +399,25 @@ function AdminDashboard() {
         )}
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
-          label="Receita do mês (USD)"
-          value={loading ? "…" : `$${totalMonth.toFixed(2)}`}
-          hint={usdBrl ? `≈ ${formatBRL(totalMonth * usdBrl)}` : undefined}
+          label="Receita do mes (USD)"
+          value={loading ? "..." : `$${totalMonth.toFixed(2)}`}
+          hint={usdBrl ? `~ ${formatBRL(totalMonth * usdBrl)}` : undefined}
           icon={DollarSign}
           tone="success"
         />
         <KpiCard
           label="Receita total (USD)"
-          value={loading ? "…" : `$${totalGeral.toFixed(2)}`}
-          hint={usdBrl ? `≈ ${formatBRL(totalGeral * usdBrl)}` : undefined}
+          value={loading ? "..." : `$${totalGeral.toFixed(2)}`}
+          hint={usdBrl ? `~ ${formatBRL(totalGeral * usdBrl)}` : undefined}
           icon={Wallet}
           tone="warning"
         />
-        <KpiCard label="Total de views" value={loading ? "…" : fmt(totalViews)} icon={Eye} />
-        <KpiCard label="Total de reações" value={loading ? "…" : fmt(totalReacoes)} icon={Heart} />
+        <KpiCard label="Total de views" value={loading ? "..." : fmt(totalViews)} icon={Eye} />
+        <KpiCard label="Total de reacoes" value={loading ? "..." : fmt(totalReacoes)} icon={Heart} />
       </div>
 
-      {/* Posts count + BRL total */}
       {!loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
@@ -329,7 +433,7 @@ function AdminDashboard() {
           {usdBrl && (
             <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
               <div>
-                <p className="text-xs uppercase text-muted-foreground font-medium tracking-widest">Total em BRL (cotação atual)</p>
+                <p className="text-xs uppercase text-muted-foreground font-medium tracking-widest">Total em BRL (cotacao atual)</p>
                 <p className="text-2xl font-bold mt-1">{formatBRL(totalGeral * usdBrl)}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">USD 1 = {formatBRL(usdBrl)}</p>
               </div>
@@ -339,17 +443,51 @@ function AdminDashboard() {
         </div>
       )}
 
-      {/* Gráficos */}
+      {!loading && (
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
+            <h2 className="font-medium">Colaboradores (regra de split)</h2>
+            <p className="text-xs text-muted-foreground">Ganhos calculados por <code>split_rules.collaborator_pct</code></p>
+          </div>
+
+          {collabCards.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum colaborador encontrado no filtro atual.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {collabCards.slice(0, 12).map((item) => (
+                <div key={item.id} className="rounded-xl border border-border p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold leading-tight">{item.nome}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.hashtag ? `#${item.hashtag}` : "Sem hashtag"}
+                      </p>
+                    </div>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="mt-3 space-y-1">
+                    <p className="text-xl font-bold text-[#16a34a]">${item.receita.toFixed(2)}</p>
+                    {usdBrl && <p className="text-xs text-muted-foreground">~ {formatBRL(item.receita * usdBrl)}</p>}
+                    <p className="text-xs text-muted-foreground">
+                      {item.posts.toLocaleString("pt-BR")} posts � {fmt(item.views)} views � {fmt(item.reacoes)} reacoes
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {!loading && chartData.length > 0 && (
         <Suspense fallback={<div className="h-48 bg-muted/30 rounded-xl animate-pulse" />}>
           <DashboardCharts data={chartData} />
         </Suspense>
       )}
 
-      {/* Importações recentes */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h2 className="font-medium">Importações recentes</h2>
+          <h2 className="font-medium">Importacoes recentes</h2>
           <Link to="/admin/importacoes" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
             Ver todas <ArrowRight className="h-3 w-3" />
           </Link>
@@ -358,8 +496,8 @@ function AdminDashboard() {
           <div className="p-5">
             <EmptyState
               icon={FileSpreadsheet}
-              title="Nenhuma importação ainda"
-              description="Envie seu primeiro CSV do Facebook para começar a gerenciar a receita."
+              title="Nenhuma importacao ainda"
+              description="Envie seu primeiro CSV do Facebook para comecar a gerenciar a receita."
             />
           </div>
         ) : (
