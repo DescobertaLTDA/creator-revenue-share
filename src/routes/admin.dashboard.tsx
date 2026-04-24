@@ -185,7 +185,7 @@ function AdminDashboard() {
               <XAxis dataKey="dia" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `R$${v}`} width={52} />
               <Tooltip formatter={(v: number) => formatBRL(v)} labelFormatter={(l) => `Dia: ${l}`} />
-              <Bar dataKey="receita" name="Receita" fill="#22c55e" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="receita" name="Receita" fill="#16a34a" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -202,8 +202,8 @@ function AdminDashboard() {
               <YAxis tick={{ fontSize: 11 }} tickFormatter={fmt} width={52} />
               <Tooltip formatter={(v: number) => v.toLocaleString("pt-BR")} labelFormatter={(l) => `Dia: ${l}`} />
               <Legend />
-              <Line type="monotone" dataKey="views" name="Views" stroke="#3b82f6" dot={false} strokeWidth={2} />
-              <Line type="monotone" dataKey="alcance" name="Alcance" stroke="#a855f7" dot={false} strokeWidth={2} />
+              <Line type="monotone" dataKey="views" name="Views" stroke="#16a34a" dot={false} strokeWidth={2} />
+              <Line type="monotone" dataKey="alcance" name="Alcance" stroke="#dc2626" dot={false} strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -220,7 +220,7 @@ function AdminDashboard() {
                 <XAxis dataKey="dia" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} width={32} allowDecimals={false} />
                 <Tooltip labelFormatter={(l) => `Dia: ${l}`} />
-                <Bar dataKey="posts" name="Posts" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="posts" name="Posts" fill="#16a34a" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -232,7 +232,7 @@ function AdminDashboard() {
                 <XAxis dataKey="dia" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} tickFormatter={fmt} width={42} />
                 <Tooltip formatter={(v: number) => v.toLocaleString("pt-BR")} labelFormatter={(l) => `Dia: ${l}`} />
-                <Bar dataKey="reacoes" name="Reações" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="reacoes" name="Reações" fill="#dc2626" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
