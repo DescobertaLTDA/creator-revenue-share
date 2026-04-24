@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { Users, Plus, Loader2, Hash } from "lucide-react";
 
 export const Route = createFileRoute("/admin/colaboradores")({
-  head: () => ({ meta: [{ title: "Colaboradores — Rateio Creator" }] }),
+  head: () => ({ meta: [{ title: "Colaboradores - Rateio Creator" }] }),
   component: Page,
 });
 
@@ -23,8 +23,67 @@ interface Col {
   post_count?: number;
 }
 
+interface PostLite {
+  id: string;
+  title: string | null;
+  description: string | null;
+}
+
 function normalizeHashtag(raw: string): string {
   return raw.replace(/^#+/, "").trim().toLowerCase();
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function fetchAllRows<T>(query: () => ReturnType<typeof supabase.from>): Promise<T[]> {
+  const PAGE = 1000;
+  let from = 0;
+  const all: T[] = [];
+  while (true) {
+    const { data, error } = await (query() as any).range(from, from + PAGE - 1);
+    if (error || !data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < PAGE) break;
+    from += data.length;
+  }
+  return all;
+}
+
+async function rematchCollaboratorPosts(collaboratorId: string, hashtag: string): Promise<number> {
+  const normalized = normalizeHashtag(hashtag);
+
+  await supabase
+    .from("post_authors")
+    .delete()
+    .eq("collaborator_id", collaboratorId)
+    .eq("source", "hashtag");
+
+  if (!normalized) return 0;
+
+  const posts = await fetchAllRows<PostLite>(() =>
+    supabase.from("posts").select("id, title, description")
+  );
+
+  const regex = new RegExp(`#${escapeRegex(normalized)}(?![a-z0-9_])`, "i");
+  const matches = posts
+    .filter((post) => regex.test(`${post.title ?? ""} ${post.description ?? ""}`.toLowerCase()))
+    .map((post) => ({
+      post_id: post.id,
+      collaborator_id: collaboratorId,
+      source: "hashtag",
+    }));
+
+  const CHUNK = 500;
+  for (let i = 0; i < matches.length; i += CHUNK) {
+    const slice = matches.slice(i, i + CHUNK);
+    await supabase
+      .from("post_authors")
+      .upsert(slice, { onConflict: "post_id,collaborator_id", ignoreDuplicates: true });
+  }
+
+  return matches.length;
 }
 
 function Page() {
@@ -43,9 +102,11 @@ function Page() {
       .select("id, nome, email, hashtag, ativo")
       .order("nome");
 
-    if (!cols) { setLoading(false); return; }
+    if (!cols) {
+      setLoading(false);
+      return;
+    }
 
-    // conta posts por colaborador via post_authors
     const ids = cols.map((c) => c.id);
     const { data: counts } = await supabase
       .from("post_authors")
@@ -61,7 +122,9 @@ function Page() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const openNew = () => {
     setEditId(null);
@@ -79,29 +142,53 @@ function Page() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!hashtag.trim()) { toast.error("Informe a hashtag do colaborador"); return; }
-    setSaving(true);
-
-    const tag = normalizeHashtag(hashtag);
-
-    if (editId) {
-      const { error } = await supabase
-        .from("collaborators")
-        .update({ nome, hashtag: tag })
-        .eq("id", editId);
-      if (error) { toast.error("Erro", { description: error.message }); setSaving(false); return; }
-      toast.success("Colaborador atualizado.");
-    } else {
-      const { error } = await supabase
-        .from("collaborators")
-        .insert({ nome, hashtag: tag, ativo: true });
-      if (error) { toast.error("Erro", { description: error.message }); setSaving(false); return; }
-      toast.success("Colaborador cadastrado.");
+    if (!hashtag.trim()) {
+      toast.error("Informe a hashtag do colaborador");
+      return;
     }
 
-    setSaving(false);
-    setNome(""); setHashtag(""); setShowForm(false); setEditId(null);
-    await load();
+    setSaving(true);
+    const tag = normalizeHashtag(hashtag);
+
+    try {
+      let collaboratorId = editId;
+
+      if (editId) {
+        const { error } = await supabase
+          .from("collaborators")
+          .update({ nome, hashtag: tag })
+          .eq("id", editId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from("collaborators")
+          .insert({ nome, hashtag: tag, ativo: true })
+          .select("id")
+          .single();
+        if (error || !data) throw error ?? new Error("Falha ao criar colaborador");
+        collaboratorId = data.id;
+      }
+
+      if (!collaboratorId) throw new Error("Colaborador invalido");
+
+      const toastId = toast.loading("Reprocessando posts por hashtag...");
+      const linkedCount = await rematchCollaboratorPosts(collaboratorId, tag);
+      toast.success("Colaborador salvo", {
+        id: toastId,
+        description: `${linkedCount.toLocaleString("pt-BR")} posts vinculados por #${tag}`,
+      });
+
+      setNome("");
+      setHashtag("");
+      setShowForm(false);
+      setEditId(null);
+      await load();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro desconhecido";
+      toast.error("Erro", { description: message });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleAtivo = async (r: Col) => {
@@ -113,7 +200,7 @@ function Page() {
     <div>
       <PageHeader
         title="Colaboradores"
-        description="Cadastre colaboradores com suas hashtags. O sistema vincula automaticamente os posts na importação."
+        description="Cadastre hashtags e o sistema vincula posts antigos e novos automaticamente."
         actions={<Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Novo</Button>}
       />
 
@@ -138,7 +225,7 @@ function Page() {
                 />
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Digite sem o # — o sistema busca <strong>#{normalizeHashtag(hashtag) || "matheus"}</strong> nas descrições dos posts.
+                Digite sem o # e o sistema vai reprocessar os posts com <strong>#{normalizeHashtag(hashtag) || "matheus"}</strong>.
               </p>
             </div>
           </div>
@@ -167,7 +254,7 @@ function Page() {
                 <th className="text-left px-5 py-3 font-medium">Hashtag</th>
                 <th className="text-right px-5 py-3 font-medium">Posts vinculados</th>
                 <th className="text-left px-5 py-3 font-medium">Status</th>
-                <th className="text-left px-5 py-3 font-medium">Ações</th>
+                <th className="text-left px-5 py-3 font-medium">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -177,7 +264,7 @@ function Page() {
                   <td className="px-5 py-3">
                     {r.hashtag
                       ? <span className="inline-flex items-center gap-1 text-primary font-mono text-xs bg-primary/10 px-2 py-0.5 rounded">#{r.hashtag}</span>
-                      : <span className="text-muted-foreground">—</span>}
+                      : <span className="text-muted-foreground">-</span>}
                   </td>
                   <td className="px-5 py-3 text-right tabular-nums">{r.post_count ?? 0}</td>
                   <td className="px-5 py-3">

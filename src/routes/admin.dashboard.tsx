@@ -215,6 +215,39 @@ function AdminDashboard() {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const refreshPostAuthors = async () => {
+      const pas = await fetchAllRows<PostAuthorRow>(() =>
+        supabase.from("post_authors").select("post_id, collaborator_id")
+      );
+      setPostAuthors(pas);
+    };
+
+    const scheduleRefresh = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        refreshPostAuthors();
+      }, 350);
+    };
+
+    const channel = supabase
+      .channel("admin-dashboard-post-authors")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "post_authors" },
+        scheduleRefresh
+      )
+      .subscribe();
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   useEffect(() => {
     if (filterColab !== "all" && filterColab !== SEM_COLAB_ID && !colabs.some((c) => c.id === filterColab)) {
       setFilterColab("all");
