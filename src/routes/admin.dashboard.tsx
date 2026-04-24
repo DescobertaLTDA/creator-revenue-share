@@ -25,19 +25,17 @@ interface RecentImport {
 function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [totalMonth, setTotalMonth] = useState(0);
-  const [toPay, setToPay] = useState(0);
-  const [pendingColabs, setPendingColabs] = useState(0);
+  const [totalGeral, setTotalGeral] = useState(0);
+  const [totalPosts, setTotalPosts] = useState(0);
   const [recentImports, setRecentImports] = useState<RecentImport[]>([]);
-  const monthRef = new Date().toISOString().slice(0, 7);
+  const [activeMonthRef, setActiveMonthRef] = useState("");
 
   useEffect(() => {
     const load = async () => {
-      const [{ data: closings }, { data: items }, { data: imports }] = await Promise.all([
-        supabase.from("monthly_closings").select("id, total_gross").eq("month_ref", monthRef),
+      const [{ data: postsData }, { data: imports }] = await Promise.all([
         supabase
-          .from("monthly_closing_items")
-          .select("final_amount, payment_status, collaborator_id, closing_id, monthly_closings!inner(month_ref)")
-          .eq("monthly_closings.month_ref", monthRef),
+          .from("posts")
+          .select("published_at, monetization_approx"),
         supabase
           .from("csv_imports")
           .select("id, file_name, status, created_at, valid_rows, total_rows")
@@ -45,34 +43,45 @@ function AdminDashboard() {
           .limit(5),
       ]);
 
-      const totalGross = (closings ?? []).reduce((s, c) => s + Number(c.total_gross ?? 0), 0);
-      const toPaySum = (items ?? [])
-        .filter((i) => i.payment_status === "a_pagar")
-        .reduce((s, i) => s + Number(i.final_amount ?? 0), 0);
-      const pendingSet = new Set(
-        (items ?? []).filter((i) => i.payment_status === "a_pagar").map((i) => i.collaborator_id)
-      );
+      const posts = postsData ?? [];
 
-      setTotalMonth(totalGross);
-      setToPay(toPaySum);
-      setPendingColabs(pendingSet.size);
+      // Acha o mês com mais receita para exibir como "mês de referência"
+      const byMonth: Record<string, number> = {};
+      let geralSum = 0;
+      for (const p of posts) {
+        const val = Number(p.monetization_approx ?? 0);
+        geralSum += val;
+        if (p.published_at) {
+          const m = p.published_at.slice(0, 7);
+          byMonth[m] = (byMonth[m] ?? 0) + val;
+        }
+      }
+
+      const sortedMonths = Object.entries(byMonth).sort((a, b) => b[0].localeCompare(a[0]));
+      const latestMonth = sortedMonths[0]?.[0] ?? new Date().toISOString().slice(0, 7);
+      const latestMonthTotal = byMonth[latestMonth] ?? 0;
+
+      setActiveMonthRef(latestMonth);
+      setTotalMonth(latestMonthTotal);
+      setTotalGeral(geralSum);
+      setTotalPosts(posts.length);
       setRecentImports((imports as RecentImport[]) ?? []);
       setLoading(false);
     };
     load();
-  }, [monthRef]);
+  }, []);
 
   return (
     <div>
       <PageHeader
         title="Dashboard"
-        description={`Visão geral — ${formatMonth(monthRef)}`}
+        description={`Visão geral — ${activeMonthRef ? formatMonth(activeMonthRef) : "…"}`}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <KpiCard label="Receita do mês" value={loading ? "…" : formatBRL(totalMonth)} icon={DollarSign} tone="success" />
-        <KpiCard label="Total a pagar" value={loading ? "…" : formatBRL(toPay)} icon={Wallet} tone="warning" />
-        <KpiCard label="Colabs com pendência" value={loading ? "…" : pendingColabs} icon={UserCheck} />
+        <KpiCard label="Receita total (todos CSV)" value={loading ? "…" : formatBRL(totalGeral)} icon={Wallet} tone="warning" />
+        <KpiCard label="Total de posts" value={loading ? "…" : totalPosts.toLocaleString("pt-BR")} icon={UserCheck} />
         <KpiCard label="Uploads recentes" value={loading ? "…" : recentImports.length} icon={FileSpreadsheet} />
       </div>
 
