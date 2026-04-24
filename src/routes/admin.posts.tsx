@@ -107,7 +107,8 @@ function getCollaboratorPct(post: PostRow, rulesByPage: Map<string, SplitRule[]>
       return Number(rule.collaborator_pct ?? 0) / 100;
     }
   }
-  return 0;
+  // Fallback: se todas as regras comecam apos o post, aplica a mais antiga ativa.
+  return Number(rules[rules.length - 1]?.collaborator_pct ?? 0) / 100;
 }
 
 
