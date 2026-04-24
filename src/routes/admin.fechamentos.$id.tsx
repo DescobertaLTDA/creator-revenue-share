@@ -235,7 +235,7 @@ function ClosingDetail() {
                 <th className="text-right px-5 py-3 font-medium">Receita bruta</th>
                 <th className="text-right px-5 py-3 font-medium">Split %</th>
                 <th className="text-right px-5 py-3 font-medium">A receber</th>
-                <th className="text-right px-5 py-3 font-medium">Ajuste</th>
+                <th className="text-right px-5 py-3 font-medium">Bônus (views mês ant.)</th>
                 <th className="text-right px-5 py-3 font-medium">Final (USD)</th>
                 <th className="text-right px-5 py-3 font-medium">Final (BRL)</th>
                 <th className="text-left px-5 py-3 font-medium">Status</th>
