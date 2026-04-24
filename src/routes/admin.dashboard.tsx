@@ -123,7 +123,9 @@ function getCollaboratorPct(post: RawPost, rulesByPage: Map<string, SplitRule[]>
 
 function ruleEffectiveDay(rule: SplitRule): string {
   return (rule.effective_from ?? "0000-01-01").slice(0, 10);
-}function AdminDashboard() {
+}
+
+function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [allPosts, setAllPosts] = useState<RawPost[]>([]);
   const [postAuthors, setPostAuthors] = useState<PostAuthorRow[]>([]);
@@ -191,6 +193,33 @@ function ruleEffectiveDay(rule: SplitRule): string {
     };
     load();
   }, []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-dashboard-collaborators")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "collaborators" },
+        async () => {
+          const { data: colabsData } = await supabase
+            .from("collaborators")
+            .select("id, nome, hashtag")
+            .eq("ativo", true);
+
+          setColabs((colabsData ?? []).map((c: any) => ({ id: c.id, nome: c.nome, hashtag: c.hashtag })));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+  useEffect(() => {
+    if (filterColab !== "all" && filterColab !== SEM_COLAB_ID && !colabs.some((c) => c.id === filterColab)) {
+      setFilterColab("all");
+    }
+  }, [colabs, filterColab]);
 
   const { kpis, chartData, activeMonthRef, collabCards } = useMemo(() => {
     const rulesByPage = new Map<string, SplitRule[]>();
@@ -285,10 +314,11 @@ function ruleEffectiveDay(rule: SplitRule): string {
         const share = collaboratorRevenue / collaboratorIds.length;
         for (const colabId of collaboratorIds) {
           const colab = colabMap.get(colabId);
-          const current = colabAgg.get(colabId) ?? {
-            id: colabId,
-            nome: colab?.nome ?? "Colaborador removido",
-            hashtag: colab?.hashtag ?? null,
+          const targetId = colab ? colabId : SEM_COLAB_ID;
+          const current = colabAgg.get(targetId) ?? {
+            id: targetId,
+            nome: colab ? colab.nome : "Sem colaborador",
+            hashtag: colab ? colab.hashtag : null,
             posts: 0,
             views: 0,
             reacoes: 0,
@@ -298,7 +328,7 @@ function ruleEffectiveDay(rule: SplitRule): string {
           current.views += views;
           current.reacoes += reacoes;
           current.receita += share;
-          colabAgg.set(colabId, current);
+          colabAgg.set(targetId, current);
         }
       }
     }
@@ -448,9 +478,8 @@ function ruleEffectiveDay(rule: SplitRule): string {
 
       {!loading && (
         <div className="bg-card border border-border rounded-xl p-5">
-          <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
+          <div className="mb-4">
             <h2 className="font-medium">Colaboradores (regra de split)</h2>
-            <p className="text-xs text-muted-foreground">Ganhos calculados por <code>split_rules.collaborator_pct</code></p>
           </div>
 
           {collabCards.length === 0 ? (
@@ -541,6 +570,4 @@ function ruleEffectiveDay(rule: SplitRule): string {
     </div>
   );
 }
-
-
 
