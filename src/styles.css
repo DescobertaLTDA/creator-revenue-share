@@ -54,100 +54,57 @@
 }
 
 :root {
-  --radius: 0.75rem;
+  --radius: 0.625rem;
 
-  /* Fundo branco puro, texto preto */
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.08 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.08 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.08 0 0);
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --card: #ffffff;
+  --card-foreground: #0a0a0a;
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0a;
 
-  /* Primary: verde escuro */
-  --primary: oklch(0.45 0.15 145);
-  --primary-foreground: oklch(1 0 0);
-  --primary-soft: oklch(0.95 0.04 145);
+  --primary: #16a34a;
+  --primary-foreground: #ffffff;
+  --primary-soft: #f0fdf4;
 
-  --secondary: oklch(0.96 0 0);
-  --secondary-foreground: oklch(0.12 0 0);
+  --secondary: #f5f5f5;
+  --secondary-foreground: #171717;
 
-  --muted: oklch(0.95 0 0);
-  --muted-foreground: oklch(0.45 0 0);
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
 
-  --accent: oklch(0.93 0.03 145);
-  --accent-foreground: oklch(0.20 0.06 145);
+  --accent: #f5f5f5;
+  --accent-foreground: #171717;
 
-  /* Vermelho para destrutivo */
-  --destructive: oklch(0.55 0.22 25);
-  --destructive-foreground: oklch(1 0 0);
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
 
-  --success: oklch(0.50 0.16 145);
-  --success-foreground: oklch(1 0 0);
+  --success: #16a34a;
+  --success-foreground: #ffffff;
 
-  --warning: oklch(0.65 0.18 50);
-  --warning-foreground: oklch(0.10 0 0);
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
 
-  --border: oklch(0.88 0 0);
-  --input: oklch(0.90 0 0);
-  --ring: oklch(0.45 0.15 145);
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #16a34a;
 
-  /* Gráficos: verde e vermelho como cores principais */
-  --chart-1: oklch(0.50 0.18 145);   /* verde */
-  --chart-2: oklch(0.52 0.22 25);    /* vermelho */
-  --chart-3: oklch(0.35 0 0);        /* cinza escuro */
-  --chart-4: oklch(0.60 0 0);        /* cinza médio */
-  --chart-5: oklch(0.75 0 0);        /* cinza claro */
+  /* Charts: verde e vermelho */
+  --chart-1: #16a34a;
+  --chart-2: #dc2626;
+  --chart-3: #262626;
+  --chart-4: #737373;
+  --chart-5: #d4d4d4;
 
-  /* Sidebar: preto */
-  --sidebar: oklch(0.10 0 0);
-  --sidebar-foreground: oklch(0.92 0 0);
-  --sidebar-primary: oklch(0.50 0.18 145);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.18 0 0);
-  --sidebar-accent-foreground: oklch(0.92 0 0);
-  --sidebar-border: oklch(0.20 0 0);
-  --sidebar-ring: oklch(0.50 0.18 145);
-}
-
-.dark {
-  --background: oklch(0.08 0 0);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.12 0 0);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.12 0 0);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.60 0.18 145);
-  --primary-foreground: oklch(0.08 0 0);
-  --primary-soft: oklch(0.22 0.06 145);
-  --secondary: oklch(0.18 0 0);
-  --secondary-foreground: oklch(0.95 0 0);
-  --muted: oklch(0.18 0 0);
-  --muted-foreground: oklch(0.60 0 0);
-  --accent: oklch(0.22 0.06 145);
-  --accent-foreground: oklch(0.95 0 0);
-  --destructive: oklch(0.60 0.22 25);
-  --destructive-foreground: oklch(0.95 0 0);
-  --success: oklch(0.60 0.18 145);
-  --success-foreground: oklch(0.08 0 0);
-  --warning: oklch(0.72 0.18 50);
-  --warning-foreground: oklch(0.10 0 0);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.60 0.18 145);
-  --chart-1: oklch(0.58 0.20 145);
-  --chart-2: oklch(0.60 0.24 25);
-  --chart-3: oklch(0.50 0 0);
-  --chart-4: oklch(0.65 0 0);
-  --chart-5: oklch(0.78 0 0);
-  --sidebar: oklch(0.06 0 0);
-  --sidebar-foreground: oklch(0.92 0 0);
-  --sidebar-primary: oklch(0.58 0.20 145);
-  --sidebar-primary-foreground: oklch(0.08 0 0);
-  --sidebar-accent: oklch(0.16 0 0);
-  --sidebar-accent-foreground: oklch(0.92 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.58 0.20 145);
+  /* Sidebar preta */
+  --sidebar: #0a0a0a;
+  --sidebar-foreground: #fafafa;
+  --sidebar-primary: #16a34a;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1a1a1a;
+  --sidebar-accent-foreground: #fafafa;
+  --sidebar-border: #1f1f1f;
+  --sidebar-ring: #16a34a;
 }
 
 @layer base {
@@ -163,6 +120,6 @@
   }
 
   h1, h2, h3, h4 {
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
   }
 }

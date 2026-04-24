@@ -133,8 +133,8 @@ function SidebarContent({
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
                 active
-                  ? "bg-primary-soft text-accent-foreground font-medium"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  ? "bg-[#16a34a] text-white font-semibold"
+                  : "text-neutral-400 hover:bg-[#1a1a1a] hover:text-white"
               )}
             >
               <Icon className="h-4 w-4" />
