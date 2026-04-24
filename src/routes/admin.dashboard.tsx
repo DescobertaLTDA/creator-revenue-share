@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+ï»¿import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useMemo, lazy, Suspense, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/app/PageHeader";
@@ -44,7 +44,7 @@ interface PostAuthorRow {
 
 interface SplitRule {
   page_id: string;
-  effective_from: string;
+  effective_from: string | null;
   collaborator_pct: number;
   active: boolean;
 }
@@ -120,7 +120,10 @@ function getCollaboratorPct(post: RawPost, rulesByPage: Map<string, SplitRule[]>
   return 0;
 }
 
-function AdminDashboard() {
+
+function ruleEffectiveDay(rule: SplitRule): string {
+  return (rule.effective_from ?? "0000-01-01").slice(0, 10);
+}function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [allPosts, setAllPosts] = useState<RawPost[]>([]);
   const [postAuthors, setPostAuthors] = useState<PostAuthorRow[]>([]);
@@ -196,7 +199,7 @@ function AdminDashboard() {
       rulesByPage.get(rule.page_id)!.push(rule);
     }
     for (const [, rules] of rulesByPage) {
-      rules.sort((a, b) => b.effective_from.localeCompare(a.effective_from));
+      rules.sort((a, b) => ruleEffectiveDay(b).localeCompare(ruleEffectiveDay(a)));
     }
 
     const postToCollabs = new Map<string, Set<string>>();
@@ -469,7 +472,7 @@ function AdminDashboard() {
                     <p className="text-xl font-bold text-[#16a34a]">${item.receita.toFixed(2)}</p>
                     {usdBrl && <p className="text-xs text-muted-foreground">~ {formatBRL(item.receita * usdBrl)}</p>}
                     <p className="text-xs text-muted-foreground">
-                      {item.posts.toLocaleString("pt-BR")} posts • {fmt(item.views)} views • {fmt(item.reacoes)} reacoes
+                      {item.posts.toLocaleString("pt-BR")} posts â€¢ {fmt(item.views)} views â€¢ {fmt(item.reacoes)} reacoes
                     </p>
                   </div>
                 </div>
@@ -532,3 +535,4 @@ function AdminDashboard() {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+ï»¿import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/app/PageHeader";
@@ -37,7 +37,7 @@ interface PostAuthorRow {
 
 interface SplitRule {
   page_id: string;
-  effective_from: string;
+  effective_from: string | null;
   collaborator_pct: number;
   active: boolean;
 }
@@ -110,7 +110,10 @@ function getCollaboratorPct(post: PostRow, rulesByPage: Map<string, SplitRule[]>
   return 0;
 }
 
-function PostsPage() {
+
+function ruleEffectiveDay(rule: SplitRule): string {
+  return (rule.effective_from ?? "0000-01-01").slice(0, 10);
+}function PostsPage() {
   const [rows, setRows] = useState<PostRow[]>([]);
   const [postAuthors, setPostAuthors] = useState<PostAuthorRow[]>([]);
   const [splitRules, setSplitRules] = useState<SplitRule[]>([]);
@@ -154,7 +157,7 @@ function PostsPage() {
       rulesByPage.get(rule.page_id)!.push(rule);
     }
     for (const [, rules] of rulesByPage) {
-      rules.sort((a, b) => b.effective_from.localeCompare(a.effective_from));
+      rules.sort((a, b) => ruleEffectiveDay(b).localeCompare(ruleEffectiveDay(a)));
     }
 
     const postToCollabs = new Map<string, Set<string>>();
@@ -330,7 +333,7 @@ function PostsPage() {
                   <div key={post.id} className="border border-border rounded-lg p-3">
                     <p className="text-xs text-muted-foreground">#{idx + 1}</p>
                     <p className="text-sm font-medium line-clamp-2">{post.title ?? post.external_post_id}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{post.pages?.nome ?? "-"} • {formatDateTime(post.published_at)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{post.pages?.nome ?? "-"} â€¢ {formatDateTime(post.published_at)}</p>
                     <p className="text-sm font-semibold text-[#16a34a] mt-1">${post._revenue.toFixed(2)}</p>
                   </div>
                 ))}
@@ -447,7 +450,7 @@ function PostsPage() {
 
             <div className="flex items-center justify-between px-5 py-4 border-t border-border text-sm">
               <span className="text-muted-foreground">
-                {analytics.totalPosts.toLocaleString("pt-BR")} posts • pagina {page} de {totalPages}
+                {analytics.totalPosts.toLocaleString("pt-BR")} posts â€¢ pagina {page} de {totalPages}
               </span>
               <div className="flex items-center gap-1">
                 <button
@@ -491,3 +494,4 @@ function PostsPage() {
     </div>
   );
 }
+
