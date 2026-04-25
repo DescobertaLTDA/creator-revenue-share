@@ -117,13 +117,12 @@ function Page() {
     }
 
     const ids = cols.map((c) => c.id);
-    const { data: counts } = await supabase
-      .from("post_authors")
-      .select("collaborator_id")
-      .in("collaborator_id", ids);
+    const counts = await fetchAllRows<{ collaborator_id: string }>(() =>
+      supabase.from("post_authors").select("collaborator_id").in("collaborator_id", ids)
+    );
 
     const countMap: Record<string, number> = {};
-    for (const c of counts ?? []) {
+    for (const c of counts) {
       countMap[c.collaborator_id] = (countMap[c.collaborator_id] ?? 0) + 1;
     }
 
