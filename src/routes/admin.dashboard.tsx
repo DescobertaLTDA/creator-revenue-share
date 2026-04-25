@@ -784,28 +784,32 @@ function AdminDashboard() {
           ) : (
             <div className="divide-y divide-border">
               {collabCards.slice(0, 12).map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setAuditColabId(item.id)}
-                  className="w-full px-5 py-3.5 flex items-center justify-between gap-4 hover:bg-muted/30 transition-colors text-left"
-                >
-                  <div className="min-w-0">
+                <div key={item.id} className="px-5 py-3.5 flex items-center justify-between gap-4">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate">{item.nome}</p>
                     <p className="text-xs text-muted-foreground">
                       {item.hashtag ? `#${item.hashtag} · ` : ""}{item.posts.toLocaleString("pt-BR")} posts · {fmt(item.views)} views
                     </p>
                   </div>
-                  <div className="text-right shrink-0">
-                    {usdBrl ? (
-                      <>
-                        <p className="text-sm font-semibold tabular-nums">{formatBRL(item.receita * usdBrl)}</p>
-                        <p className="text-xs text-muted-foreground tabular-nums">${item.receita.toFixed(2)}</p>
-                      </>
-                    ) : (
-                      <p className="text-sm font-semibold tabular-nums">${item.receita.toFixed(2)}</p>
-                    )}
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-right">
+                      {usdBrl ? (
+                        <>
+                          <p className="text-sm font-semibold tabular-nums">{formatBRL(item.receita * usdBrl)}</p>
+                          <p className="text-xs text-muted-foreground tabular-nums">${item.receita.toFixed(2)}</p>
+                        </>
+                      ) : (
+                        <p className="text-sm font-semibold tabular-nums">${item.receita.toFixed(2)}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setAuditColabId(item.id)}
+                      className="shrink-0 px-3 py-1.5 rounded-md bg-[#0a0a0a] text-white text-xs font-medium hover:bg-neutral-800 transition-colors"
+                    >
+                      Ver detalhes
+                    </button>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           )}
@@ -940,18 +944,24 @@ function AdminDashboard() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {auditData.posts.map((p) => (
-                      <tr
-                        key={p.id}
-                        className={`hover:bg-muted/20 ${p.permalink ? "cursor-pointer" : ""}`}
-                        onClick={() => p.permalink && window.open(p.permalink, "_blank", "noopener,noreferrer")}
-                      >
+                      <tr key={p.id} className="hover:bg-muted/20">
                         <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
                           {p.published_at ? p.published_at.slice(0, 10) : "—"}
                         </td>
                         <td className="px-3 py-2 max-w-[200px]">
-                          <span className={`truncate block ${p.permalink ? "hover:underline text-foreground" : "text-foreground"}`}>
-                            {p.title ?? p.id.slice(0, 8)}
-                          </span>
+                          {p.permalink ? (
+                            <a
+                              href={p.permalink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="truncate block underline underline-offset-2 text-foreground hover:text-muted-foreground transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {p.title ?? p.id.slice(0, 8)}
+                            </a>
+                          ) : (
+                            <span className="truncate block text-foreground">{p.title ?? p.id.slice(0, 8)}</span>
+                          )}
                           {p.post_type && (
                             <span className="text-[10px] text-muted-foreground capitalize">{p.post_type}</span>
                           )}
