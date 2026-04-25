@@ -940,7 +940,6 @@ function AdminDashboard() {
                       <th className="text-right px-3 py-2 font-medium">Receita</th>
                       <th className="text-right px-3 py-2 font-medium">Split%</th>
                       <th className="text-right px-3 py-2 font-medium">Sua parte</th>
-                      <th className="px-3 py-2" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -972,21 +971,6 @@ function AdminDashboard() {
                         <td className="px-3 py-2 text-right tabular-nums">${p.postUsd.toFixed(2)}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{(p.collaboratorPct * 100).toFixed(0)}%</td>
                         <td className="px-3 py-2 text-right tabular-nums font-semibold">${p.share.toFixed(2)}</td>
-                        <td className="px-3 py-2">
-                          {p.permalink ? (
-                            <a
-                              href={p.permalink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-block px-2.5 py-1 rounded-md bg-[#0a0a0a] text-white text-[10px] font-medium hover:bg-neutral-800 transition-colors whitespace-nowrap"
-                            >
-                              Conferir
-                            </a>
-                          ) : (
-                            <span className="inline-block px-2.5 py-1 rounded-md bg-muted text-muted-foreground text-[10px] whitespace-nowrap">Sem link</span>
-                          )}
-                        </td>
                       </tr>
                     ))}
                   </tbody>
