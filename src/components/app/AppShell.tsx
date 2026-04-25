@@ -4,16 +4,17 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import {
   LayoutDashboard, FileSpreadsheet, FileText, Percent,
-  CalendarCheck, Users, HandCoins, LogOut, Wallet, Menu, X,
+  CalendarCheck, Users, HandCoins, LogOut, Wallet, Menu, X, UserCog,
 } from "lucide-react";
 
 interface NavItem {
   to: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  adminOnly?: boolean;
 }
 
-const adminNav: NavItem[] = [
+const allNav: NavItem[] = [
   { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/admin/posts", label: "Posts", icon: FileText },
   { to: "/admin/fechamentos", label: "Fechamentos", icon: CalendarCheck },
@@ -21,6 +22,7 @@ const adminNav: NavItem[] = [
   { to: "/admin/importacoes", label: "Importações", icon: FileSpreadsheet },
   { to: "/admin/regras-split", label: "Regras de Split", icon: Percent },
   { to: "/admin/bonus-manual", label: "Bônus Manual", icon: HandCoins },
+  { to: "/admin/cadastro", label: "Cadastro", icon: UserCog, adminOnly: true },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -28,6 +30,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const isAdmin = profile?.role === "admin";
+  const adminNav = allNav.filter((item) => !item.adminOnly || isAdmin);
 
   const handleLogout = async () => {
     await signOut();
