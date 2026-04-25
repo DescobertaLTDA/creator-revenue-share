@@ -39,13 +39,14 @@ export const formatMonth = (monthRef: string): string => {
 export function parseMixedDate(input: string): Date | null {
   if (!input) return null;
   const s = input.trim();
+  // Facebook exports dates in MM/dd/yyyy format (American), so try that first.
   const patterns = [
-    "dd/MM/yyyy HH:mm:ss",
-    "dd/MM/yyyy HH:mm",
-    "dd/MM/yyyy",
     "MM/dd/yyyy HH:mm:ss",
     "MM/dd/yyyy HH:mm",
     "MM/dd/yyyy",
+    "dd/MM/yyyy HH:mm:ss",
+    "dd/MM/yyyy HH:mm",
+    "dd/MM/yyyy",
     "yyyy-MM-dd HH:mm:ss",
     "yyyy-MM-dd'T'HH:mm:ssXXX",
     "yyyy-MM-dd",
