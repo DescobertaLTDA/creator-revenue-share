@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useWriteGuard } from "@/hooks/use-write-guard";
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ interface Page { id: string; nome: string }
 
 function RulesPage() {
   const { profile } = useAuth();
+  const { guard, guardSubmit, WriteGuardDialog } = useWriteGuard();
   const [rules, setRules] = useState<Rule[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,11 +60,12 @@ function RulesPage() {
 
   return (
     <div>
+      <WriteGuardDialog />
       <PageHeader title="Regras de Split" description="Divisão de receita por página: colaborador / página / equipe. Soma deve ser 100%."
-        actions={<Button onClick={() => setShowForm(v => !v)}><Plus className="h-4 w-4 mr-2"/>Nova regra</Button>} />
+        actions={<Button onClick={guard(() => setShowForm(v => !v))}><Plus className="h-4 w-4 mr-2"/>Nova regra</Button>} />
 
       {showForm && (
-        <form onSubmit={onSubmit} className="bg-card border border-border rounded-lg p-4 sm:p-5 mb-6 space-y-4">
+        <form onSubmit={guardSubmit(onSubmit)} className="bg-card border border-border rounded-lg p-4 sm:p-5 mb-6 space-y-4">
           <h3 className="font-semibold text-sm">Nova regra de split</h3>
           <div className="flex flex-col gap-1.5">
             <Label>Página</Label>

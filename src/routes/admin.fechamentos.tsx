@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useWriteGuard } from "@/hooks/use-write-guard";
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -72,7 +73,7 @@ async function fetchViewsPctByColabForMonth(monthRef: string): Promise<Record<st
 
 function Page() {
   const { profile } = useAuth();
-  const isAdmin = profile?.role === "admin";
+  const { isAdmin, guardSubmit, guard, WriteGuardDialog } = useWriteGuard();
   const [closings, setClosings] = useState<Closing[]>([]);
   const [pages, setPages] = useState<PageRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -287,11 +288,12 @@ function Page() {
 
   return (
     <div className="space-y-6">
+      <WriteGuardDialog />
       <PageHeader
         title="Fechamentos mensais"
         description="Cálculo automático de pagamentos por colaborador com base nos posts e regras de split."
         actions={
-          <Button onClick={() => setShowForm((v) => !v)}>
+          <Button onClick={guard(() => setShowForm((v) => !v))}>
             <Plus className="h-4 w-4 mr-2" />
             Gerar fechamento
           </Button>
@@ -299,7 +301,7 @@ function Page() {
       />
 
       {showForm && (
-        <form onSubmit={generate} className="bg-card border border-border rounded-lg p-4 sm:p-5 space-y-4">
+        <form onSubmit={guardSubmit(generate)} className="bg-card border border-border rounded-lg p-4 sm:p-5 space-y-4">
           <h3 className="font-semibold">Novo fechamento</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">

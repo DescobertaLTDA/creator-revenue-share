@@ -12,6 +12,7 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { useWriteGuard } from "@/hooks/use-write-guard";
 import { Users, Plus, Loader2, Hash, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/colaboradores")({
@@ -92,6 +93,7 @@ async function rematchCollaboratorPosts(collaboratorId: string, hashtag: string)
 }
 
 function Page() {
+  const { guard, guardSubmit, WriteGuardDialog } = useWriteGuard();
   const [rows, setRows] = useState<Col[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -222,6 +224,7 @@ function Page() {
 
   return (
     <div>
+      <WriteGuardDialog />
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -247,11 +250,11 @@ function Page() {
       <PageHeader
         title="Colaboradores"
         description="Cadastre hashtags e o sistema vincula posts antigos e novos automaticamente."
-        actions={<Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Novo</Button>}
+        actions={<Button onClick={guard(openNew)}><Plus className="h-4 w-4 mr-2" />Novo</Button>}
       />
 
       {showForm && (
-        <form onSubmit={onSubmit} className="bg-card border border-border rounded-lg p-5 mb-6 space-y-4">
+        <form onSubmit={guardSubmit(onSubmit)} className="bg-card border border-border rounded-lg p-5 mb-6 space-y-4">
           <h3 className="font-medium">{editId ? "Editar colaborador" : "Novo colaborador"}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -313,11 +316,11 @@ function Page() {
                     </span>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => openEdit(r)} className="flex-1 h-10">Editar</Button>
-                    <Button size="sm" variant="ghost" onClick={() => toggleAtivo(r)} className="flex-1 h-10">
+                    <Button size="sm" variant="outline" onClick={guard(() => openEdit(r))} className="flex-1 h-10">Editar</Button>
+                    <Button size="sm" variant="ghost" onClick={guard(() => toggleAtivo(r))} className="flex-1 h-10">
                       {r.ativo ? "Desativar" : "Ativar"}
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(r)} className="h-10 text-destructive hover:text-destructive hover:bg-destructive/10">
+                    <Button size="sm" variant="ghost" onClick={guard(() => setDeleteTarget(r))} className="h-10 text-destructive hover:text-destructive hover:bg-destructive/10">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -352,11 +355,11 @@ function Page() {
                         </span>
                       </td>
                       <td className="px-5 py-3 flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => openEdit(r)}>Editar</Button>
-                        <Button size="sm" variant="ghost" onClick={() => toggleAtivo(r)}>
+                        <Button size="sm" variant="outline" onClick={guard(() => openEdit(r))}>Editar</Button>
+                        <Button size="sm" variant="ghost" onClick={guard(() => toggleAtivo(r))}>
                           {r.ativo ? "Desativar" : "Ativar"}
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(r)} className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                        <Button size="sm" variant="ghost" onClick={guard(() => setDeleteTarget(r))} className="text-destructive hover:text-destructive hover:bg-destructive/10">
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </td>

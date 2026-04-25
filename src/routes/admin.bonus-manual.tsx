@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { PageHeader } from "@/components/app/PageHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useWriteGuard } from "@/hooks/use-write-guard";
 import { formatMonth, formatPct } from "@/lib/format";
 import { toast } from "sonner";
 import { Check, Loader2, TrendingUp, TrendingDown, Minus, ChevronLeft, ChevronRight, Info } from "lucide-react";
@@ -114,6 +115,7 @@ async function fetchViewsByColabForMonth(ref: string): Promise<ColabDist[]> {
 
 function BonusManualPage() {
   const { profile } = useAuth();
+  const { guard, WriteGuardDialog } = useWriteGuard();
   const todayMonth = new Date().toISOString().slice(0, 7);
   const [monthRef, setMonthRef] = useState(todayMonth);
   const [rows, setRows] = useState<DayEntry[]>([]);
@@ -242,7 +244,7 @@ function BonusManualPage() {
     }, 800);
   };
 
-  const handleFieldBlur = (row: DayEntry) => { if (row.dirty) saveRow(row); };
+  const handleFieldBlur = guard((row: DayEntry) => { if (row.dirty) saveRow(row); });
 
   const totalPosts = rows.reduce((s, r) => s + r.posts_revenue, 0);
   const totalActual = rows.reduce((s, r) => s + (r.actual_revenue ?? 0), 0);
@@ -259,6 +261,7 @@ function BonusManualPage() {
 
   return (
     <div className="space-y-6">
+      <WriteGuardDialog />
       <PageHeader
         title="Conciliação diária"
         description="Compare o que os posts geraram com o que o Facebook realmente pagou. A diferença é o bônus distribuído pelas views do mês anterior."

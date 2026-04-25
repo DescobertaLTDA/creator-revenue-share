@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useWriteGuard } from "@/hooks/use-write-guard";
 import { PageHeader } from "@/components/app/PageHeader";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { EmptyState } from "@/components/app/EmptyState";
@@ -35,6 +36,7 @@ interface ImportRow {
 
 function ImportacoesPage() {
   const { profile } = useAuth();
+  const { guard, WriteGuardDialog } = useWriteGuard();
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [imports, setImports] = useState<ImportRow[]>([]);
@@ -247,6 +249,7 @@ function ImportacoesPage() {
 
   return (
     <div>
+      <WriteGuardDialog />
       <PageHeader
         title="Importações CSV"
         description="Envie o CSV exportado do Facebook. O sistema é idempotente: linhas já importadas são atualizadas, não duplicadas."
@@ -257,9 +260,9 @@ function ImportacoesPage() {
               type="file"
               accept=".csv,text/csv"
               className="hidden"
-              onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])}
+              onChange={guard((e) => e.target.files?.[0] && onUpload(e.target.files[0]))}
             />
-            <Button onClick={() => fileRef.current?.click()} disabled={uploading}>
+            <Button onClick={guard(() => fileRef.current?.click())} disabled={uploading}>
               {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
               Enviar CSV
             </Button>

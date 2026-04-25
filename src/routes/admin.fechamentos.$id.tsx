@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useWriteGuard } from "@/hooks/use-write-guard";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string; icon: React.
 function ClosingDetail() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
+  const { guard, WriteGuardDialog } = useWriteGuard();
   const [closing, setClosing] = useState<Closing | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -177,6 +179,7 @@ function ClosingDetail() {
 
   return (
     <div className="space-y-6">
+      <WriteGuardDialog />
       {/* Back */}
       <Link to="/admin/fechamentos" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> Voltar
@@ -190,7 +193,7 @@ function ClosingDetail() {
         />
         <div className="flex items-center gap-2 mt-1">
           {!isFechado ? (
-            <Button onClick={approve} disabled={approving} className="gap-2">
+            <Button onClick={guard(approve)} disabled={approving} className="gap-2">
               {approving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
               Aprovar fechamento
             </Button>
@@ -199,7 +202,7 @@ function ClosingDetail() {
               <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-[#16a34a]/10 text-[#16a34a]">
                 <Lock className="h-3 w-3" /> Aprovado
               </span>
-              <Button variant="outline" size="sm" onClick={reopen}>Reabrir</Button>
+              <Button variant="outline" size="sm" onClick={guard(reopen)}>Reabrir</Button>
             </>
           )}
         </div>
@@ -315,13 +318,13 @@ function ClosingDetail() {
                       {item._editing ? (
                         <>
                           <button
-                            onClick={() => saveEdit(item)}
+                            onClick={guard(() => saveEdit(item))}
                             className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-lg text-sm bg-primary text-white hover:bg-primary/90 font-medium"
                           >
                             <Save className="h-4 w-4" /> Salvar
                           </button>
                           <button
-                            onClick={() => cancelEdit(item.id)}
+                            onClick={guard(() => cancelEdit(item.id))}
                             className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-lg text-sm border border-border hover:bg-muted font-medium"
                           >
                             <X className="h-4 w-4" /> Cancelar
@@ -331,7 +334,7 @@ function ClosingDetail() {
                         <>
                           {!isFechado && (
                             <button
-                              onClick={() => startEdit(item.id)}
+                              onClick={guard(() => startEdit(item.id))}
                               className="inline-flex items-center gap-1.5 px-3 h-10 rounded-lg text-sm border border-border hover:bg-muted"
                             >
                               <Pencil className="h-4 w-4" /> Editar
@@ -339,14 +342,14 @@ function ClosingDetail() {
                           )}
                           {item.payment_status !== "pago_fora" ? (
                             <button
-                              onClick={() => setPaymentStatus(item, "pago_fora")}
+                              onClick={guard(() => setPaymentStatus(item, "pago_fora"))}
                               className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-lg text-sm bg-[#16a34a]/10 text-[#16a34a] hover:bg-[#16a34a]/20 font-medium"
                             >
                               <CheckCircle2 className="h-4 w-4" /> Marcar pago
                             </button>
                           ) : (
                             <button
-                              onClick={() => setPaymentStatus(item, "a_pagar")}
+                              onClick={guard(() => setPaymentStatus(item, "a_pagar"))}
                               className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-lg text-sm border border-border text-muted-foreground hover:bg-muted"
                             >
                               <Ban className="h-4 w-4" /> Desfazer
@@ -443,27 +446,27 @@ function ClosingDetail() {
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {item._editing ? (
                               <>
-                                <button onClick={() => saveEdit(item)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-primary text-white hover:bg-primary/90">
+                                <button onClick={guard(() => saveEdit(item))} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-primary text-white hover:bg-primary/90">
                                   <Save className="h-3 w-3" /> Salvar
                                 </button>
-                                <button onClick={() => cancelEdit(item.id)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border hover:bg-muted">
+                                <button onClick={guard(() => cancelEdit(item.id))} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border hover:bg-muted">
                                   <X className="h-3 w-3" /> Cancelar
                                 </button>
                               </>
                             ) : (
                               <>
                                 {!isFechado && (
-                                  <button onClick={() => startEdit(item.id)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border hover:bg-muted">
+                                  <button onClick={guard(() => startEdit(item.id))} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border hover:bg-muted">
                                     <Pencil className="h-3 w-3" /> Editar
                                   </button>
                                 )}
                                 {item.payment_status !== "pago_fora" && (
-                                  <button onClick={() => setPaymentStatus(item, "pago_fora")} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-[#16a34a]/10 text-[#16a34a] hover:bg-[#16a34a]/20">
+                                  <button onClick={guard(() => setPaymentStatus(item, "pago_fora"))} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-[#16a34a]/10 text-[#16a34a] hover:bg-[#16a34a]/20">
                                     <CheckCircle2 className="h-3 w-3" /> Pago
                                   </button>
                                 )}
                                 {item.payment_status === "pago_fora" && (
-                                  <button onClick={() => setPaymentStatus(item, "a_pagar")} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border text-muted-foreground hover:bg-muted">
+                                  <button onClick={guard(() => setPaymentStatus(item, "a_pagar"))} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border text-muted-foreground hover:bg-muted">
                                     <Ban className="h-3 w-3" /> Desfazer
                                   </button>
                                 )}
