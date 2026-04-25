@@ -6,8 +6,13 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Users, Plus, Loader2, Hash } from "lucide-react";
+import { Users, Plus, Loader2, Hash, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/colaboradores")({
   head: () => ({ meta: [{ title: "Colaboradores - Rateio Creator" }] }),
@@ -94,6 +99,8 @@ function Page() {
   const [nome, setNome] = useState("");
   const [hashtag, setHashtag] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Col | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -196,8 +203,47 @@ function Page() {
     await load();
   };
 
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await supabase.from("post_authors").delete().eq("collaborator_id", deleteTarget.id);
+      const { error } = await supabase.from("collaborators").delete().eq("id", deleteTarget.id);
+      if (error) throw error;
+      toast.success(`${deleteTarget.nome} removido`);
+      setDeleteTarget(null);
+      await load();
+    } catch (err) {
+      toast.error("Erro ao deletar", { description: err instanceof Error ? err.message : "Erro desconhecido" });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div>
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deletar {deleteTarget?.nome}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todos os vínculos de posts serão removidos. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Deletar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <PageHeader
         title="Colaboradores"
         description="Cadastre hashtags e o sistema vincula posts antigos e novos automaticamente."
@@ -271,6 +317,9 @@ function Page() {
                     <Button size="sm" variant="ghost" onClick={() => toggleAtivo(r)} className="flex-1 h-10">
                       {r.ativo ? "Desativar" : "Ativar"}
                     </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(r)} className="h-10 text-destructive hover:text-destructive hover:bg-destructive/10">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -306,6 +355,9 @@ function Page() {
                         <Button size="sm" variant="outline" onClick={() => openEdit(r)}>Editar</Button>
                         <Button size="sm" variant="ghost" onClick={() => toggleAtivo(r)}>
                           {r.ativo ? "Desativar" : "Ativar"}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(r)} className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </td>
                     </tr>
