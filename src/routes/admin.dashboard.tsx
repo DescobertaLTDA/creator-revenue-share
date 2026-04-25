@@ -451,25 +451,26 @@ function AdminDashboard() {
       }
     }
 
-    // Daily revenue entries bonus (actual_revenue - posts_revenue for covered days)
+    // Daily revenue entries: replace posts estimate with actual revenue for covered days.
+    // Correction = actual - posts (can be negative when posts overestimated).
     const filteredDaily = dailyEntries.filter(
-      (e) => (!filterFrom || e.entry_date >= filterFrom) && (!filterTo || e.entry_date <= filterTo)
+      (e) => e.actual_revenue_usd !== null &&
+        (!filterFrom || e.entry_date >= filterFrom) &&
+        (!filterTo || e.entry_date <= filterTo)
     );
     let totalDailyBonus = 0;
     for (const entry of filteredDaily) {
-      const actual = Number(entry.actual_revenue_usd ?? 0);
+      const actual = Number(entry.actual_revenue_usd);
       const postsRevForDay = byDay[entry.entry_date]?.receita ?? 0;
-      const bonus = actual - postsRevForDay;
-      if (bonus > 0) {
-        totalDailyBonus += bonus;
-        const bonusMonth = entry.entry_date.slice(0, 7);
-        byMonth[bonusMonth] = (byMonth[bonusMonth] ?? 0) + bonus;
-        if (byDay[entry.entry_date]) {
-          byDay[entry.entry_date].receita += bonus;
-        } else {
-          const [, mo, d] = entry.entry_date.split("-");
-          byDay[entry.entry_date] = { dia: `${d}/${mo}`, posts: 0, views: 0, alcance: 0, reacoes: 0, receita: bonus };
-        }
+      const correction = actual - postsRevForDay; // may be negative
+      totalDailyBonus += correction;
+      const bonusMonth = entry.entry_date.slice(0, 7);
+      byMonth[bonusMonth] = (byMonth[bonusMonth] ?? 0) + correction;
+      if (byDay[entry.entry_date]) {
+        byDay[entry.entry_date].receita += correction;
+      } else if (actual > 0) {
+        const [, mo, d] = entry.entry_date.split("-");
+        byDay[entry.entry_date] = { dia: `${d}/${mo}`, posts: 0, views: 0, alcance: 0, reacoes: 0, receita: actual };
       }
     }
     geralUsd += totalDailyBonus;
@@ -624,156 +625,133 @@ function AdminDashboard() {
   const { totalMonth, totalGeral, totalPosts, totalViews, totalReacoes } = kpis;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <PageHeader
-          title="Dashboard"
-          description={`Visao geral - ${activeMonthRef ? formatMonth(activeMonthRef) : "..."}`}
-        />
+    <div className="space-y-5">
+
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {activeMonthRef ? formatMonth(activeMonthRef) : "—"}
+          </p>
+        </div>
         {usdBrl && (
-          <div className="text-right text-sm mt-1 shrink-0">
-            <span className="text-muted-foreground text-xs">Dolar agora</span>
-            <p className="font-semibold text-lg leading-tight">{formatBRL(usdBrl)}</p>
+          <div className="text-right shrink-0">
+            <p className="text-xs text-muted-foreground">USD/BRL agora</p>
+            <p className="text-lg font-semibold tabular-nums">{formatBRL(usdBrl)}</p>
             {usdUpdated && (
               <p className="text-[10px] text-muted-foreground">
-                atualizado {usdUpdated.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                {usdUpdated.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
               </p>
             )}
           </div>
         )}
       </div>
 
-      <div className="bg-card border border-border rounded-lg px-4 py-3">
+      {/* ── Filtros ── */}
+      <div className="border border-border rounded-lg px-4 py-3 bg-card">
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end">
           <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Página</label>
-            <select
-              value={filterPage}
-              onChange={(e) => setFilterPage(e.target.value)}
-              className="h-10 rounded-lg border border-input bg-background px-2 text-sm w-full sm:min-w-[140px]"
-            >
+            <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Página</label>
+            <select value={filterPage} onChange={(e) => setFilterPage(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm w-full sm:min-w-[140px]">
               <option value="all">Todas as páginas</option>
               {pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Colaborador</label>
-            <select
-              value={filterColab}
-              onChange={(e) => setFilterColab(e.target.value)}
-              className="h-10 rounded-lg border border-input bg-background px-2 text-sm w-full sm:min-w-[160px]"
-            >
+            <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Colaborador</label>
+            <select value={filterColab} onChange={(e) => setFilterColab(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm w-full sm:min-w-[160px]">
               <option value="all">Todos</option>
               <option value={SEM_COLAB_ID}>Sem colaborador</option>
-              {colabs.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nome}{c.hashtag ? ` (#${c.hashtag})` : ""}
-                </option>
-              ))}
+              {colabs.map((c) => <option key={c.id} value={c.id}>{c.nome}{c.hashtag ? ` (#${c.hashtag})` : ""}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">De</label>
-            <input
-              type="date"
-              value={filterFrom}
-              onChange={(e) => setFilterFrom(e.target.value)}
-              className="h-10 rounded-lg border border-input bg-background px-2 text-sm w-full"
-            />
+            <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">De</label>
+            <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm w-full" />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Até</label>
-            <input
-              type="date"
-              value={filterTo}
-              onChange={(e) => setFilterTo(e.target.value)}
-              className="h-10 rounded-lg border border-input bg-background px-2 text-sm w-full"
-            />
+            <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Até</label>
+            <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm w-full" />
           </div>
           {(filterPage !== "all" || filterColab !== "all" || filterFrom || filterTo) && (
-            <button
-              onClick={() => { setFilterPage("all"); setFilterColab("all"); setFilterFrom(""); setFilterTo(""); }}
-              className="h-10 px-3 rounded-lg text-xs border border-border hover:bg-muted transition-colors col-span-2 sm:col-span-1"
-            >
-              Limpar filtros
+            <button onClick={() => { setFilterPage("all"); setFilterColab("all"); setFilterFrom(""); setFilterTo(""); }}
+              className="h-9 px-3 rounded-md text-xs text-muted-foreground border border-border hover:bg-muted transition-colors col-span-2 sm:col-span-1">
+              Limpar
             </button>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <KpiCard
-          label="Receita do mes (USD)"
-          value={loading ? "..." : `$${totalMonth.toFixed(2)}`}
-          hint={usdBrl ? `~ ${formatBRL(totalMonth * usdBrl)}` : undefined}
-          icon={DollarSign}
-          tone="success"
-        />
-        <KpiCard
-          label="Receita total (USD)"
-          value={loading ? "..." : `$${totalGeral.toFixed(2)}`}
-          hint={usdBrl ? `~ ${formatBRL(totalGeral * usdBrl)}` : undefined}
-          icon={Wallet}
-          tone="warning"
-        />
-        <KpiCard label="Total de views" value={loading ? "..." : fmt(totalViews)} icon={Eye} />
-        <KpiCard label="Total de reacoes" value={loading ? "..." : fmt(totalReacoes)} icon={Heart} />
+      {/* ── KPIs principais ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: "Receita do mês", value: loading ? "—" : `$${totalMonth.toFixed(2)}`, sub: usdBrl ? formatBRL(totalMonth * usdBrl) : null, icon: DollarSign },
+          { label: "Receita total", value: loading ? "—" : `$${totalGeral.toFixed(2)}`, sub: usdBrl ? formatBRL(totalGeral * usdBrl) : null, icon: Wallet },
+          { label: "Views", value: loading ? "—" : fmt(totalViews), sub: null, icon: Eye },
+          { label: "Reações", value: loading ? "—" : fmt(totalReacoes), sub: null, icon: Heart },
+        ].map(({ label, value, sub, icon: Icon }) => (
+          <div key={label} className="border border-border rounded-lg p-4 bg-card">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+              <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+            </div>
+            <p className="text-xl font-semibold tabular-nums">{value}</p>
+            {sub && <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">{sub}</p>}
+          </div>
+        ))}
       </div>
 
+      {/* ── Destaque BRL + Posts ── */}
       {!loading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="bg-card border border-border rounded-lg p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase text-muted-foreground font-medium tracking-widest">Posts no filtro</p>
-              <p className="text-2xl font-bold mt-1">{totalPosts.toLocaleString("pt-BR")}</p>
-              {allPosts.length !== totalPosts && (
-                <p className="text-xs text-muted-foreground">{allPosts.length.toLocaleString("pt-BR")} no total</p>
-              )}
-            </div>
-            <TrendingUp className="h-8 w-8 text-[#16a34a] opacity-60" />
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {usdBrl && (
-            <div className="bg-card border border-border rounded-lg p-4 flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase text-muted-foreground font-medium tracking-widest">Total em BRL (cotacao atual)</p>
-                <p className="text-2xl font-bold mt-1">{formatBRL(totalGeral * usdBrl)}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">USD 1 = {formatBRL(usdBrl)}</p>
-              </div>
-              <DollarSign className="h-8 w-8 text-[#16a34a] opacity-60" />
+            <div className="border border-border rounded-lg p-5 bg-card">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Total recebido (BRL)</p>
+              <p className="text-3xl font-bold tabular-nums tracking-tight">{formatBRL(totalGeral * usdBrl)}</p>
+              <p className="text-xs text-muted-foreground mt-1">USD 1 = {formatBRL(usdBrl)}</p>
             </div>
           )}
+          <div className="border border-border rounded-lg p-5 bg-card">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Posts no filtro</p>
+            <p className="text-3xl font-bold tabular-nums tracking-tight">{totalPosts.toLocaleString("pt-BR")}</p>
+            {allPosts.length !== totalPosts && (
+              <p className="text-xs text-muted-foreground mt-1">{allPosts.length.toLocaleString("pt-BR")} no total</p>
+            )}
+          </div>
         </div>
       )}
 
+      {/* ── Colaboradores ── */}
       {!loading && (
-        <div className="bg-card border border-border rounded-lg p-5">
-          <div className="mb-4">
-            <h2 className="font-medium">Colaboradores (regra de split)</h2>
+        <div className="border border-border rounded-lg bg-card overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-border">
+            <h2 className="text-sm font-medium">Distribuição por colaborador</h2>
           </div>
-
           {collabCards.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum colaborador encontrado no filtro atual.</p>
+            <p className="text-sm text-muted-foreground p-5">Nenhum colaborador no filtro atual.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div className="divide-y divide-border">
               {collabCards.slice(0, 12).map((item) => (
-                <div key={item.id} className="rounded-lg border border-border p-4 flex items-center justify-between gap-4">
+                <div key={item.id} className="px-5 py-3.5 flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="font-semibold leading-tight truncate">{item.nome}</p>
+                    <p className="text-sm font-medium truncate">{item.nome}</p>
                     <p className="text-xs text-muted-foreground">
-                      {item.hashtag ? `#${item.hashtag}` : "Sem hashtag"}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {item.posts.toLocaleString("pt-BR")} posts · {fmt(item.views)} views
+                      {item.hashtag ? `#${item.hashtag} · ` : ""}{item.posts.toLocaleString("pt-BR")} posts · {fmt(item.views)} views
                     </p>
                   </div>
                   <div className="text-right shrink-0">
                     {usdBrl ? (
                       <>
-                        <p className="text-base font-bold text-[#16a34a]">{formatBRL(item.receita * usdBrl)}</p>
-                        <p className="text-xs text-muted-foreground">~ ${item.receita.toFixed(2)}</p>
+                        <p className="text-sm font-semibold tabular-nums">{formatBRL(item.receita * usdBrl)}</p>
+                        <p className="text-xs text-muted-foreground tabular-nums">${item.receita.toFixed(2)}</p>
                       </>
                     ) : (
-                      <p className="text-base font-bold text-[#16a34a]">${item.receita.toFixed(2)}</p>
+                      <p className="text-sm font-semibold tabular-nums">${item.receita.toFixed(2)}</p>
                     )}
                   </div>
                 </div>
@@ -783,61 +761,55 @@ function AdminDashboard() {
         </div>
       )}
 
+      {/* ── Gráficos ── */}
       {!loading && chartData.length > 0 && (
-        <Suspense fallback={<div className="h-48 bg-muted/30 rounded-lg animate-pulse" />}>
+        <Suspense fallback={<div className="h-48 bg-muted/20 rounded-lg animate-pulse" />}>
           <DashboardCharts data={chartData} />
         </Suspense>
       )}
 
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h2 className="font-medium">Importacoes recentes</h2>
-          <Link to="/admin/importacoes" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+      {/* ── Importações recentes ── */}
+      <div className="border border-border rounded-lg bg-card overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+          <h2 className="text-sm font-medium">Importações recentes</h2>
+          <Link to="/admin/importacoes" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors">
             Ver todas <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
         {recentImports.length === 0 ? (
           <div className="p-5">
-            <EmptyState
-              icon={FileSpreadsheet}
-              title="Nenhuma importacao ainda"
-              description="Envie seu primeiro CSV do Facebook para comecar a gerenciar a receita."
-            />
+            <EmptyState icon={FileSpreadsheet} title="Nenhuma importação ainda"
+              description="Envie seu primeiro CSV do Facebook para começar." />
           </div>
         ) : (
           <>
-            {/* Mobile card list */}
             <div className="sm:hidden divide-y divide-border">
               {recentImports.map((imp) => (
                 <div key={imp.id} className="px-4 py-3 flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <Link to="/admin/importacoes/$id" params={{ id: imp.id }} className="font-medium text-sm hover:underline truncate block">
-                      {imp.file_name}
-                    </Link>
+                    <Link to="/admin/importacoes/$id" params={{ id: imp.id }}
+                      className="text-sm font-medium hover:underline truncate block">{imp.file_name}</Link>
                     <p className="text-xs text-muted-foreground mt-0.5">{formatDateTime(imp.created_at)} · {imp.valid_rows}/{imp.total_rows} linhas</p>
                   </div>
                   <StatusBadge status={imp.status} />
                 </div>
               ))}
             </div>
-            {/* Desktop table */}
-            <div className="hidden sm:block overflow-x-auto">
+            <div className="hidden sm:block">
               <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                <thead className="bg-muted/30 text-[11px] uppercase text-muted-foreground">
                   <tr>
                     <th className="text-left px-5 py-3 font-medium">Arquivo</th>
                     <th className="text-left px-5 py-3 font-medium">Status</th>
                     <th className="text-right px-5 py-3 font-medium">Linhas</th>
-                    <th className="text-left px-5 py-3 font-medium">Quando</th>
+                    <th className="text-left px-5 py-3 font-medium">Data</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {recentImports.map((imp) => (
                     <tr key={imp.id} className="hover:bg-muted/20">
                       <td className="px-5 py-3">
-                        <Link to="/admin/importacoes/$id" params={{ id: imp.id }} className="font-medium hover:underline">
-                          {imp.file_name}
-                        </Link>
+                        <Link to="/admin/importacoes/$id" params={{ id: imp.id }} className="hover:underline">{imp.file_name}</Link>
                       </td>
                       <td className="px-5 py-3"><StatusBadge status={imp.status} /></td>
                       <td className="px-5 py-3 text-right tabular-nums">{imp.valid_rows}/{imp.total_rows}</td>
