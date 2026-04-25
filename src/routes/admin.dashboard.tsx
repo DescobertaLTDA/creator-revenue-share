@@ -6,7 +6,7 @@ import { KpiCard } from "@/components/app/KpiCard";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { EmptyState } from "@/components/app/EmptyState";
 import { formatBRL, formatDateTime, formatMonth } from "@/lib/format";
-import { DollarSign, Wallet, FileSpreadsheet, ArrowRight, TrendingUp, Eye, Heart, Users } from "lucide-react";
+import { DollarSign, Wallet, FileSpreadsheet, ArrowRight, TrendingUp, Eye, Heart } from "lucide-react";
 
 const DashboardCharts = lazy(() =>
   import("@/components/app/DashboardCharts").then((m) => ({ default: m.DashboardCharts }))
@@ -756,28 +756,25 @@ function AdminDashboard() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {collabCards.slice(0, 12).map((item) => (
-                <div key={item.id} className="rounded-lg border border-border p-4 flex items-center gap-4 sm:block">
-                  <div className="flex items-start justify-between gap-3 sm:mb-3">
-                    <div className="min-w-0">
-                      <p className="font-semibold leading-tight truncate">{item.nome}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.hashtag ? `#${item.hashtag}` : "Sem hashtag"}
-                      </p>
-                    </div>
-                    <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+                <div key={item.id} className="rounded-lg border border-border p-4 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="font-semibold leading-tight truncate">{item.nome}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.hashtag ? `#${item.hashtag}` : "Sem hashtag"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {item.posts.toLocaleString("pt-BR")} posts · {fmt(item.views)} views
+                    </p>
                   </div>
-                  <div className="flex-1 sm:mt-0">
+                  <div className="text-right shrink-0">
                     {usdBrl ? (
                       <>
-                        <p className="text-lg sm:text-xl font-bold text-[#16a34a]">{formatBRL(item.receita * usdBrl)}</p>
+                        <p className="text-base font-bold text-[#16a34a]">{formatBRL(item.receita * usdBrl)}</p>
                         <p className="text-xs text-muted-foreground">~ ${item.receita.toFixed(2)}</p>
                       </>
                     ) : (
-                      <p className="text-lg sm:text-xl font-bold text-[#16a34a]">${item.receita.toFixed(2)}</p>
+                      <p className="text-base font-bold text-[#16a34a]">${item.receita.toFixed(2)}</p>
                     )}
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {item.posts.toLocaleString("pt-BR")} posts · {fmt(item.views)} views
-                    </p>
                   </div>
                 </div>
               ))}
