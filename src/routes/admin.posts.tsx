@@ -7,6 +7,7 @@ import { KpiCard } from "@/components/app/KpiCard";
 import { formatDateTime } from "@/lib/format";
 import { FileText, Loader2, ChevronLeft, ChevronRight, DollarSign, Eye, Heart, Radio, Trophy, Users } from "lucide-react";
 
+
 const DashboardCharts = lazy(() =>
   import("@/components/app/DashboardCharts").then((m) => ({ default: m.DashboardCharts }))
 );
@@ -261,10 +262,6 @@ function ruleEffectiveDay(rule: SplitRule): string {
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([, value]) => ({ ...value, receita: parseFloat(value.receita.toFixed(4)) }));
 
-    const byRevenue = [...enriched].sort((a, b) => b._revenue - a._revenue);
-    const byViews = [...enriched].sort((a, b) => b._views - a._views);
-    const byReactions = [...enriched].sort((a, b) => b._reactions - a._reactions);
-
     return {
       totalPosts: rows.length,
       totalRevenue,
@@ -272,9 +269,6 @@ function ruleEffectiveDay(rule: SplitRule): string {
       totalReach,
       totalReactions,
       chartData,
-      topRevenue: byRevenue.slice(0, 5),
-      topViews: byViews.slice(0, 5),
-      topReactions: byReactions.slice(0, 5),
       collabs: Array.from(collabAgg.values()).sort((a, b) => b.receita - a.receita),
       tableRows: enriched,
     };
@@ -326,49 +320,6 @@ function ruleEffectiveDay(rule: SplitRule): string {
             </Suspense>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-card border border-border rounded-lg p-5">
-              <h2 className="font-medium mb-3">Top 5 por receita</h2>
-              <div className="space-y-3">
-                {analytics.topRevenue.map((post, idx) => (
-                  <div key={post.id} className="border border-border rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground">#{idx + 1}</p>
-                    <p className="text-sm font-medium line-clamp-2">{post.title ?? post.external_post_id}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{post.pages?.nome ?? "-"} • {formatDateTime(post.published_at)}</p>
-                    <p className="text-sm font-semibold text-[#16a34a] mt-1">${post._revenue.toFixed(2)}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-5">
-              <h2 className="font-medium mb-3">Top 5 por views</h2>
-              <div className="space-y-3">
-                {analytics.topViews.map((post, idx) => (
-                  <div key={post.id} className="border border-border rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground">#{idx + 1}</p>
-                    <p className="text-sm font-medium line-clamp-2">{post.title ?? post.external_post_id}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{post.pages?.nome ?? "-"}</p>
-                    <p className="text-sm font-semibold mt-1">{post._views.toLocaleString("pt-BR")} views</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-5">
-              <h2 className="font-medium mb-3">Top 5 por reacoes</h2>
-              <div className="space-y-3">
-                {analytics.topReactions.map((post, idx) => (
-                  <div key={post.id} className="border border-border rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground">#{idx + 1}</p>
-                    <p className="text-sm font-medium line-clamp-2">{post.title ?? post.external_post_id}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{post.pages?.nome ?? "-"}</p>
-                    <p className="text-sm font-semibold mt-1">{post._reactions.toLocaleString("pt-BR")} reacoes</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
 
           <div className="bg-card border border-border rounded-lg overflow-hidden">
             <div className="px-4 sm:px-5 py-4 border-b border-border">
