@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { Users, Plus, Loader2, Trash2, Shield, Eye } from "lucide-react";
 
 export const Route = createFileRoute("/admin/cadastro")({
-  head: () => ({ meta: [{ title: "Cadastro de Usuários — Rateio Creator" }] }),
+  head: () => ({ meta: [{ title: "Cadastro de Usuários — Splash Creators" }] }),
   component: Page,
 });
 

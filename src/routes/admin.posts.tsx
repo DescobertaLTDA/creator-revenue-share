@@ -12,7 +12,7 @@ const DashboardCharts = lazy(() =>
 );
 
 export const Route = createFileRoute("/admin/posts")({
-  head: () => ({ meta: [{ title: "Posts - Rateio Creator" }] }),
+  head: () => ({ meta: [{ title: "Posts - Splash Creators" }] }),
   component: PostsPage,
 });
 

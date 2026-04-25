@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { CalendarCheck, Plus, Loader2, ChevronRight, Users } from "lucide-react";
 
 export const Route = createFileRoute("/admin/fechamentos")({
-  head: () => ({ meta: [{ title: "Fechamentos — Rateio Creator" }] }),
+  head: () => ({ meta: [{ title: "Fechamentos — Splash Creators" }] }),
   component: Page,
 });
 

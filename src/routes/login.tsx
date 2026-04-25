@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Wallet, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
@@ -38,50 +38,64 @@ function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-background">
-      {/* Coluna branding */}
-      <div className="hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-primary-soft via-background to-background border-r border-border">
+    <div className="min-h-screen grid lg:grid-cols-2 bg-white">
+      {/* Left branding column — dark */}
+      <div className="hidden lg:flex flex-col justify-between p-12 bg-[#0a0a0a]">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-            <Wallet className="h-5 w-5 text-primary-foreground" />
+          <div className="h-9 w-9 rounded-lg bg-white/10 flex items-center justify-center">
+            <span className="text-white font-bold text-base leading-none">S</span>
           </div>
-          <span className="text-lg font-semibold">Rateio Creator</span>
+          <span className="text-white font-semibold text-base tracking-tight">Splash Creators</span>
         </div>
+
         <div className="max-w-md">
-          <h2 className="text-3xl font-semibold tracking-tight mb-3">
+          <h2 className="text-3xl font-bold tracking-tight text-white mb-4 leading-tight">
             Gestão de receita por post, sem planilha.
           </h2>
-          <p className="text-muted-foreground leading-relaxed">
+          <p className="text-white/50 leading-relaxed text-sm">
             Importe o CSV do Facebook, defina regras de split por página, feche o mês e
             gere comprovantes em PDF. Tudo auditado e organizado.
           </p>
-          <ul className="mt-6 space-y-2 text-sm text-muted-foreground">
-            <li className="flex gap-2"><span className="text-primary">✓</span> Importação idempotente com histórico</li>
-            <li className="flex gap-2"><span className="text-primary">✓</span> Fechamento mensal congelado (snapshot)</li>
-            <li className="flex gap-2"><span className="text-primary">✓</span> Comprovante em PDF por colaborador</li>
+          <ul className="mt-8 space-y-3 text-sm text-white/40">
+            <li className="flex items-center gap-2.5">
+              <span className="h-1 w-1 rounded-full bg-white/30 shrink-0" />
+              Importação idempotente com histórico
+            </li>
+            <li className="flex items-center gap-2.5">
+              <span className="h-1 w-1 rounded-full bg-white/30 shrink-0" />
+              Fechamento mensal congelado (snapshot)
+            </li>
+            <li className="flex items-center gap-2.5">
+              <span className="h-1 w-1 rounded-full bg-white/30 shrink-0" />
+              Comprovante em PDF por colaborador
+            </li>
           </ul>
         </div>
-        <p className="text-xs text-muted-foreground">© Rateio Creator</p>
+
+        <p className="text-xs text-white/20">© {new Date().getFullYear()} Splash Creators</p>
       </div>
 
-      {/* Coluna login */}
-      <div className="flex items-center justify-center p-6 sm:p-12">
+      {/* Right login column */}
+      <div className="flex items-center justify-center p-6 sm:p-12 bg-white">
         <div className="w-full max-w-sm">
-          <div className="lg:hidden flex items-center gap-3 mb-8">
-            <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-              <Wallet className="h-5 w-5 text-primary-foreground" />
+          {/* Mobile logo */}
+          <div className="lg:hidden flex items-center gap-3 mb-10">
+            <div className="h-9 w-9 rounded-lg bg-[#0a0a0a] flex items-center justify-center">
+              <span className="text-white font-bold text-base leading-none">S</span>
             </div>
-            <span className="text-lg font-semibold">Rateio Creator</span>
+            <span className="font-semibold text-base tracking-tight text-[#0a0a0a]">Splash Creators</span>
           </div>
 
-          <h1 className="text-2xl font-semibold tracking-tight">Entrar</h1>
-          <p className="text-sm text-muted-foreground mt-1 mb-6">
+          <h1 className="text-2xl font-bold tracking-tight text-[#0a0a0a]">Entrar</h1>
+          <p className="text-sm text-neutral-500 mt-1.5 mb-8">
             Acesse com o e-mail e senha cadastrados pelo administrador.
           </p>
 
-          <form onSubmit={onSubmit} className="space-y-4">
+          <form onSubmit={onSubmit} className="space-y-5">
             <div className="space-y-1.5">
-              <Label htmlFor="email">E-mail</Label>
+              <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                E-mail
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -90,10 +104,13 @@ function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="voce@empresa.com"
+                className="h-11 border-neutral-200 focus-visible:ring-neutral-900 rounded-lg"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="password">Senha</Label>
+              <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                Senha
+              </Label>
               <Input
                 id="password"
                 type="password"
@@ -102,19 +119,24 @@ function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                className="h-11 border-neutral-200 focus-visible:ring-neutral-900 rounded-lg"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={submitting}>
+            <Button
+              type="submit"
+              className="w-full h-11 bg-[#0a0a0a] hover:bg-neutral-800 text-white rounded-lg font-medium"
+              disabled={submitting}
+            >
               {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Entrar
             </Button>
           </form>
 
-          <p className="text-xs text-muted-foreground mt-6 text-center">
+          <p className="text-xs text-neutral-400 mt-8 text-center">
             Problemas para acessar? Fale com seu administrador.
           </p>
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            <Link to="/" className="hover:text-foreground">Voltar ao início</Link>
+          <p className="text-xs text-neutral-400 mt-2 text-center">
+            <Link to="/" className="hover:text-neutral-700 underline underline-offset-2">Voltar ao início</Link>
           </p>
         </div>
       </div>

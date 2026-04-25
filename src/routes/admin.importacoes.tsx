@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { Upload, FileSpreadsheet, Loader2, Search } from "lucide-react";
 
 export const Route = createFileRoute("/admin/importacoes")({
-  head: () => ({ meta: [{ title: "Importações — Rateio Creator" }] }),
+  head: () => ({ meta: [{ title: "Importações — Splash Creators" }] }),
   component: ImportacoesPage,
 });
 

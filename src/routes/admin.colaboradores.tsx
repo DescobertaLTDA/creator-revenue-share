@@ -16,7 +16,7 @@ import { useWriteGuard } from "@/hooks/use-write-guard";
 import { Users, Plus, Loader2, Hash, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/colaboradores")({
-  head: () => ({ meta: [{ title: "Colaboradores - Rateio Creator" }] }),
+  head: () => ({ meta: [{ title: "Colaboradores - Splash Creators" }] }),
   component: Page,
 });
 

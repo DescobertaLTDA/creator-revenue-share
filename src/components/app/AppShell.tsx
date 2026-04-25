@@ -67,7 +67,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <div className="h-7 w-7 rounded-lg bg-white/10 flex items-center justify-center">
                   <Wallet className="h-3.5 w-3.5 text-white" />
                 </div>
-                <span className="font-semibold text-sm text-sidebar-foreground">Rateio Creator</span>
+                <span className="font-semibold text-sm text-sidebar-foreground">Splash Creators</span>
               </div>
               <button
                 onClick={() => setDrawerOpen(false)}
@@ -135,7 +135,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Wallet className="h-3 w-3 text-white" />
             </div>
             <span className="text-sm font-semibold text-foreground truncate">
-              {currentPage?.label ?? "Rateio Creator"}
+              {currentPage?.label ?? "Splash Creators"}
             </span>
           </div>
         </header>
@@ -168,7 +168,7 @@ function SidebarContent({
           <Wallet className="h-4 w-4 text-white" />
         </div>
         <div className="flex flex-col">
-          <span className="font-bold leading-tight text-sidebar-foreground">Rateio Creator</span>
+          <span className="font-bold leading-tight text-sidebar-foreground">Splash Creators</span>
           <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50">
             {profile?.role === "admin" ? "Administração" : "Colaborador"}
           </span>

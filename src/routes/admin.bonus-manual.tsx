@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Check, Loader2, TrendingUp, TrendingDown, Minus, ChevronLeft, ChevronRight, Info } from "lucide-react";
 
 export const Route = createFileRoute("/admin/bonus-manual")({
-  head: () => ({ meta: [{ title: "Conciliação diária — Rateio Creator" }] }),
+  head: () => ({ meta: [{ title: "Conciliação diária — Splash Creators" }] }),
   component: BonusManualPage,
 });
 

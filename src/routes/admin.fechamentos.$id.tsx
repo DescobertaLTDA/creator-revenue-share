@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/fechamentos/$id")({
-  head: () => ({ meta: [{ title: "Detalhe do fechamento — Rateio Creator" }] }),
+  head: () => ({ meta: [{ title: "Detalhe do fechamento — Splash Creators" }] }),
   component: ClosingDetail,
 });
 

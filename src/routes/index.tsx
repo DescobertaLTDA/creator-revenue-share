@@ -28,7 +28,7 @@ function IndexRedirect() {
         <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center animate-pulse">
           <Wallet className="h-5 w-5 text-primary-foreground" />
         </div>
-        <span className="text-sm">Carregando Rateio Creator…</span>
+        <span className="text-sm">Carregando Splash Creators…</span>
       </div>
     </div>
   );

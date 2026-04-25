@@ -10,7 +10,7 @@ import { formatBRL, formatMonth } from "@/lib/format";
 import { Wallet, DollarSign, CalendarCheck, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/colaborador/dashboard")({
-  head: () => ({ meta: [{ title: "Meu painel — Rateio Creator" }] }),
+  head: () => ({ meta: [{ title: "Meu painel — Splash Creators" }] }),
   component: Page,
 });
 

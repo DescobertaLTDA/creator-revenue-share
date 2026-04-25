@@ -8,7 +8,7 @@ import { formatDateTime, formatDate } from "@/lib/format";
 import { ArrowLeft, AlertTriangle, FileSpreadsheet, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/importacoes/$id")({
-  head: () => ({ meta: [{ title: "Detalhe da importação — Rateio Creator" }] }),
+  head: () => ({ meta: [{ title: "Detalhe da importação — Splash Creators" }] }),
   component: ImportDetail,
 });
 

@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { Percent, Plus, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/regras-split")({
-  head: () => ({ meta: [{ title: "Regras de Split — Rateio Creator" }] }),
+  head: () => ({ meta: [{ title: "Regras de Split — Splash Creators" }] }),
   component: RulesPage,
 });
 
