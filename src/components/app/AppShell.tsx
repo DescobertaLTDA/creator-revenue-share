@@ -64,8 +64,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="relative w-72 bg-sidebar h-full shadow-xl flex flex-col">
             <div className="flex items-center justify-between h-14 px-4 border-b border-border shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
-                  <Wallet className="h-3.5 w-3.5 text-primary-foreground" />
+                <div className="h-7 w-7 rounded-lg bg-white/10 flex items-center justify-center">
+                  <Wallet className="h-3.5 w-3.5 text-white" />
                 </div>
                 <span className="font-semibold text-sm text-sidebar-foreground">Rateio Creator</span>
               </div>
@@ -91,7 +91,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     className={cn(
                       "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
                       active
-                        ? "bg-primary text-primary-foreground font-medium"
+                        ? "bg-white/10 text-white font-semibold"
                         : "text-sidebar-foreground hover:bg-accent"
                     )}
                   >
@@ -131,8 +131,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
 
           <div className="flex items-center gap-1.5 min-w-0">
-            <div className="h-6 w-6 rounded-md bg-primary flex items-center justify-center shrink-0">
-              <Wallet className="h-3 w-3 text-primary-foreground" />
+            <div className="h-6 w-6 rounded-md bg-white/10 flex items-center justify-center shrink-0">
+              <Wallet className="h-3 w-3 text-white" />
             </div>
             <span className="text-sm font-semibold text-foreground truncate">
               {currentPage?.label ?? "Rateio Creator"}
@@ -164,8 +164,8 @@ function SidebarContent({
   return (
     <>
       <div className="h-16 flex items-center gap-2.5 px-5 border-b border-border shrink-0">
-        <div className="h-8 w-8 rounded-xl bg-primary flex items-center justify-center shadow-sm">
-          <Wallet className="h-4 w-4 text-primary-foreground" />
+        <div className="h-8 w-8 rounded-xl bg-white/10 flex items-center justify-center shadow-sm">
+          <Wallet className="h-4 w-4 text-white" />
         </div>
         <div className="flex flex-col">
           <span className="font-bold leading-tight text-sidebar-foreground">Rateio Creator</span>
@@ -186,7 +186,7 @@ function SidebarContent({
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors",
                 active
-                  ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                  ? "bg-white/10 text-white font-semibold"
                   : "text-neutral-400 hover:bg-white/5 hover:text-white"
               )}
             >
