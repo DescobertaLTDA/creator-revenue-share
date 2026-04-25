@@ -7,6 +7,9 @@ import { StatusBadge } from "@/components/app/StatusBadge";
 import { EmptyState } from "@/components/app/EmptyState";
 import { formatBRL, formatDateTime, formatMonth } from "@/lib/format";
 import { DollarSign, Wallet, FileSpreadsheet, ArrowRight, TrendingUp, Eye, Heart } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 
 const DashboardCharts = lazy(() =>
   import("@/components/app/DashboardCharts").then((m) => ({ default: m.DashboardCharts }))
@@ -35,6 +38,9 @@ interface RawPost {
   views: number | null;
   reach: number | null;
   reactions: number | null;
+  title: string | null;
+  post_type: string | null;
+  permalink: string | null;
 }
 
 interface PostAuthorRow {
@@ -186,7 +192,7 @@ function AdminDashboard() {
           fetchAllRows<RawPost>(() =>
             supabase
               .from("posts")
-              .select("id, page_id, published_at, monetization_approx, estimated_usd, views, reach, reactions")
+              .select("id, page_id, published_at, monetization_approx, estimated_usd, views, reach, reactions, title, post_type, permalink")
           ),
           fetchAllRows<PostAuthorRow>(() =>
             supabase.from("post_authors").select("post_id, collaborator_id")
@@ -313,7 +319,7 @@ function AdminDashboard() {
     }
   }, [colabs, filterColab]);
 
-  const { kpis, chartData, activeMonthRef, collabCards } = useMemo(() => {
+  const { kpis, chartData, activeMonthRef, collabCards, rulesByPage, postToCollabs } = useMemo(() => {
     const rulesByPage = new Map<string, SplitRule[]>();
     for (const rule of splitRules) {
       if (!rulesByPage.has(rule.page_id)) rulesByPage.set(rule.page_id, []);
@@ -619,10 +625,51 @@ function AdminDashboard() {
       chartData: chart,
       activeMonthRef: latestMonth,
       collabCards: Array.from(merged.values()).sort((a, b) => b.receita - a.receita || a.nome.localeCompare(b.nome, "pt-BR")),
+      rulesByPage,
+      postToCollabs,
     };
   }, [allPosts, postAuthors, splitRules, colabs, manualBonuses, dailyEntries, filterPage, filterColab, filterFrom, filterTo]);
 
   const { totalMonth, totalGeral, totalPosts, totalViews, totalReacoes } = kpis;
+
+  const [auditColabId, setAuditColabId] = useState<string | null>(null);
+
+  const auditData = useMemo(() => {
+    if (!auditColabId) return null;
+    const colab = auditColabId === SEM_COLAB_ID
+      ? { nome: "Sem colaborador", hashtag: null }
+      : colabs.find((c) => c.id === auditColabId);
+    const card = collabCards.find((c) => c.id === auditColabId);
+
+    const posts = allPosts
+      .filter((p) => {
+        if (filterPage !== "all" && p.page_id !== filterPage) return false;
+        if (filterFrom && p.published_at && p.published_at.slice(0, 10) < filterFrom) return false;
+        if (filterTo && p.published_at && p.published_at.slice(0, 10) > filterTo) return false;
+        if (auditColabId === SEM_COLAB_ID) return (postToCollabs.get(p.id)?.size ?? 0) === 0;
+        return postToCollabs.get(p.id)?.has(auditColabId) ?? false;
+      })
+      .map((p) => {
+        const postUsd = getPostUsd(p);
+        const collaboratorPct = getCollaboratorPct(p, rulesByPage);
+        const collaboratorPool = postUsd * collaboratorPct;
+        const numAuthors = Math.max(1, postToCollabs.get(p.id)?.size ?? 1);
+        const share = auditColabId === SEM_COLAB_ID ? collaboratorPool : collaboratorPool / numAuthors;
+        return { ...p, postUsd, collaboratorPct, collaboratorPool, numAuthors, share };
+      })
+      .sort((a, b) => (b.published_at ?? "").localeCompare(a.published_at ?? ""));
+
+    const typeBreakdown = posts.reduce<Record<string, { count: number; views: number; share: number }>>((acc, p) => {
+      const t = p.post_type ?? "outro";
+      if (!acc[t]) acc[t] = { count: 0, views: 0, share: 0 };
+      acc[t].count += 1;
+      acc[t].views += Number(p.views ?? 0);
+      acc[t].share += p.share;
+      return acc;
+    }, {});
+
+    return { colab, card, posts, typeBreakdown };
+  }, [auditColabId, allPosts, postToCollabs, rulesByPage, colabs, collabCards, filterPage, filterFrom, filterTo]);
 
   return (
     <div className="space-y-5">
@@ -737,7 +784,11 @@ function AdminDashboard() {
           ) : (
             <div className="divide-y divide-border">
               {collabCards.slice(0, 12).map((item) => (
-                <div key={item.id} className="px-5 py-3.5 flex items-center justify-between gap-4">
+                <button
+                  key={item.id}
+                  onClick={() => setAuditColabId(item.id)}
+                  className="w-full px-5 py-3.5 flex items-center justify-between gap-4 hover:bg-muted/30 transition-colors text-left"
+                >
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{item.nome}</p>
                     <p className="text-xs text-muted-foreground">
@@ -754,7 +805,7 @@ function AdminDashboard() {
                       <p className="text-sm font-semibold tabular-nums">${item.receita.toFixed(2)}</p>
                     )}
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -822,6 +873,104 @@ function AdminDashboard() {
           </>
         )}
       </div>
+      {/* ── Audit Dialog ── */}
+      <Dialog open={!!auditColabId} onOpenChange={(o) => { if (!o) setAuditColabId(null); }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {auditData?.colab?.nome ?? "—"}
+              {auditData?.colab?.hashtag && (
+                <span className="text-xs font-normal text-muted-foreground font-mono">#{auditData.colab.hashtag}</span>
+              )}
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground">
+              {filterFrom && filterTo ? `${filterFrom} → ${filterTo}` : "Todos os períodos"} · {auditData?.posts.length ?? 0} posts
+            </p>
+          </DialogHeader>
+
+          {auditData && (
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+              {/* Summary cards */}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: "Posts", value: auditData.posts.length.toLocaleString("pt-BR") },
+                  { label: "Views", value: fmt(auditData.posts.reduce((s, p) => s + Number(p.views ?? 0), 0)) },
+                  { label: "Total (USD)", value: `$${(auditData.card?.receita ?? 0).toFixed(2)}` },
+                ].map(({ label, value }) => (
+                  <div key={label} className="border border-border rounded-lg p-3 text-center">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{label}</p>
+                    <p className="text-lg font-semibold tabular-nums mt-0.5">{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Type breakdown */}
+              {Object.keys(auditData.typeBreakdown).length > 0 && (
+                <div className="border border-border rounded-lg p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Por tipo</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(auditData.typeBreakdown).map(([type, info]) => (
+                      <span key={type} className="inline-flex items-center gap-1.5 text-xs bg-muted/50 rounded-md px-2.5 py-1">
+                        <span className="font-medium capitalize">{type}</span>
+                        <span className="text-muted-foreground">·</span>
+                        <span>{info.count} posts</span>
+                        <span className="text-muted-foreground">·</span>
+                        <span>{fmt(info.views)} views</span>
+                        <span className="text-muted-foreground">·</span>
+                        <span className="font-semibold">${info.share.toFixed(2)}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Posts table */}
+              <div className="border border-border rounded-lg overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/40 text-[10px] uppercase text-muted-foreground">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">Data</th>
+                      <th className="text-left px-3 py-2 font-medium">Título / Tipo</th>
+                      <th className="text-right px-3 py-2 font-medium">Views</th>
+                      <th className="text-right px-3 py-2 font-medium">Reações</th>
+                      <th className="text-right px-3 py-2 font-medium">Receita</th>
+                      <th className="text-right px-3 py-2 font-medium">Split%</th>
+                      <th className="text-right px-3 py-2 font-medium">Sua parte</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {auditData.posts.map((p) => (
+                      <tr key={p.id} className="hover:bg-muted/20">
+                        <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
+                          {p.published_at ? p.published_at.slice(0, 10) : "—"}
+                        </td>
+                        <td className="px-3 py-2 max-w-[200px]">
+                          {p.permalink ? (
+                            <a href={p.permalink} target="_blank" rel="noopener noreferrer"
+                              className="truncate block hover:underline text-foreground">
+                              {p.title ?? p.id.slice(0, 8)}
+                            </a>
+                          ) : (
+                            <span className="truncate block text-foreground">{p.title ?? p.id.slice(0, 8)}</span>
+                          )}
+                          {p.post_type && (
+                            <span className="text-[10px] text-muted-foreground capitalize">{p.post_type}</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">{fmt(Number(p.views ?? 0))}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{Number(p.reactions ?? 0).toLocaleString("pt-BR")}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">${p.postUsd.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{(p.collaboratorPct * 100).toFixed(0)}%</td>
+                        <td className="px-3 py-2 text-right tabular-nums font-semibold">${p.share.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
