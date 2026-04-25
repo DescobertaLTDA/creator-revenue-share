@@ -34,6 +34,9 @@ const HEADER_MAP: Record<string, string> = {
 
   "permalink": "permalink",
   "link": "permalink",
+  "link permanente": "permalink",
+  "permanent link": "permalink",
+  "post url": "permalink",
 
   "tipo de postagem": "post_type",
   "post type": "post_type",
