@@ -39,6 +39,7 @@ function ImportacoesPage() {
   const { guard, WriteGuardDialog } = useWriteGuard();
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; name: string } | null>(null);
   const [imports, setImports] = useState<ImportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -64,10 +65,10 @@ function ImportacoesPage() {
     !q ? true : i.file_name.toLowerCase().includes(q.toLowerCase())
   );
 
-  const onUpload = async (file: File) => {
+  const onUpload = async (file: File, fromBulk = false) => {
     if (!profile) return;
-    setUploading(true);
-    const toastId = toast.loading("Processando CSV…");
+    if (!fromBulk) setUploading(true);
+    const toastId = toast.loading(`Processando ${file.name}…`);
     try {
       const text = await file.text();
       const hash = await hashFile(file);
@@ -241,9 +242,25 @@ function ImportacoesPage() {
       const msg = err instanceof Error ? err.message : "Erro desconhecido";
       toast.error("Falha na importação", { id: toastId, description: msg });
     } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
+      if (!fromBulk) {
+        setUploading(false);
+        if (fileRef.current) fileRef.current.value = "";
+      }
     }
+  };
+
+  const onBulkUpload = async (files: FileList) => {
+    const arr = Array.from(files).filter((f) => f.name.endsWith(".csv"));
+    if (arr.length === 0) return;
+    setUploading(true);
+    setBulkProgress({ current: 0, total: arr.length, name: arr[0].name });
+    for (let i = 0; i < arr.length; i++) {
+      setBulkProgress({ current: i + 1, total: arr.length, name: arr[i].name });
+      await onUpload(arr[i], true);
+    }
+    setBulkProgress(null);
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = "";
   };
 
   return (
@@ -258,12 +275,13 @@ function ImportacoesPage() {
               ref={fileRef}
               type="file"
               accept=".csv,text/csv"
+              multiple
               className="hidden"
-              onChange={guard((e) => e.target.files?.[0] && onUpload(e.target.files[0]))}
+              onChange={guard((e) => e.target.files && e.target.files.length > 0 && onBulkUpload(e.target.files))}
             />
             <Button onClick={guard(() => fileRef.current?.click())} disabled={uploading}>
               {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
-              Enviar CSV
+              {bulkProgress ? `${bulkProgress.current}/${bulkProgress.total} — ${bulkProgress.name}` : "Enviar CSVs"}
             </Button>
           </>
         }
