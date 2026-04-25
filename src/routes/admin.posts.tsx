@@ -312,7 +312,7 @@ function ruleEffectiveDay(rule: SplitRule): string {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
             <KpiCard label="Receita total (USD)" value={`$${analytics.totalRevenue.toFixed(2)}`} icon={DollarSign} tone="success" />
             <KpiCard label="Total de posts" value={analytics.totalPosts.toLocaleString("pt-BR")} icon={FileText} />
             <KpiCard label="Total de views" value={fmt(analytics.totalViews)} icon={Eye} />
@@ -326,7 +326,7 @@ function ruleEffectiveDay(rule: SplitRule): string {
             </Suspense>
           )}
 
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-card border border-border rounded-xl p-5">
               <h2 className="font-medium mb-3">Top 5 por receita</h2>
               <div className="space-y-3">
@@ -371,18 +371,30 @@ function ruleEffectiveDay(rule: SplitRule): string {
           </div>
 
           <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-2">
+            <div className="px-4 sm:px-5 py-4 border-b border-border">
               <h2 className="font-medium">Colaboradores (split)</h2>
-              <p className="text-xs text-muted-foreground">Posts sem hashtag mapeada entram em "Sem colaborador"</p>
             </div>
-            <div className="overflow-x-auto">
+            {/* Mobile card view */}
+            <div className="sm:hidden divide-y divide-border">
+              {analytics.collabs.slice(0, 20).map((collab) => (
+                <div key={collab.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{collab.nome}</p>
+                    <p className="text-xs text-muted-foreground">{collab.hashtag ? `#${collab.hashtag}` : "Sem hashtag"} · {collab.posts} posts · {fmt(collab.views)} views</p>
+                  </div>
+                  <p className="font-semibold text-[#16a34a] tabular-nums shrink-0">${collab.receita.toFixed(2)}</p>
+                </div>
+              ))}
+            </div>
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                   <tr>
                     <th className="text-left px-5 py-3 font-medium">Colaborador</th>
                     <th className="text-right px-5 py-3 font-medium">Posts</th>
                     <th className="text-right px-5 py-3 font-medium">Views</th>
-                    <th className="text-right px-5 py-3 font-medium">Reacoes</th>
+                    <th className="text-right px-5 py-3 font-medium">Reações</th>
                     <th className="text-right px-5 py-3 font-medium">Ganhos (USD)</th>
                   </tr>
                 </thead>
@@ -410,32 +422,47 @@ function ruleEffectiveDay(rule: SplitRule): string {
           </div>
 
           <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-2">
+            <div className="px-4 sm:px-5 py-4 border-b border-border flex items-center justify-between gap-2">
               <h2 className="font-medium">Tabela de posts</h2>
-              <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                <Trophy className="h-3 w-3" />
-                Receitas usando monetization_approx com fallback para estimated_usd
+              <div className="hidden sm:inline-flex text-xs text-muted-foreground items-center gap-1">
+                <Trophy className="h-3 w-3" /> monetization_approx
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Mobile card list */}
+            <div className="sm:hidden divide-y divide-border">
+              {paginated.map((r) => (
+                <div key={r.id} className="px-4 py-3 space-y-1">
+                  <p className="text-sm font-medium line-clamp-1">{r.title ?? r.external_post_id}</p>
+                  <p className="text-xs text-muted-foreground">{r.pages?.nome ?? "-"} · {formatDateTime(r.published_at)}</p>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>{fmt(r._views)} views</span>
+                    <span>{fmt(r._reactions)} reações</span>
+                    <span className="font-semibold text-[#16a34a] text-sm ml-auto">${r._revenue.toFixed(2)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                   <tr>
                     <th className="text-left px-5 py-3 font-medium">Post</th>
-                    <th className="text-left px-5 py-3 font-medium">Pagina</th>
+                    <th className="text-left px-5 py-3 font-medium">Página</th>
                     <th className="text-left px-5 py-3 font-medium">Publicado</th>
                     <th className="text-right px-5 py-3 font-medium">Alcance</th>
                     <th className="text-right px-5 py-3 font-medium">Views</th>
-                    <th className="text-right px-5 py-3 font-medium">Reacoes</th>
+                    <th className="text-right px-5 py-3 font-medium">Reações</th>
                     <th className="text-right px-5 py-3 font-medium">Receita (USD)</th>
-                    <th className="text-right px-5 py-3 font-medium">Split colab (USD)</th>
+                    <th className="text-right px-5 py-3 font-medium">Split colab</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {paginated.map((r) => (
                     <tr key={r.id} className="hover:bg-muted/20">
-                      <td className="px-5 py-3 max-w-xs truncate">{r.title ?? r.external_post_id}</td>
+                      <td className="px-5 py-3 max-w-[240px] truncate">{r.title ?? r.external_post_id}</td>
                       <td className="px-5 py-3 text-muted-foreground">{r.pages?.nome ?? "-"}</td>
                       <td className="px-5 py-3 text-muted-foreground">{formatDateTime(r.published_at)}</td>
                       <td className="px-5 py-3 text-right tabular-nums">{r._reach.toLocaleString("pt-BR")}</td>
@@ -449,30 +476,28 @@ function ruleEffectiveDay(rule: SplitRule): string {
               </table>
             </div>
 
-            <div className="flex items-center justify-between px-5 py-4 border-t border-border text-sm">
-              <span className="text-muted-foreground">
-                {analytics.totalPosts.toLocaleString("pt-BR")} posts • pagina {page} de {totalPages}
+            <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-t border-border text-sm">
+              <span className="text-muted-foreground text-xs sm:text-sm">
+                {analytics.totalPosts.toLocaleString("pt-BR")} posts · p. {page}/{totalPages}
               </span>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="p-1.5 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="p-2 rounded-lg hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
 
                 {getPageNumbers().map((p, i) =>
                   p === "..." ? (
-                    <span key={`dots-${i}`} className="px-2 text-muted-foreground">...</span>
+                    <span key={`dots-${i}`} className="px-1.5 text-muted-foreground text-xs">…</span>
                   ) : (
                     <button
                       key={p}
                       onClick={() => setPage(p as number)}
-                      className={`min-w-[32px] h-8 rounded px-2 font-medium transition-colors ${
-                        page === p
-                          ? "bg-primary text-primary-foreground"
-                          : "hover:bg-muted text-foreground"
+                      className={`min-w-[36px] h-9 rounded-lg px-2 text-sm font-medium transition-colors ${
+                        page === p ? "bg-primary text-primary-foreground" : "hover:bg-muted text-foreground"
                       }`}
                     >
                       {p}
@@ -483,7 +508,7 @@ function ruleEffectiveDay(rule: SplitRule): string {
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="p-1.5 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="p-2 rounded-lg hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>

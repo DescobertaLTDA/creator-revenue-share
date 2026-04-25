@@ -206,7 +206,7 @@ function ClosingDetail() {
       </div>
 
       {/* Summary KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "Total a pagar (USD)", value: `$${totalFinal.toFixed(2)}`, sub: usdBrl ? `≈ ${formatBRL(totalFinal * usdBrl)}` : undefined, accent: true },
           { label: "Já pago (USD)", value: `$${totalPago.toFixed(2)}`, sub: `${countPago} colab${countPago !== 1 ? "s" : ""}` },
@@ -221,194 +221,278 @@ function ClosingDetail() {
         ))}
       </div>
 
-      {/* Items table */}
+      {/* Items */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+        <div className="px-4 sm:px-5 py-4 border-b border-border flex items-center justify-between">
           <h2 className="font-semibold">Pagamentos por colaborador</h2>
-          {!isFechado && <p className="text-xs text-muted-foreground">Edite ajustes antes de aprovar o fechamento</p>}
+          {!isFechado && <p className="text-xs text-muted-foreground hidden sm:block">Edite ajustes antes de aprovar</p>}
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-              <tr>
-                <th className="text-left px-5 py-3 font-medium">Colaborador</th>
-                <th className="text-right px-5 py-3 font-medium">Receita bruta</th>
-                <th className="text-right px-5 py-3 font-medium">Split %</th>
-                <th className="text-right px-5 py-3 font-medium">A receber</th>
-                <th className="text-right px-5 py-3 font-medium">Bônus (views mês ant.)</th>
-                <th className="text-right px-5 py-3 font-medium">Final (USD)</th>
-                <th className="text-right px-5 py-3 font-medium">Final (BRL)</th>
-                <th className="text-left px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 font-medium">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
+
+        {items.length === 0 && (
+          <div className="p-8 text-center text-sm text-muted-foreground">Nenhum item neste fechamento.</div>
+        )}
+
+        {items.length > 0 && (
+          <>
+            {/* ── Mobile cards ── */}
+            <div className="sm:hidden divide-y divide-border">
               {items.map((item) => {
                 const st = STATUS_LABELS[item.payment_status] ?? STATUS_LABELS.a_pagar;
                 const finalBrl = usdBrl ? item.final_amount * usdBrl : null;
+                const finalUsd = item._editing
+                  ? (item.amount_due + (parseFloat(item._editAdj ?? "0") || 0))
+                  : item.final_amount;
 
                 return (
-                  <tr key={item.id} className="hover:bg-muted/20 align-top">
-                    {/* Collaborator */}
-                    <td className="px-5 py-3">
-                      <p className="font-medium">{item.collaborators?.nome ?? "—"}</p>
-                      {item.collaborators?.hashtag && (
-                        <p className="text-xs text-muted-foreground">#{item.collaborators.hashtag}</p>
-                      )}
-                      {item._editing && (
-                        <div className="mt-2">
-                          <p className="text-xs text-muted-foreground mb-1">Observação</p>
-                          <Input
-                            value={item._editNote ?? ""}
-                            onChange={(e) => setItems((prev) => prev.map((it) => it.id === item.id ? { ...it, _editNote: e.target.value } : it))}
-                            placeholder="Nota de pagamento…"
-                            className="h-7 text-xs"
-                          />
-                        </div>
-                      )}
-                      {!item._editing && item.payment_note && (
-                        <p className="text-xs text-muted-foreground italic mt-0.5">{item.payment_note}</p>
-                      )}
-                    </td>
-
-                    {/* Gross */}
-                    <td className="px-5 py-3 text-right tabular-nums">${item.gross_revenue.toFixed(2)}</td>
-
-                    {/* Split pct */}
-                    <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">{formatPct(item.collaborator_pct)}</td>
-
-                    {/* Amount due */}
-                    <td className="px-5 py-3 text-right tabular-nums">${item.amount_due.toFixed(2)}</td>
-
-                    {/* Adjustments */}
-                    <td className="px-5 py-3 text-right tabular-nums">
-                      {item._editing ? (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={item._editAdj ?? "0"}
-                          onChange={(e) => setItems((prev) => prev.map((it) => it.id === item.id ? { ...it, _editAdj: e.target.value } : it))}
-                          className="h-7 text-xs w-24 text-right ml-auto"
-                        />
-                      ) : (
-                        <span className={item.adjustments !== 0 ? (item.adjustments > 0 ? "text-[#16a34a]" : "text-destructive") : "text-muted-foreground"}>
-                          {item.adjustments > 0 ? "+" : ""}{item.adjustments.toFixed(2)}
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Final USD */}
-                    <td className="px-5 py-3 text-right tabular-nums font-semibold">
-                      ${item._editing
-                        ? (item.amount_due + (parseFloat(item._editAdj ?? "0") || 0)).toFixed(2)
-                        : item.final_amount.toFixed(2)}
-                    </td>
-
-                    {/* Final BRL */}
-                    <td className="px-5 py-3 text-right tabular-nums text-muted-foreground text-xs">
-                      {finalBrl != null ? formatBRL(finalBrl) : "—"}
-                    </td>
-
-                    {/* Status badge */}
-                    <td className="px-5 py-3">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>
-                        {st.icon} {st.label}
-                      </span>
-                      {item.paid_at && (
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{formatDateTime(item.paid_at)}</p>
-                      )}
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {item._editing ? (
-                          <>
-                            <button
-                              onClick={() => saveEdit(item)}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-primary text-white hover:bg-primary/90"
-                            >
-                              <Save className="h-3 w-3" /> Salvar
-                            </button>
-                            <button
-                              onClick={() => cancelEdit(item.id)}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border hover:bg-muted"
-                            >
-                              <X className="h-3 w-3" /> Cancelar
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            {!isFechado && (
-                              <button
-                                onClick={() => startEdit(item.id)}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border hover:bg-muted"
-                              >
-                                <Pencil className="h-3 w-3" /> Editar
-                              </button>
-                            )}
-                            {item.payment_status !== "pago_fora" && (
-                              <button
-                                onClick={() => setPaymentStatus(item, "pago_fora")}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-[#16a34a]/10 text-[#16a34a] hover:bg-[#16a34a]/20"
-                              >
-                                <CheckCircle2 className="h-3 w-3" /> Pago
-                              </button>
-                            )}
-                            {item.payment_status === "pago_fora" && (
-                              <button
-                                onClick={() => setPaymentStatus(item, "a_pagar")}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border text-muted-foreground hover:bg-muted"
-                              >
-                                <Ban className="h-3 w-3" /> Desfazer
-                              </button>
-                            )}
-                          </>
+                  <div key={item.id} className="p-4 space-y-3">
+                    {/* Header row */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold">{item.collaborators?.nome ?? "—"}</p>
+                        {item.collaborators?.hashtag && (
+                          <p className="text-xs text-muted-foreground">#{item.collaborators.hashtag}</p>
                         )}
                       </div>
-                    </td>
-                  </tr>
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium shrink-0 ${st.color}`}>
+                        {st.icon} {st.label}
+                      </span>
+                    </div>
+
+                    {/* Values grid */}
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                      <div>
+                        <p className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider">Receita bruta</p>
+                        <p className="tabular-nums">${item.gross_revenue.toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider">Split {formatPct(item.collaborator_pct)}</p>
+                        <p className="tabular-nums">${item.amount_due.toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider">Bônus</p>
+                        {item._editing ? (
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={item._editAdj ?? "0"}
+                            onChange={(e) => setItems((prev) => prev.map((it) => it.id === item.id ? { ...it, _editAdj: e.target.value } : it))}
+                            className="h-8 text-sm w-28"
+                          />
+                        ) : (
+                          <p className={`tabular-nums ${item.adjustments !== 0 ? (item.adjustments > 0 ? "text-[#16a34a]" : "text-destructive") : "text-muted-foreground"}`}>
+                            {item.adjustments > 0 ? "+" : ""}{item.adjustments.toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider">Total final</p>
+                        <p className="font-bold tabular-nums text-[#16a34a]">${finalUsd.toFixed(2)}</p>
+                        {finalBrl != null && <p className="text-xs text-muted-foreground">{formatBRL(finalBrl)}</p>}
+                      </div>
+                    </div>
+
+                    {/* Note field in edit mode */}
+                    {item._editing && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Observação</p>
+                        <Input
+                          value={item._editNote ?? ""}
+                          onChange={(e) => setItems((prev) => prev.map((it) => it.id === item.id ? { ...it, _editNote: e.target.value } : it))}
+                          placeholder="Nota de pagamento…"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                    )}
+                    {!item._editing && item.payment_note && (
+                      <p className="text-xs text-muted-foreground italic">{item.payment_note}</p>
+                    )}
+                    {item.paid_at && (
+                      <p className="text-[10px] text-muted-foreground">{formatDateTime(item.paid_at)}</p>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      {item._editing ? (
+                        <>
+                          <button
+                            onClick={() => saveEdit(item)}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-lg text-sm bg-primary text-white hover:bg-primary/90 font-medium"
+                          >
+                            <Save className="h-4 w-4" /> Salvar
+                          </button>
+                          <button
+                            onClick={() => cancelEdit(item.id)}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-lg text-sm border border-border hover:bg-muted font-medium"
+                          >
+                            <X className="h-4 w-4" /> Cancelar
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {!isFechado && (
+                            <button
+                              onClick={() => startEdit(item.id)}
+                              className="inline-flex items-center gap-1.5 px-3 h-10 rounded-lg text-sm border border-border hover:bg-muted"
+                            >
+                              <Pencil className="h-4 w-4" /> Editar
+                            </button>
+                          )}
+                          {item.payment_status !== "pago_fora" ? (
+                            <button
+                              onClick={() => setPaymentStatus(item, "pago_fora")}
+                              className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-lg text-sm bg-[#16a34a]/10 text-[#16a34a] hover:bg-[#16a34a]/20 font-medium"
+                            >
+                              <CheckCircle2 className="h-4 w-4" /> Marcar pago
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setPaymentStatus(item, "a_pagar")}
+                              className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-lg text-sm border border-border text-muted-foreground hover:bg-muted"
+                            >
+                              <Ban className="h-4 w-4" /> Desfazer
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
                 );
               })}
 
-              {/* Totals row */}
-              {items.length > 0 && (
-                <tr className="bg-muted/30 font-semibold text-sm">
-                  <td className="px-5 py-3">Total</td>
-                  <td className="px-5 py-3 text-right tabular-nums">
-                    ${items.reduce((s, it) => s + it.gross_revenue, 0).toFixed(2)}
-                  </td>
-                  <td className="px-5 py-3" />
-                  <td className="px-5 py-3 text-right tabular-nums">
-                    ${items.reduce((s, it) => s + it.amount_due, 0).toFixed(2)}
-                  </td>
-                  <td className="px-5 py-3 text-right tabular-nums">
-                    {(() => {
-                      const adj = items.reduce((s, it) => s + it.adjustments, 0);
-                      return <span className={adj !== 0 ? (adj > 0 ? "text-[#16a34a]" : "text-destructive") : ""}>{adj > 0 ? "+" : ""}{adj.toFixed(2)}</span>;
-                    })()}
-                  </td>
-                  <td className="px-5 py-3 text-right tabular-nums text-[#16a34a]">
-                    ${totalFinal.toFixed(2)}
-                  </td>
-                  <td className="px-5 py-3 text-right tabular-nums text-muted-foreground text-xs">
-                    {usdBrl ? formatBRL(totalFinal * usdBrl) : "—"}
-                  </td>
-                  <td className="px-5 py-3">
-                    <span className="text-xs text-muted-foreground">{countPago}/{items.length} pagos</span>
-                  </td>
-                  <td />
-                </tr>
-              )}
-            </tbody>
-          </table>
-
-          {items.length === 0 && (
-            <div className="p-8 text-center text-sm text-muted-foreground">
-              Nenhum item neste fechamento.
+              {/* Mobile totals */}
+              <div className="px-4 py-3 bg-muted/30 flex items-center justify-between">
+                <span className="text-sm font-semibold">Total</span>
+                <div className="text-right">
+                  <p className="font-bold text-[#16a34a] tabular-nums">${totalFinal.toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground">{countPago}/{items.length} pagos</p>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+
+            {/* ── Desktop table ── */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-5 py-3 font-medium">Colaborador</th>
+                    <th className="text-right px-5 py-3 font-medium">Receita bruta</th>
+                    <th className="text-right px-5 py-3 font-medium">Split %</th>
+                    <th className="text-right px-5 py-3 font-medium">A receber</th>
+                    <th className="text-right px-5 py-3 font-medium">Bônus (views mês ant.)</th>
+                    <th className="text-right px-5 py-3 font-medium">Final (USD)</th>
+                    <th className="text-right px-5 py-3 font-medium">Final (BRL)</th>
+                    <th className="text-left px-5 py-3 font-medium">Status</th>
+                    <th className="px-5 py-3 font-medium">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {items.map((item) => {
+                    const st = STATUS_LABELS[item.payment_status] ?? STATUS_LABELS.a_pagar;
+                    const finalBrl = usdBrl ? item.final_amount * usdBrl : null;
+
+                    return (
+                      <tr key={item.id} className="hover:bg-muted/20 align-top">
+                        <td className="px-5 py-3">
+                          <p className="font-medium">{item.collaborators?.nome ?? "—"}</p>
+                          {item.collaborators?.hashtag && (
+                            <p className="text-xs text-muted-foreground">#{item.collaborators.hashtag}</p>
+                          )}
+                          {item._editing && (
+                            <div className="mt-2">
+                              <p className="text-xs text-muted-foreground mb-1">Observação</p>
+                              <Input
+                                value={item._editNote ?? ""}
+                                onChange={(e) => setItems((prev) => prev.map((it) => it.id === item.id ? { ...it, _editNote: e.target.value } : it))}
+                                placeholder="Nota de pagamento…"
+                                className="h-7 text-xs"
+                              />
+                            </div>
+                          )}
+                          {!item._editing && item.payment_note && (
+                            <p className="text-xs text-muted-foreground italic mt-0.5">{item.payment_note}</p>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 text-right tabular-nums">${item.gross_revenue.toFixed(2)}</td>
+                        <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">{formatPct(item.collaborator_pct)}</td>
+                        <td className="px-5 py-3 text-right tabular-nums">${item.amount_due.toFixed(2)}</td>
+                        <td className="px-5 py-3 text-right tabular-nums">
+                          {item._editing ? (
+                            <Input type="number" step="0.01" value={item._editAdj ?? "0"}
+                              onChange={(e) => setItems((prev) => prev.map((it) => it.id === item.id ? { ...it, _editAdj: e.target.value } : it))}
+                              className="h-7 text-xs w-24 text-right ml-auto"
+                            />
+                          ) : (
+                            <span className={item.adjustments !== 0 ? (item.adjustments > 0 ? "text-[#16a34a]" : "text-destructive") : "text-muted-foreground"}>
+                              {item.adjustments > 0 ? "+" : ""}{item.adjustments.toFixed(2)}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 text-right tabular-nums font-semibold">
+                          ${item._editing ? (item.amount_due + (parseFloat(item._editAdj ?? "0") || 0)).toFixed(2) : item.final_amount.toFixed(2)}
+                        </td>
+                        <td className="px-5 py-3 text-right tabular-nums text-muted-foreground text-xs">
+                          {finalBrl != null ? formatBRL(finalBrl) : "—"}
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>
+                            {st.icon} {st.label}
+                          </span>
+                          {item.paid_at && <p className="text-[10px] text-muted-foreground mt-0.5">{formatDateTime(item.paid_at)}</p>}
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {item._editing ? (
+                              <>
+                                <button onClick={() => saveEdit(item)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-primary text-white hover:bg-primary/90">
+                                  <Save className="h-3 w-3" /> Salvar
+                                </button>
+                                <button onClick={() => cancelEdit(item.id)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border hover:bg-muted">
+                                  <X className="h-3 w-3" /> Cancelar
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                {!isFechado && (
+                                  <button onClick={() => startEdit(item.id)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border hover:bg-muted">
+                                    <Pencil className="h-3 w-3" /> Editar
+                                  </button>
+                                )}
+                                {item.payment_status !== "pago_fora" && (
+                                  <button onClick={() => setPaymentStatus(item, "pago_fora")} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-[#16a34a]/10 text-[#16a34a] hover:bg-[#16a34a]/20">
+                                    <CheckCircle2 className="h-3 w-3" /> Pago
+                                  </button>
+                                )}
+                                {item.payment_status === "pago_fora" && (
+                                  <button onClick={() => setPaymentStatus(item, "a_pagar")} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border text-muted-foreground hover:bg-muted">
+                                    <Ban className="h-3 w-3" /> Desfazer
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  <tr className="bg-muted/30 font-semibold text-sm">
+                    <td className="px-5 py-3">Total</td>
+                    <td className="px-5 py-3 text-right tabular-nums">${items.reduce((s, it) => s + it.gross_revenue, 0).toFixed(2)}</td>
+                    <td className="px-5 py-3" />
+                    <td className="px-5 py-3 text-right tabular-nums">${items.reduce((s, it) => s + it.amount_due, 0).toFixed(2)}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">
+                      {(() => { const adj = items.reduce((s, it) => s + it.adjustments, 0); return <span className={adj !== 0 ? (adj > 0 ? "text-[#16a34a]" : "text-destructive") : ""}>{adj > 0 ? "+" : ""}{adj.toFixed(2)}</span>; })()}
+                    </td>
+                    <td className="px-5 py-3 text-right tabular-nums text-[#16a34a]">${totalFinal.toFixed(2)}</td>
+                    <td className="px-5 py-3 text-right tabular-nums text-muted-foreground text-xs">{usdBrl ? formatBRL(totalFinal * usdBrl) : "—"}</td>
+                    <td className="px-5 py-3"><span className="text-xs text-muted-foreground">{countPago}/{items.length} pagos</span></td>
+                    <td />
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

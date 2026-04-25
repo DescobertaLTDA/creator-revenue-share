@@ -298,16 +298,16 @@ function Page() {
       />
 
       {showForm && (
-        <form onSubmit={generate} className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <form onSubmit={generate} className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4">
           <h3 className="font-semibold">Novo fechamento</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mês de referência</label>
               <input
                 type="month"
                 value={formMonth}
                 onChange={(e) => setFormMonth(e.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
                 required
               />
             </div>
@@ -316,23 +316,23 @@ function Page() {
               <select
                 value={formPage}
                 onChange={(e) => setFormPage(e.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
               >
                 <option value="all">Todas as páginas</option>
                 {pages.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
               </select>
             </div>
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={() => setShowForm(false)} className="flex-1">Cancelar</Button>
-              <Button type="submit" disabled={generating} className="flex-1">
-                {generating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                {generating ? "Calculando…" : "Gerar"}
-              </Button>
-            </div>
           </div>
           <p className="text-xs text-muted-foreground">
             O cálculo usa os posts importados do mês, os vínculos por hashtag e as regras de split cadastradas.
           </p>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => setShowForm(false)} className="flex-1 h-11">Cancelar</Button>
+            <Button type="submit" disabled={generating} className="flex-1 h-11">
+              {generating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {generating ? "Calculando…" : "Gerar"}
+            </Button>
+          </div>
         </form>
       )}
 
@@ -344,44 +344,69 @@ function Page() {
             <EmptyState icon={CalendarCheck} title="Nenhum fechamento ainda" description='Clique em "Gerar fechamento" para calcular os pagamentos do mês.' />
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-              <tr>
-                <th className="text-left px-5 py-3 font-medium">Mês</th>
-                <th className="text-left px-5 py-3 font-medium">Página</th>
-                <th className="text-left px-5 py-3 font-medium">Status</th>
-                <th className="text-right px-5 py-3 font-medium">
-                  <span className="inline-flex items-center justify-end gap-1"><Users className="h-3 w-3" />Colabs</span>
-                </th>
-                <th className="text-right px-5 py-3 font-medium">Receita bruta (USD)</th>
-                <th className="px-5 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
+          <>
+            {/* Mobile card list */}
+            <div className="sm:hidden divide-y divide-border">
               {closings.map((c) => (
-                <tr key={c.id} className="hover:bg-muted/20">
-                  <td className="px-5 py-3 font-medium">{formatMonth(c.month_ref)}</td>
-                  <td className="px-5 py-3 text-muted-foreground">{c.pages?.nome ?? "—"}</td>
-                  <td className="px-5 py-3">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      c.status === "fechado"
-                        ? "bg-[#16a34a]/10 text-[#16a34a]"
-                        : "bg-amber-500/10 text-amber-600"
-                    }`}>
-                      {c.status === "fechado" ? "Fechado" : "Em aberto"}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">{c._itemCount ?? 0}</td>
-                  <td className="px-5 py-3 text-right tabular-nums font-medium">${Number(c.total_gross ?? 0).toFixed(2)}</td>
-                  <td className="px-5 py-3 text-right">
-                    <Link to="/admin/fechamentos/$id" params={{ id: c.id }} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                      Ver detalhes <ChevronRight className="h-3 w-3" />
-                    </Link>
-                  </td>
-                </tr>
+                <Link key={c.id} to="/admin/fechamentos/$id" params={{ id: c.id }} className="flex items-center justify-between gap-3 px-4 py-4 hover:bg-muted/20 active:bg-muted/40 transition-colors">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-sm">{formatMonth(c.month_ref)}</p>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                        c.status === "fechado" ? "bg-[#16a34a]/10 text-[#16a34a]" : "bg-amber-500/10 text-amber-600"
+                      }`}>
+                        {c.status === "fechado" ? "Fechado" : "Em aberto"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{c.pages?.nome ?? "—"} · {c._itemCount ?? 0} colabs</p>
+                    <p className="text-sm font-medium mt-1">${Number(c.total_gross ?? 0).toFixed(2)}</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                </Link>
               ))}
-            </tbody>
-          </table>
+            </div>
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-5 py-3 font-medium">Mês</th>
+                    <th className="text-left px-5 py-3 font-medium">Página</th>
+                    <th className="text-left px-5 py-3 font-medium">Status</th>
+                    <th className="text-right px-5 py-3 font-medium">
+                      <span className="inline-flex items-center justify-end gap-1"><Users className="h-3 w-3" />Colabs</span>
+                    </th>
+                    <th className="text-right px-5 py-3 font-medium">Receita bruta (USD)</th>
+                    <th className="px-5 py-3" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {closings.map((c) => (
+                    <tr key={c.id} className="hover:bg-muted/20">
+                      <td className="px-5 py-3 font-medium">{formatMonth(c.month_ref)}</td>
+                      <td className="px-5 py-3 text-muted-foreground">{c.pages?.nome ?? "—"}</td>
+                      <td className="px-5 py-3">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          c.status === "fechado"
+                            ? "bg-[#16a34a]/10 text-[#16a34a]"
+                            : "bg-amber-500/10 text-amber-600"
+                        }`}>
+                          {c.status === "fechado" ? "Fechado" : "Em aberto"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">{c._itemCount ?? 0}</td>
+                      <td className="px-5 py-3 text-right tabular-nums font-medium">${Number(c.total_gross ?? 0).toFixed(2)}</td>
+                      <td className="px-5 py-3 text-right">
+                        <Link to="/admin/fechamentos/$id" params={{ id: c.id }} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                          Ver detalhes <ChevronRight className="h-3 w-3" />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

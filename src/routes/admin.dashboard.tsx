@@ -59,6 +59,11 @@ interface ManualBonusRow {
   active: boolean;
 }
 
+interface DailyEntry {
+  entry_date: string;
+  actual_revenue_usd: number | null;
+}
+
 interface PageOption { id: string; name: string }
 interface ColabOption { id: string; nome: string; hashtag: string | null }
 
@@ -144,6 +149,7 @@ function AdminDashboard() {
   const [pages, setPages] = useState<PageOption[]>([]);
   const [colabs, setColabs] = useState<ColabOption[]>([]);
   const [manualBonuses, setManualBonuses] = useState<ManualBonusRow[]>([]);
+  const [dailyEntries, setDailyEntries] = useState<DailyEntry[]>([]);
   const [recentImports, setRecentImports] = useState<RecentImport[]>([]);
   const [usdBrl, setUsdBrl] = useState<number | null>(null);
   const [usdUpdated, setUsdUpdated] = useState<Date | null>(null);
@@ -175,7 +181,7 @@ function AdminDashboard() {
 
   useEffect(() => {
     const load = async () => {
-      const [posts, pas, { data: pagesData }, { data: colabsData }, { data: rulesData }, { data: imports }] =
+      const [posts, pas, { data: pagesData }, { data: colabsData }, { data: rulesData }, { data: imports }, { data: dailyData }] =
         await Promise.all([
           fetchAllRows<RawPost>(() =>
             supabase
@@ -196,6 +202,7 @@ function AdminDashboard() {
             .select("id, file_name, status, created_at, valid_rows, total_rows")
             .order("created_at", { ascending: false })
             .limit(5),
+          (supabase as any).from("daily_revenue_entries").select("entry_date, actual_revenue_usd"),
         ]);
 
       setAllPosts(posts);
@@ -204,6 +211,7 @@ function AdminDashboard() {
       setPages((pagesData ?? []).map((p: any) => ({ id: p.id, name: p.nome })));
       setColabs((colabsData ?? []).map((c: any) => ({ id: c.id, nome: c.nome, hashtag: c.hashtag })));
       setRecentImports((imports ?? []) as RecentImport[]);
+      setDailyEntries((dailyData ?? []) as unknown as DailyEntry[]);
       setLoading(false);
     };
     load();
@@ -321,6 +329,32 @@ function AdminDashboard() {
       postToCollabs.get(pa.post_id)!.add(pa.collaborator_id);
     }
 
+    // Compute previous month for daily bonus distribution
+    const baseMonth = filterFrom ? filterFrom.slice(0, 7) : new Date().toISOString().slice(0, 7);
+    const [bY, bM] = baseMonth.split("-").map(Number);
+    const prevD = new Date(bY, bM - 2, 1);
+    const prevMonthRef = `${prevD.getFullYear()}-${String(prevD.getMonth() + 1).padStart(2, "0")}`;
+    const prevFrom = `${prevMonthRef}-01`;
+    const [pY, pM] = prevMonthRef.split("-").map(Number);
+    const prevLastDay = new Date(pY, pM, 0).getDate();
+    const prevTo = `${prevMonthRef}-${String(prevLastDay).padStart(2, "0")}`;
+
+    // Views per collaborator in prev month (from all posts, not just filtered)
+    const prevViewsByColab = new Map<string, number>();
+    for (const p of allPosts) {
+      if (!p.published_at) continue;
+      const day = p.published_at.slice(0, 10);
+      if (day < prevFrom || day > prevTo) continue;
+      const collaboratorIds = Array.from(postToCollabs.get(p.id) ?? []);
+      if (collaboratorIds.length === 0) continue;
+      const views = Number(p.views ?? 0);
+      const share = views / collaboratorIds.length;
+      for (const cid of collaboratorIds) {
+        prevViewsByColab.set(cid, (prevViewsByColab.get(cid) ?? 0) + share);
+      }
+    }
+    const totalPrevViews = Array.from(prevViewsByColab.values()).reduce((a, b) => a + b, 0);
+
     const colabPostIds =
       filterColab !== "all" && filterColab !== SEM_COLAB_ID
         ? new Set(postAuthors.filter((pa) => pa.collaborator_id === filterColab).map((pa) => pa.post_id))
@@ -417,6 +451,29 @@ function AdminDashboard() {
       }
     }
 
+    // Daily revenue entries bonus (actual_revenue - posts_revenue for covered days)
+    const filteredDaily = dailyEntries.filter(
+      (e) => (!filterFrom || e.entry_date >= filterFrom) && (!filterTo || e.entry_date <= filterTo)
+    );
+    let totalDailyBonus = 0;
+    for (const entry of filteredDaily) {
+      const actual = Number(entry.actual_revenue_usd ?? 0);
+      const postsRevForDay = byDay[entry.entry_date]?.receita ?? 0;
+      const bonus = actual - postsRevForDay;
+      if (bonus > 0) {
+        totalDailyBonus += bonus;
+        const bonusMonth = entry.entry_date.slice(0, 7);
+        byMonth[bonusMonth] = (byMonth[bonusMonth] ?? 0) + bonus;
+        if (byDay[entry.entry_date]) {
+          byDay[entry.entry_date].receita += bonus;
+        } else {
+          const [, mo, d] = entry.entry_date.split("-");
+          byDay[entry.entry_date] = { dia: `${d}/${mo}`, posts: 0, views: 0, alcance: 0, reacoes: 0, receita: bonus };
+        }
+      }
+    }
+    geralUsd += totalDailyBonus;
+
     const filteredBonuses = manualBonuses.filter((bonus) => {
       if (!bonus.active) return false;
       if (filterFrom && bonus.bonus_date < filterFrom) return false;
@@ -454,6 +511,24 @@ function AdminDashboard() {
     for (const [id, item] of merged.entries()) {
       if (id === SEM_COLAB_ID) continue;
       baseRevenueByColab.set(id, Number(item.receita ?? 0));
+    }
+
+    // Distribute daily bonus by prev month views %
+    if (totalDailyBonus > 0) {
+      if (totalPrevViews > 0) {
+        for (const [cid, views] of prevViewsByColab.entries()) {
+          const bonusShare = (views / totalPrevViews) * totalDailyBonus;
+          const item = merged.get(cid);
+          if (item) item.receita += bonusShare;
+        }
+      } else {
+        // Fallback: equal split among all collaborators
+        const eligibleIds = Array.from(merged.keys()).filter((id) => id !== SEM_COLAB_ID);
+        if (eligibleIds.length > 0) {
+          const share = totalDailyBonus / eligibleIds.length;
+          for (const id of eligibleIds) merged.get(id)!.receita += share;
+        }
+      }
     }
 
     for (const bonus of filteredBonuses) {
@@ -544,7 +619,7 @@ function AdminDashboard() {
       activeMonthRef: latestMonth,
       collabCards: Array.from(merged.values()).sort((a, b) => b.receita - a.receita || a.nome.localeCompare(b.nome, "pt-BR")),
     };
-  }, [allPosts, postAuthors, splitRules, colabs, manualBonuses, filterPage, filterColab, filterFrom, filterTo]);
+  }, [allPosts, postAuthors, splitRules, colabs, manualBonuses, dailyEntries, filterPage, filterColab, filterFrom, filterTo]);
 
   const { totalMonth, totalGeral, totalPosts, totalViews, totalReacoes } = kpis;
 
@@ -568,63 +643,65 @@ function AdminDashboard() {
         )}
       </div>
 
-      <div className="bg-card border border-border rounded-xl px-4 py-3 flex flex-wrap gap-3 items-end">
-        <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Pagina</label>
-          <select
-            value={filterPage}
-            onChange={(e) => setFilterPage(e.target.value)}
-            className="h-8 rounded-md border border-input bg-background px-2 text-sm min-w-[140px]"
-          >
-            <option value="all">Todas as paginas</option>
-            {pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+      <div className="bg-card border border-border rounded-xl px-4 py-3">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end">
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Página</label>
+            <select
+              value={filterPage}
+              onChange={(e) => setFilterPage(e.target.value)}
+              className="h-10 rounded-lg border border-input bg-background px-2 text-sm w-full sm:min-w-[140px]"
+            >
+              <option value="all">Todas as páginas</option>
+              {pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Colaborador</label>
+            <select
+              value={filterColab}
+              onChange={(e) => setFilterColab(e.target.value)}
+              className="h-10 rounded-lg border border-input bg-background px-2 text-sm w-full sm:min-w-[160px]"
+            >
+              <option value="all">Todos</option>
+              <option value={SEM_COLAB_ID}>Sem colaborador</option>
+              {colabs.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}{c.hashtag ? ` (#${c.hashtag})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">De</label>
+            <input
+              type="date"
+              value={filterFrom}
+              onChange={(e) => setFilterFrom(e.target.value)}
+              className="h-10 rounded-lg border border-input bg-background px-2 text-sm w-full"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Até</label>
+            <input
+              type="date"
+              value={filterTo}
+              onChange={(e) => setFilterTo(e.target.value)}
+              className="h-10 rounded-lg border border-input bg-background px-2 text-sm w-full"
+            />
+          </div>
+          {(filterPage !== "all" || filterColab !== "all" || filterFrom || filterTo) && (
+            <button
+              onClick={() => { setFilterPage("all"); setFilterColab("all"); setFilterFrom(""); setFilterTo(""); }}
+              className="h-10 px-3 rounded-lg text-xs border border-border hover:bg-muted transition-colors col-span-2 sm:col-span-1"
+            >
+              Limpar filtros
+            </button>
+          )}
         </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Colaborador</label>
-          <select
-            value={filterColab}
-            onChange={(e) => setFilterColab(e.target.value)}
-            className="h-8 rounded-md border border-input bg-background px-2 text-sm min-w-[170px]"
-          >
-            <option value="all">Todos</option>
-            <option value={SEM_COLAB_ID}>Sem colaborador</option>
-            {colabs.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nome}{c.hashtag ? ` (#${c.hashtag})` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">De</label>
-          <input
-            type="date"
-            value={filterFrom}
-            onChange={(e) => setFilterFrom(e.target.value)}
-            className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Ate</label>
-          <input
-            type="date"
-            value={filterTo}
-            onChange={(e) => setFilterTo(e.target.value)}
-            className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-          />
-        </div>
-        {(filterPage !== "all" || filterColab !== "all" || filterFrom || filterTo) && (
-          <button
-            onClick={() => { setFilterPage("all"); setFilterColab("all"); setFilterFrom(""); setFilterTo(""); }}
-            className="h-8 px-3 rounded-md text-xs border border-border hover:bg-muted transition-colors"
-          >
-            Limpar filtros
-          </button>
-        )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard
           label="Receita do mes (USD)"
           value={loading ? "..." : `$${totalMonth.toFixed(2)}`}
@@ -677,29 +754,29 @@ function AdminDashboard() {
           {collabCards.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum colaborador encontrado no filtro atual.</p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {collabCards.slice(0, 12).map((item) => (
-                <div key={item.id} className="rounded-xl border border-border p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-semibold leading-tight">{item.nome}</p>
+                <div key={item.id} className="rounded-xl border border-border p-4 flex items-center gap-4 sm:block">
+                  <div className="flex items-start justify-between gap-3 sm:mb-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold leading-tight truncate">{item.nome}</p>
                       <p className="text-xs text-muted-foreground">
                         {item.hashtag ? `#${item.hashtag}` : "Sem hashtag"}
                       </p>
                     </div>
-                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <Users className="h-4 w-4 text-muted-foreground shrink-0" />
                   </div>
-                  <div className="mt-3 space-y-1">
+                  <div className="flex-1 sm:mt-0">
                     {usdBrl ? (
                       <>
-                        <p className="text-xl font-bold text-[#16a34a]">{formatBRL(item.receita * usdBrl)}</p>
+                        <p className="text-lg sm:text-xl font-bold text-[#16a34a]">{formatBRL(item.receita * usdBrl)}</p>
                         <p className="text-xs text-muted-foreground">~ ${item.receita.toFixed(2)}</p>
                       </>
                     ) : (
-                      <p className="text-xl font-bold text-[#16a34a]">${item.receita.toFixed(2)}</p>
+                      <p className="text-lg sm:text-xl font-bold text-[#16a34a]">${item.receita.toFixed(2)}</p>
                     )}
-                    <p className="text-xs text-muted-foreground">
-                      {item.posts.toLocaleString("pt-BR")} posts • {fmt(item.views)} views • {fmt(item.reacoes)} reacoes
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {item.posts.toLocaleString("pt-BR")} posts · {fmt(item.views)} views
                     </p>
                   </div>
                 </div>
@@ -731,32 +808,49 @@ function AdminDashboard() {
             />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-                <tr>
-                  <th className="text-left px-5 py-3 font-medium">Arquivo</th>
-                  <th className="text-left px-5 py-3 font-medium">Status</th>
-                  <th className="text-right px-5 py-3 font-medium">Linhas</th>
-                  <th className="text-left px-5 py-3 font-medium">Quando</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {recentImports.map((imp) => (
-                  <tr key={imp.id} className="hover:bg-muted/20">
-                    <td className="px-5 py-3">
-                      <Link to="/admin/importacoes/$id" params={{ id: imp.id }} className="font-medium hover:underline">
-                        {imp.file_name}
-                      </Link>
-                    </td>
-                    <td className="px-5 py-3"><StatusBadge status={imp.status} /></td>
-                    <td className="px-5 py-3 text-right tabular-nums">{imp.valid_rows}/{imp.total_rows}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{formatDateTime(imp.created_at)}</td>
+          <>
+            {/* Mobile card list */}
+            <div className="sm:hidden divide-y divide-border">
+              {recentImports.map((imp) => (
+                <div key={imp.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <Link to="/admin/importacoes/$id" params={{ id: imp.id }} className="font-medium text-sm hover:underline truncate block">
+                      {imp.file_name}
+                    </Link>
+                    <p className="text-xs text-muted-foreground mt-0.5">{formatDateTime(imp.created_at)} · {imp.valid_rows}/{imp.total_rows} linhas</p>
+                  </div>
+                  <StatusBadge status={imp.status} />
+                </div>
+              ))}
+            </div>
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-5 py-3 font-medium">Arquivo</th>
+                    <th className="text-left px-5 py-3 font-medium">Status</th>
+                    <th className="text-right px-5 py-3 font-medium">Linhas</th>
+                    <th className="text-left px-5 py-3 font-medium">Quando</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {recentImports.map((imp) => (
+                    <tr key={imp.id} className="hover:bg-muted/20">
+                      <td className="px-5 py-3">
+                        <Link to="/admin/importacoes/$id" params={{ id: imp.id }} className="font-medium hover:underline">
+                          {imp.file_name}
+                        </Link>
+                      </td>
+                      <td className="px-5 py-3"><StatusBadge status={imp.status} /></td>
+                      <td className="px-5 py-3 text-right tabular-nums">{imp.valid_rows}/{imp.total_rows}</td>
+                      <td className="px-5 py-3 text-muted-foreground">{formatDateTime(imp.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -247,41 +247,73 @@ function Page() {
         ) : rows.length === 0 ? (
           <div className="p-6"><EmptyState icon={Users} title="Nenhum colaborador cadastrado" description="Cadastre colaboradores com suas hashtags para vincular posts automaticamente." /></div>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-              <tr>
-                <th className="text-left px-5 py-3 font-medium">Nome</th>
-                <th className="text-left px-5 py-3 font-medium">Hashtag</th>
-                <th className="text-right px-5 py-3 font-medium">Posts vinculados</th>
-                <th className="text-left px-5 py-3 font-medium">Status</th>
-                <th className="text-left px-5 py-3 font-medium">Acoes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
+          <>
+            {/* Mobile card list */}
+            <div className="sm:hidden divide-y divide-border">
               {rows.map((r) => (
-                <tr key={r.id} className="hover:bg-muted/20">
-                  <td className="px-5 py-3 font-medium">{r.nome}</td>
-                  <td className="px-5 py-3">
-                    {r.hashtag
-                      ? <span className="inline-flex items-center gap-1 text-primary font-mono text-xs bg-primary/10 px-2 py-0.5 rounded">#{r.hashtag}</span>
-                      : <span className="text-muted-foreground">-</span>}
-                  </td>
-                  <td className="px-5 py-3 text-right tabular-nums">{r.post_count ?? 0}</td>
-                  <td className="px-5 py-3">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${r.ativo ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>
+                <div key={r.id} className="px-4 py-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{r.nome}</p>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {r.hashtag
+                          ? <span className="inline-flex items-center gap-1 text-primary font-mono text-xs bg-primary/10 px-2 py-0.5 rounded-md">#{r.hashtag}</span>
+                          : <span className="text-xs text-muted-foreground">Sem hashtag</span>}
+                        <span className="text-xs text-muted-foreground">{r.post_count ?? 0} posts</span>
+                      </div>
+                    </div>
+                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${r.ativo ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"}`}>
                       {r.ativo ? "Ativo" : "Inativo"}
                     </span>
-                  </td>
-                  <td className="px-5 py-3 flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => openEdit(r)}>Editar</Button>
-                    <Button size="sm" variant="ghost" onClick={() => toggleAtivo(r)}>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => openEdit(r)} className="flex-1 h-10">Editar</Button>
+                    <Button size="sm" variant="ghost" onClick={() => toggleAtivo(r)} className="flex-1 h-10">
                       {r.ativo ? "Desativar" : "Ativar"}
                     </Button>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+            {/* Desktop table */}
+            <div className="hidden sm:block">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-5 py-3 font-medium">Nome</th>
+                    <th className="text-left px-5 py-3 font-medium">Hashtag</th>
+                    <th className="text-right px-5 py-3 font-medium">Posts vinculados</th>
+                    <th className="text-left px-5 py-3 font-medium">Status</th>
+                    <th className="text-left px-5 py-3 font-medium">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {rows.map((r) => (
+                    <tr key={r.id} className="hover:bg-muted/20">
+                      <td className="px-5 py-3 font-medium">{r.nome}</td>
+                      <td className="px-5 py-3">
+                        {r.hashtag
+                          ? <span className="inline-flex items-center gap-1 text-primary font-mono text-xs bg-primary/10 px-2 py-0.5 rounded">#{r.hashtag}</span>
+                          : <span className="text-muted-foreground">-</span>}
+                      </td>
+                      <td className="px-5 py-3 text-right tabular-nums">{r.post_count ?? 0}</td>
+                      <td className="px-5 py-3">
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${r.ativo ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"}`}>
+                          {r.ativo ? "Ativo" : "Inativo"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => openEdit(r)}>Editar</Button>
+                        <Button size="sm" variant="ghost" onClick={() => toggleAtivo(r)}>
+                          {r.ativo ? "Desativar" : "Ativar"}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

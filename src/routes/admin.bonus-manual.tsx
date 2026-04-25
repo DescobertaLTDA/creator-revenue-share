@@ -265,24 +265,26 @@ function BonusManualPage() {
       />
 
       {/* Month navigation */}
-      <div className="flex items-center gap-3">
-        <button onClick={() => setMonthRef(prevMonth(monthRef))} className="p-1.5 rounded-md border border-border hover:bg-muted transition-colors">
-          <ChevronLeft className="h-4 w-4" />
+      <div className="flex items-center gap-2">
+        <button onClick={() => setMonthRef(prevMonth(monthRef))} className="p-2.5 rounded-xl border border-border hover:bg-muted transition-colors">
+          <ChevronLeft className="h-5 w-5" />
         </button>
-        <input
-          type="month"
-          value={monthRef}
-          onChange={(e) => e.target.value && setMonthRef(e.target.value)}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm font-medium"
-        />
-        <button onClick={() => setMonthRef(nextMonth(monthRef))} className="p-1.5 rounded-md border border-border hover:bg-muted transition-colors" disabled={monthRef >= todayMonth}>
-          <ChevronRight className="h-4 w-4" />
+        <div className="flex-1 flex items-center gap-2">
+          <input
+            type="month"
+            value={monthRef}
+            onChange={(e) => e.target.value && setMonthRef(e.target.value)}
+            className="flex-1 h-11 rounded-xl border border-input bg-background px-3 text-sm font-medium"
+          />
+          <span className="hidden sm:block text-sm font-semibold text-muted-foreground whitespace-nowrap">{formatMonth(monthRef)}</span>
+        </div>
+        <button onClick={() => setMonthRef(nextMonth(monthRef))} className="p-2.5 rounded-xl border border-border hover:bg-muted transition-colors" disabled={monthRef >= todayMonth}>
+          <ChevronRight className="h-5 w-5" />
         </button>
-        <span className="text-sm font-semibold text-muted-foreground">{formatMonth(monthRef)}</span>
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-card border border-border rounded-xl p-4">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Posts (USD)</p>
           <p className="text-xl font-bold mt-1">${totalPosts.toFixed(2)}</p>
@@ -311,115 +313,184 @@ function BonusManualPage() {
 
       {/* Daily table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-border">
+        <div className="px-4 sm:px-5 py-4 border-b border-border">
           <h2 className="font-semibold">Receita dia a dia — {formatMonth(monthRef)}</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Digite o valor real que o Facebook pagou em cada dia. O bônus é calculado automaticamente.</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Digite o valor real do Facebook em cada dia. Salvo automaticamente.</p>
         </div>
         {loading ? (
           <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium w-24">Dia</th>
-                  <th className="text-right px-4 py-3 font-medium">Posts (USD)</th>
-                  <th className="text-right px-4 py-3 font-medium">Real recebido (USD)</th>
-                  <th className="text-right px-4 py-3 font-medium">Bônus / Diferença</th>
-                  <th className="text-left px-4 py-3 font-medium w-28">Rateio</th>
-                  <th className="text-left px-4 py-3 font-medium">Observação</th>
-                  <th className="w-8 px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {rows.map((row) => {
-                  const bonus = row.actual_revenue != null ? row.actual_revenue - row.posts_revenue : null;
-                  const isWeekend = row.weekday === "Sáb" || row.weekday === "Dom";
-                  const isFuture = row.date > new Date().toISOString().slice(0, 10);
-                  return (
-                    <tr key={row.date} className={`hover:bg-muted/20 ${isWeekend ? "bg-muted/10" : ""} ${isFuture ? "opacity-40" : ""}`}>
-                      <td className="px-4 py-2.5">
-                        <span className="font-semibold tabular-nums">{row.label}</span>
-                        <span className="text-[10px] text-muted-foreground ml-1.5">{row.weekday}</span>
-                      </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
-                        {row.posts_revenue > 0 ? `$${row.posts_revenue.toFixed(2)}` : <span className="text-muted-foreground/40">—</span>}
-                      </td>
-                      <td className="px-4 py-2.5 text-right">
+          <>
+            {/* Mobile: compact card list */}
+            <div className="sm:hidden divide-y divide-border">
+              {rows.map((row) => {
+                const bonus = row.actual_revenue != null ? row.actual_revenue - row.posts_revenue : null;
+                const isWeekend = row.weekday === "Sáb" || row.weekday === "Dom";
+                const isFuture = row.date > new Date().toISOString().slice(0, 10);
+                return (
+                  <div key={row.date} className={`px-4 py-3 space-y-2.5 ${isWeekend ? "bg-muted/10" : ""} ${isFuture ? "opacity-40" : ""}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold tabular-nums text-sm">{row.label}</span>
+                        <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{row.weekday}</span>
+                        {row.posts_revenue > 0 && <span className="text-xs text-muted-foreground">posts: ${row.posts_revenue.toFixed(2)}</span>}
+                      </div>
+                      <div className="h-5 w-5 flex items-center justify-center">
+                        {row.saving ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                          : row.saved ? <Check className="h-3.5 w-3.5 text-[#16a34a]" />
+                          : row.dirty ? <div className="h-2 w-2 rounded-full bg-amber-400" />
+                          : null}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Real recebido (USD)</p>
                         <input
                           type="number" min="0" step="0.01" disabled={isFuture}
                           placeholder="0.00"
                           value={row.actual_revenue ?? ""}
                           onChange={(e) => handleActualChange(row, e.target.value)}
                           onBlur={() => handleFieldBlur(row)}
-                          className="w-28 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
+                          className="w-full h-10 rounded-xl border border-input bg-background px-3 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-30"
                         />
-                      </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums font-medium">
-                        {bonus == null ? (
-                          <span className="text-muted-foreground/30">—</span>
-                        ) : bonus === 0 ? (
-                          <span className="inline-flex items-center gap-1 text-muted-foreground"><Minus className="h-3 w-3" />$0.00</span>
-                        ) : bonus > 0 ? (
-                          <span className="inline-flex items-center gap-1 text-[#16a34a]"><TrendingUp className="h-3 w-3" />+${bonus.toFixed(2)}</span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-destructive"><TrendingDown className="h-3 w-3" />${bonus.toFixed(2)}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <select
-                          disabled={isFuture}
-                          value={row.distribution_mode}
-                          onChange={(e) => {
-                            updateRow(row.date, "distribution_mode", e.target.value);
-                            setTimeout(() => {
-                              setRows((prev) => {
-                                const updated = prev.find((r) => r.date === row.date);
-                                if (updated) saveRow({ ...updated, distribution_mode: e.target.value, dirty: true });
-                                return prev;
-                              });
-                            }, 0);
-                          }}
-                          className="h-7 w-full rounded border border-input bg-background px-1.5 text-xs disabled:opacity-30"
-                        >
-                          <option value="hybrid">Misto</option>
-                          <option value="views">Views</option>
-                          <option value="revenue">Receita</option>
-                        </select>
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <input
-                          type="text" disabled={isFuture}
-                          placeholder="ex: bônus Facebook, posts antigos…"
-                          value={row.note}
-                          onChange={(e) => updateRow(row.date, "note", e.target.value)}
-                          onBlur={() => handleFieldBlur(row)}
-                          className="h-7 w-full rounded border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
-                        />
-                      </td>
-                      <td className="px-2 py-2.5 w-8">
-                        {row.saving ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                          : row.saved ? <Check className="h-3.5 w-3.5 text-[#16a34a]" />
-                          : row.dirty ? <div className="h-2 w-2 rounded-full bg-amber-400" title="Não salvo" />
-                          : null}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr className="border-t-2 border-border bg-muted/30 font-semibold text-sm">
-                  <td className="px-4 py-3 text-muted-foreground">Total</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">${totalPosts.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">${totalActual.toFixed(2)}</td>
-                  <td className={`px-4 py-3 text-right tabular-nums ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
-                    {totalBonus >= 0 ? "+" : ""}${totalBonus.toFixed(2)}
-                  </td>
-                  <td colSpan={3} />
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                      </div>
+                      {bonus != null && (
+                        <div className="shrink-0 text-right">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Bônus</p>
+                          <p className={`text-sm font-semibold tabular-nums ${bonus > 0 ? "text-[#16a34a]" : bonus < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                            {bonus > 0 ? "+" : ""}{bonus === 0 ? "$0.00" : `$${bonus.toFixed(2)}`}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    {row.actual_revenue != null && (
+                      <input
+                        type="text" disabled={isFuture}
+                        placeholder="Observação (opcional)"
+                        value={row.note}
+                        onChange={(e) => updateRow(row.date, "note", e.target.value)}
+                        onBlur={() => handleFieldBlur(row)}
+                        className="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+              <div className="px-4 py-3 bg-muted/30 flex items-center justify-between font-semibold text-sm">
+                <span>Total</span>
+                <div className="text-right">
+                  <p className={totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}>
+                    {totalBonus >= 0 ? "+" : ""}${totalBonus.toFixed(2)} bônus
+                  </p>
+                  <p className="text-xs text-muted-foreground font-normal">real: ${totalActual.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop: full table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-medium w-24">Dia</th>
+                    <th className="text-right px-4 py-3 font-medium">Posts (USD)</th>
+                    <th className="text-right px-4 py-3 font-medium">Real recebido (USD)</th>
+                    <th className="text-right px-4 py-3 font-medium">Bônus / Diferença</th>
+                    <th className="text-left px-4 py-3 font-medium w-28">Rateio</th>
+                    <th className="text-left px-4 py-3 font-medium">Observação</th>
+                    <th className="w-8 px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {rows.map((row) => {
+                    const bonus = row.actual_revenue != null ? row.actual_revenue - row.posts_revenue : null;
+                    const isWeekend = row.weekday === "Sáb" || row.weekday === "Dom";
+                    const isFuture = row.date > new Date().toISOString().slice(0, 10);
+                    return (
+                      <tr key={row.date} className={`hover:bg-muted/20 ${isWeekend ? "bg-muted/10" : ""} ${isFuture ? "opacity-40" : ""}`}>
+                        <td className="px-4 py-2.5">
+                          <span className="font-semibold tabular-nums">{row.label}</span>
+                          <span className="text-[10px] text-muted-foreground ml-1.5">{row.weekday}</span>
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                          {row.posts_revenue > 0 ? `$${row.posts_revenue.toFixed(2)}` : <span className="text-muted-foreground/40">—</span>}
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          <input
+                            type="number" min="0" step="0.01" disabled={isFuture}
+                            placeholder="0.00"
+                            value={row.actual_revenue ?? ""}
+                            onChange={(e) => handleActualChange(row, e.target.value)}
+                            onBlur={() => handleFieldBlur(row)}
+                            className="w-28 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
+                          />
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums font-medium">
+                          {bonus == null ? (
+                            <span className="text-muted-foreground/30">—</span>
+                          ) : bonus === 0 ? (
+                            <span className="inline-flex items-center gap-1 text-muted-foreground"><Minus className="h-3 w-3" />$0.00</span>
+                          ) : bonus > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-[#16a34a]"><TrendingUp className="h-3 w-3" />+${bonus.toFixed(2)}</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-destructive"><TrendingDown className="h-3 w-3" />${bonus.toFixed(2)}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <select
+                            disabled={isFuture}
+                            value={row.distribution_mode}
+                            onChange={(e) => {
+                              updateRow(row.date, "distribution_mode", e.target.value);
+                              setTimeout(() => {
+                                setRows((prev) => {
+                                  const updated = prev.find((r) => r.date === row.date);
+                                  if (updated) saveRow({ ...updated, distribution_mode: e.target.value, dirty: true });
+                                  return prev;
+                                });
+                              }, 0);
+                            }}
+                            className="h-7 w-full rounded border border-input bg-background px-1.5 text-xs disabled:opacity-30"
+                          >
+                            <option value="hybrid">Misto</option>
+                            <option value="views">Views</option>
+                            <option value="revenue">Receita</option>
+                          </select>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <input
+                            type="text" disabled={isFuture}
+                            placeholder="ex: bônus Facebook, posts antigos…"
+                            value={row.note}
+                            onChange={(e) => updateRow(row.date, "note", e.target.value)}
+                            onBlur={() => handleFieldBlur(row)}
+                            className="h-7 w-full rounded border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
+                          />
+                        </td>
+                        <td className="px-2 py-2.5 w-8">
+                          {row.saving ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                            : row.saved ? <Check className="h-3.5 w-3.5 text-[#16a34a]" />
+                            : row.dirty ? <div className="h-2 w-2 rounded-full bg-amber-400" title="Não salvo" />
+                            : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-border bg-muted/30 font-semibold text-sm">
+                    <td className="px-4 py-3 text-muted-foreground">Total</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">${totalPosts.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">${totalActual.toFixed(2)}</td>
+                    <td className={`px-4 py-3 text-right tabular-nums ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
+                      {totalBonus >= 0 ? "+" : ""}${totalBonus.toFixed(2)}
+                    </td>
+                    <td colSpan={3} />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -445,66 +516,85 @@ function BonusManualPage() {
             Sem dados de views em {formatMonth(prevMonthRef)}. Importe o CSV desse mês para calcular a distribuição.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-                <tr>
-                  <th className="text-left px-5 py-3 font-medium">Colaborador</th>
-                  <th className="text-right px-5 py-3 font-medium">Views em {formatMonth(prevMonthRef)}</th>
-                  <th className="text-right px-5 py-3 font-medium">% do total</th>
-                  <th className="text-right px-5 py-3 font-medium">Bônus estimado (USD)</th>
-                  <th className="px-5 py-3 font-medium w-48">Participação</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {distWithBonus.map((c) => (
-                  <tr key={c.id} className="hover:bg-muted/20">
-                    <td className="px-5 py-3">
-                      <p className="font-medium">{c.nome}</p>
+          <>
+            {/* Mobile card list */}
+            <div className="sm:hidden divide-y divide-border">
+              {distWithBonus.map((c) => (
+                <div key={c.id} className="px-4 py-3 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-sm">{c.nome}</p>
                       {c.hashtag && <p className="text-xs text-muted-foreground">#{c.hashtag}</p>}
-                    </td>
-                    <td className="px-5 py-3 text-right tabular-nums">
-                      {c.views >= 1_000_000
-                        ? `${(c.views / 1_000_000).toFixed(1)}M`
-                        : c.views >= 1_000
-                        ? `${(c.views / 1_000).toFixed(1)}k`
-                        : c.views.toLocaleString("pt-BR")}
-                    </td>
-                    <td className="px-5 py-3 text-right tabular-nums font-semibold">
-                      {formatPct(c.pct * 100)}
-                    </td>
-                    <td className={`px-5 py-3 text-right tabular-nums font-semibold ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
+                    </div>
+                    <p className={`font-bold tabular-nums text-sm shrink-0 ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
                       {totalBonus !== 0 ? `${totalBonus >= 0 ? "+" : ""}$${c.bonus_estimated.toFixed(2)}` : "—"}
-                    </td>
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div className="h-full bg-[#16a34a] rounded-full" style={{ width: `${c.pct * 100}%` }} />
-                        </div>
-                        <span className="text-xs text-muted-foreground w-10 text-right">{formatPct(c.pct * 100)}</span>
-                      </div>
-                    </td>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-[#16a34a] rounded-full transition-all" style={{ width: `${c.pct * 100}%` }} />
+                    </div>
+                    <span className="text-xs font-semibold w-12 text-right tabular-nums">{formatPct(c.pct * 100)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {c.views >= 1_000_000 ? `${(c.views / 1_000_000).toFixed(1)}M` : c.views >= 1_000 ? `${(c.views / 1_000).toFixed(1)}k` : c.views.toLocaleString("pt-BR")} views
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-5 py-3 font-medium">Colaborador</th>
+                    <th className="text-right px-5 py-3 font-medium">Views em {formatMonth(prevMonthRef)}</th>
+                    <th className="text-right px-5 py-3 font-medium">% do total</th>
+                    <th className="text-right px-5 py-3 font-medium">Bônus estimado (USD)</th>
+                    <th className="px-5 py-3 font-medium w-48">Participação</th>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t-2 border-border bg-muted/30 font-semibold text-sm">
-                  <td className="px-5 py-3">Total</td>
-                  <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">
-                    {(() => {
-                      const t = distWithBonus.reduce((s, c) => s + c.views, 0);
-                      return t >= 1_000_000 ? `${(t / 1_000_000).toFixed(1)}M` : t >= 1_000 ? `${(t / 1_000).toFixed(1)}k` : t.toLocaleString("pt-BR");
-                    })()}
-                  </td>
-                  <td className="px-5 py-3 text-right">100%</td>
-                  <td className={`px-5 py-3 text-right tabular-nums ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
-                    {totalBonus !== 0 ? `${totalBonus >= 0 ? "+" : ""}$${totalBonus.toFixed(2)}` : "—"}
-                  </td>
-                  <td />
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {distWithBonus.map((c) => (
+                    <tr key={c.id} className="hover:bg-muted/20">
+                      <td className="px-5 py-3">
+                        <p className="font-medium">{c.nome}</p>
+                        {c.hashtag && <p className="text-xs text-muted-foreground">#{c.hashtag}</p>}
+                      </td>
+                      <td className="px-5 py-3 text-right tabular-nums">
+                        {c.views >= 1_000_000 ? `${(c.views / 1_000_000).toFixed(1)}M` : c.views >= 1_000 ? `${(c.views / 1_000).toFixed(1)}k` : c.views.toLocaleString("pt-BR")}
+                      </td>
+                      <td className="px-5 py-3 text-right tabular-nums font-semibold">{formatPct(c.pct * 100)}</td>
+                      <td className={`px-5 py-3 text-right tabular-nums font-semibold ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
+                        {totalBonus !== 0 ? `${totalBonus >= 0 ? "+" : ""}$${c.bonus_estimated.toFixed(2)}` : "—"}
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-[#16a34a] rounded-full" style={{ width: `${c.pct * 100}%` }} />
+                          </div>
+                          <span className="text-xs text-muted-foreground w-10 text-right">{formatPct(c.pct * 100)}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-border bg-muted/30 font-semibold text-sm">
+                    <td className="px-5 py-3">Total</td>
+                    <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">
+                      {(() => { const t = distWithBonus.reduce((s, c) => s + c.views, 0); return t >= 1_000_000 ? `${(t / 1_000_000).toFixed(1)}M` : t >= 1_000 ? `${(t / 1_000).toFixed(1)}k` : t.toLocaleString("pt-BR"); })()}
+                    </td>
+                    <td className="px-5 py-3 text-right">100%</td>
+                    <td className={`px-5 py-3 text-right tabular-nums ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
+                      {totalBonus !== 0 ? `${totalBonus >= 0 ? "+" : ""}$${totalBonus.toFixed(2)}` : "—"}
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

@@ -62,49 +62,87 @@ function RulesPage() {
         actions={<Button onClick={() => setShowForm(v => !v)}><Plus className="h-4 w-4 mr-2"/>Nova regra</Button>} />
 
       {showForm && (
-        <form onSubmit={onSubmit} className="bg-card border border-border rounded-xl p-5 mb-6 grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
-          <div className="sm:col-span-2">
+        <form onSubmit={onSubmit} className="bg-card border border-border rounded-xl p-4 sm:p-5 mb-6 space-y-4">
+          <h3 className="font-semibold text-sm">Nova regra de split</h3>
+          <div className="flex flex-col gap-1.5">
             <Label>Página</Label>
-            <select value={pageId} onChange={e => setPageId(e.target.value)} className="h-10 w-full mt-1.5 rounded-md border border-input bg-background px-3 text-sm">
+            <select value={pageId} onChange={e => setPageId(e.target.value)} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
               <option value="">Selecione…</option>
               {pages.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
           </div>
-          <div><Label>% Colab</Label><Input type="number" min={0} max={100} value={colPct} onChange={e => setColPct(Number(e.target.value))}/></div>
-          <div><Label>% Página</Label><Input type="number" min={0} max={100} value={pgPct} onChange={e => setPgPct(Number(e.target.value))}/></div>
-          <div><Label>% Equipe</Label><Input type="number" min={0} max={100} value={tmPct} onChange={e => setTmPct(Number(e.target.value))}/></div>
-          <div className="sm:col-span-5 flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
-            <Button type="submit">Salvar (soma: {colPct+pgPct+tmPct}%)</Button>
+          <div className="grid grid-cols-3 gap-3">
+            <div><Label>% Colab</Label><Input type="number" min={0} max={100} value={colPct} onChange={e => setColPct(Number(e.target.value))} className="h-11 rounded-xl mt-1"/></div>
+            <div><Label>% Página</Label><Input type="number" min={0} max={100} value={pgPct} onChange={e => setPgPct(Number(e.target.value))} className="h-11 rounded-xl mt-1"/></div>
+            <div><Label>% Equipe</Label><Input type="number" min={0} max={100} value={tmPct} onChange={e => setTmPct(Number(e.target.value))} className="h-11 rounded-xl mt-1"/></div>
+          </div>
+          <p className={`text-xs font-medium ${colPct+pgPct+tmPct === 100 ? "text-[#16a34a]" : "text-destructive"}`}>
+            Soma: {colPct+pgPct+tmPct}% {colPct+pgPct+tmPct === 100 ? "✓" : "(deve ser 100%)"}
+          </p>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => setShowForm(false)} className="flex-1 h-11">Cancelar</Button>
+            <Button type="submit" className="flex-1 h-11">Salvar regra</Button>
           </div>
         </form>
       )}
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        {loading ? <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground"/></div> :
-        rules.length === 0 ? <div className="p-6"><EmptyState icon={Percent} title="Nenhuma regra cadastrada" description="Cadastre regras de divisão por página."/></div> :
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="text-left px-5 py-3 font-medium">Página</th>
-              <th className="text-left px-5 py-3 font-medium">Vigente desde</th>
-              <th className="text-right px-5 py-3 font-medium">Colab</th>
-              <th className="text-right px-5 py-3 font-medium">Página</th>
-              <th className="text-right px-5 py-3 font-medium">Equipe</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {rules.map(r => (
-              <tr key={r.id}>
-                <td className="px-5 py-3 font-medium">{r.pages?.nome ?? "—"}</td>
-                <td className="px-5 py-3 text-muted-foreground">{formatDate(r.effective_from)}</td>
-                <td className="px-5 py-3 text-right tabular-nums">{formatPct(r.collaborator_pct)}</td>
-                <td className="px-5 py-3 text-right tabular-nums">{formatPct(r.page_pct)}</td>
-                <td className="px-5 py-3 text-right tabular-nums">{formatPct(r.team_pct)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>}
+        {loading ? (
+          <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground"/></div>
+        ) : rules.length === 0 ? (
+          <div className="p-6"><EmptyState icon={Percent} title="Nenhuma regra cadastrada" description="Cadastre regras de divisão por página."/></div>
+        ) : (
+          <>
+            {/* Mobile card list */}
+            <div className="sm:hidden divide-y divide-border">
+              {rules.map(r => (
+                <div key={r.id} className="px-4 py-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold">{r.pages?.nome ?? "—"}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Vigente desde {formatDate(r.effective_from)}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 mt-3">
+                    {[
+                      { label: "Colaborador", value: formatPct(r.collaborator_pct) },
+                      { label: "Página", value: formatPct(r.page_pct) },
+                      { label: "Equipe", value: formatPct(r.team_pct) },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="bg-muted/30 rounded-lg px-3 py-2 text-center">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</p>
+                        <p className="font-bold tabular-nums mt-0.5">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Desktop table */}
+            <table className="hidden sm:table w-full text-sm">
+              <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="text-left px-5 py-3 font-medium">Página</th>
+                  <th className="text-left px-5 py-3 font-medium">Vigente desde</th>
+                  <th className="text-right px-5 py-3 font-medium">Colab</th>
+                  <th className="text-right px-5 py-3 font-medium">Página</th>
+                  <th className="text-right px-5 py-3 font-medium">Equipe</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {rules.map(r => (
+                  <tr key={r.id}>
+                    <td className="px-5 py-3 font-medium">{r.pages?.nome ?? "—"}</td>
+                    <td className="px-5 py-3 text-muted-foreground">{formatDate(r.effective_from)}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">{formatPct(r.collaborator_pct)}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">{formatPct(r.page_pct)}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">{formatPct(r.team_pct)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
       </div>
     </div>
   );

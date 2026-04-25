@@ -268,14 +268,14 @@ function ImportacoesPage() {
       />
 
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <div className="relative flex-1 max-w-sm">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar por arquivo…" value={q} onChange={(e) => setQ(e.target.value)} className="pl-9" />
+          <Input placeholder="Buscar por arquivo…" value={q} onChange={(e) => setQ(e.target.value)} className="pl-9 h-11 sm:h-10 rounded-xl sm:rounded-md" />
         </div>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+          className="h-11 sm:h-10 rounded-xl sm:rounded-md border border-input bg-background px-3 text-sm"
         >
           <option value="">Todos os status</option>
           <option value="processando">Processando</option>
@@ -290,45 +290,59 @@ function ImportacoesPage() {
           <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         ) : filtered.length === 0 ? (
           <div className="p-6">
-            <EmptyState
-              icon={FileSpreadsheet}
-              title="Nenhuma importação encontrada"
-              description="Envie seu primeiro CSV para começar."
-            />
+            <EmptyState icon={FileSpreadsheet} title="Nenhuma importação encontrada" description="Envie seu primeiro CSV para começar." />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-                <tr>
-                  <th className="text-left px-5 py-3 font-medium">Arquivo</th>
-                  <th className="text-left px-5 py-3 font-medium">Status</th>
-                  <th className="text-right px-5 py-3 font-medium">Válidas</th>
-                  <th className="text-right px-5 py-3 font-medium">Inválidas</th>
-                  <th className="text-right px-5 py-3 font-medium">Novas/Atual.</th>
-                  <th className="text-right px-5 py-3 font-medium">Páginas</th>
-                  <th className="text-left px-5 py-3 font-medium">Quando</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filtered.map((imp) => (
-                  <tr key={imp.id} className="hover:bg-muted/20">
-                    <td className="px-5 py-3">
-                      <Link to="/admin/importacoes/$id" params={{ id: imp.id }} className="font-medium hover:underline">
-                        {imp.file_name}
-                      </Link>
-                    </td>
-                    <td className="px-5 py-3"><StatusBadge status={imp.status} /></td>
-                    <td className="px-5 py-3 text-right tabular-nums">{imp.valid_rows}</td>
-                    <td className="px-5 py-3 text-right tabular-nums text-destructive">{imp.invalid_rows}</td>
-                    <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">{imp.inserted_rows}/{imp.updated_rows}</td>
-                    <td className="px-5 py-3 text-right tabular-nums">{imp.detected_pages_count}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{formatDateTime(imp.created_at)}</td>
+          <>
+            {/* Mobile card list */}
+            <div className="sm:hidden divide-y divide-border">
+              {filtered.map((imp) => (
+                <Link key={imp.id} to="/admin/importacoes/$id" params={{ id: imp.id }} className="flex items-center justify-between gap-3 px-4 py-4 hover:bg-muted/20 active:bg-muted/40 transition-colors">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{imp.file_name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{formatDateTime(imp.created_at)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {imp.valid_rows} válidas · {imp.invalid_rows > 0 && <span className="text-destructive">{imp.invalid_rows} inv. · </span>}{imp.inserted_rows} novas · {imp.updated_rows} atual.
+                    </p>
+                  </div>
+                  <StatusBadge status={imp.status} />
+                </Link>
+              ))}
+            </div>
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-5 py-3 font-medium">Arquivo</th>
+                    <th className="text-left px-5 py-3 font-medium">Status</th>
+                    <th className="text-right px-5 py-3 font-medium">Válidas</th>
+                    <th className="text-right px-5 py-3 font-medium">Inválidas</th>
+                    <th className="text-right px-5 py-3 font-medium">Novas/Atual.</th>
+                    <th className="text-right px-5 py-3 font-medium">Páginas</th>
+                    <th className="text-left px-5 py-3 font-medium">Quando</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filtered.map((imp) => (
+                    <tr key={imp.id} className="hover:bg-muted/20">
+                      <td className="px-5 py-3">
+                        <Link to="/admin/importacoes/$id" params={{ id: imp.id }} className="font-medium hover:underline">
+                          {imp.file_name}
+                        </Link>
+                      </td>
+                      <td className="px-5 py-3"><StatusBadge status={imp.status} /></td>
+                      <td className="px-5 py-3 text-right tabular-nums">{imp.valid_rows}</td>
+                      <td className="px-5 py-3 text-right tabular-nums text-destructive">{imp.invalid_rows}</td>
+                      <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">{imp.inserted_rows}/{imp.updated_rows}</td>
+                      <td className="px-5 py-3 text-right tabular-nums">{imp.detected_pages_count}</td>
+                      <td className="px-5 py-3 text-muted-foreground">{formatDateTime(imp.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>
