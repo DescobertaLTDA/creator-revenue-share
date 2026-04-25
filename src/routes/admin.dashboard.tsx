@@ -940,19 +940,18 @@ function AdminDashboard() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {auditData.posts.map((p) => (
-                      <tr key={p.id} className="hover:bg-muted/20">
+                      <tr
+                        key={p.id}
+                        className={`hover:bg-muted/20 ${p.permalink ? "cursor-pointer" : ""}`}
+                        onClick={() => p.permalink && window.open(p.permalink, "_blank", "noopener,noreferrer")}
+                      >
                         <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
                           {p.published_at ? p.published_at.slice(0, 10) : "—"}
                         </td>
                         <td className="px-3 py-2 max-w-[200px]">
-                          {p.permalink ? (
-                            <a href={p.permalink} target="_blank" rel="noopener noreferrer"
-                              className="truncate block hover:underline text-foreground">
-                              {p.title ?? p.id.slice(0, 8)}
-                            </a>
-                          ) : (
-                            <span className="truncate block text-foreground">{p.title ?? p.id.slice(0, 8)}</span>
-                          )}
+                          <span className={`truncate block ${p.permalink ? "hover:underline text-foreground" : "text-foreground"}`}>
+                            {p.title ?? p.id.slice(0, 8)}
+                          </span>
                           {p.post_type && (
                             <span className="text-[10px] text-muted-foreground capitalize">{p.post_type}</span>
                           )}
