@@ -72,16 +72,15 @@ function ImportacoesPage() {
       const text = await file.text();
       const hash = await hashFile(file);
 
-      // Duplicidade por hash
+      // Avisa se já importado, mas continua (permite atualizar dados como permalink)
       const { data: existing } = await supabase
         .from("csv_imports")
         .select("id")
         .eq("file_hash", hash)
         .maybeSingle();
       if (existing) {
-        toast.warning("Arquivo já importado", { id: toastId, description: "Este CSV já foi processado anteriormente." });
-        setUploading(false);
-        return;
+        toast.info("Arquivo já importado anteriormente — atualizando dados…", { id: toastId });
+        await supabase.from("csv_imports").update({ file_hash: null }).eq("id", existing.id);
       }
 
       const parsed = parseFacebookCsv(text);
