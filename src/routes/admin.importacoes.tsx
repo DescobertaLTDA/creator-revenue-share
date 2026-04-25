@@ -270,12 +270,12 @@ function ImportacoesPage() {
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar por arquivo…" value={q} onChange={(e) => setQ(e.target.value)} className="pl-9 h-11 sm:h-10 rounded-xl sm:rounded-md" />
+          <Input placeholder="Buscar por arquivo…" value={q} onChange={(e) => setQ(e.target.value)} className="pl-9 h-11 sm:h-10 rounded-lg sm:rounded-md" />
         </div>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-11 sm:h-10 rounded-xl sm:rounded-md border border-input bg-background px-3 text-sm"
+          className="h-11 sm:h-10 rounded-lg sm:rounded-md border border-input bg-background px-3 text-sm"
         >
           <option value="">Todos os status</option>
           <option value="processando">Processando</option>
@@ -285,7 +285,7 @@ function ImportacoesPage() {
         </select>
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
         {loading ? (
           <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         ) : filtered.length === 0 ? (

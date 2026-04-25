@@ -21,15 +21,15 @@ export function KpiCard({
   };
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5 flex items-start justify-between gap-4">
-      <div className="space-y-1 min-w-0">
-        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">{label}</p>
-        <p className="text-2xl font-bold tracking-tight text-foreground">{value}</p>
+    <div className="bg-card border border-border rounded-lg p-4 flex items-start justify-between gap-4">
+      <div className="space-y-0.5 min-w-0">
+        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
+        <p className="text-xl font-semibold tracking-tight text-foreground">{value}</p>
         {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       </div>
       {Icon && (
         <div className="shrink-0 mt-0.5">
-          <Icon className={`h-5 w-5 ${iconColor[tone]}`} />
+          <Icon className={`h-4 w-4 ${iconColor[tone]}`} />
         </div>
       )}
     </div>

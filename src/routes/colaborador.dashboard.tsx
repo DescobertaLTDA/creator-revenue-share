@@ -50,7 +50,7 @@ function Page() {
         <KpiCard label="Fechamentos" value={loading ? "…" : items.length} icon={CalendarCheck} />
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
         <div className="px-5 py-4 border-b border-border"><h2 className="font-medium">Histórico</h2></div>
         {loading ? <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground"/></div> :
         items.length === 0 ? <div className="p-6"><EmptyState icon={CalendarCheck} title="Sem fechamentos" description="Quando o admin publicar um fechamento, ele aparece aqui."/></div> :

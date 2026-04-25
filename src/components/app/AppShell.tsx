@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import {
   LayoutDashboard, FileSpreadsheet, FileText, Percent,
-  CalendarCheck, Users, HandCoins, LogOut, Wallet, MoreHorizontal, X,
+  CalendarCheck, Users, HandCoins, LogOut, Wallet, Menu, X,
 } from "lucide-react";
 
 interface NavItem {
@@ -13,42 +13,28 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const adminBottomNav: NavItem[] = [
+const adminNav: NavItem[] = [
   { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/admin/posts", label: "Posts", icon: FileText },
   { to: "/admin/fechamentos", label: "Fechamentos", icon: CalendarCheck },
   { to: "/admin/colaboradores", label: "Equipe", icon: Users },
-  { to: "/admin/importacoes", label: "Importar", icon: FileSpreadsheet },
-];
-
-const adminMoreNav: NavItem[] = [
+  { to: "/admin/importacoes", label: "Importações", icon: FileSpreadsheet },
   { to: "/admin/regras-split", label: "Regras de Split", icon: Percent },
   { to: "/admin/bonus-manual", label: "Bônus Manual", icon: HandCoins },
-];
-
-const adminAllNav: NavItem[] = [...adminBottomNav, ...adminMoreNav];
-
-const colabNav: NavItem[] = [
-  { to: "/colaborador/dashboard", label: "Meu Painel", icon: LayoutDashboard },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [moreOpen, setMoreOpen] = useState(false);
-
-  const isAdmin = profile?.role === "admin";
-  const bottomNav = isAdmin ? adminBottomNav : colabNav;
-  const moreNav = isAdmin ? adminMoreNav : [];
-  const sidebarNav = isAdmin ? adminAllNav : colabNav;
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const handleLogout = async () => {
     await signOut();
     navigate({ to: "/login" });
   };
 
-  const isMoreActive = moreNav.some(
+  const currentPage = adminNav.find(
     (item) => location.pathname === item.to || location.pathname.startsWith(item.to + "/")
   );
 
@@ -57,38 +43,38 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* ── Desktop sidebar ─────────────────────────────── */}
       <aside className="hidden lg:flex w-64 flex-col border-r border-border bg-sidebar h-screen sticky top-0 overflow-hidden">
         <SidebarContent
-          nav={sidebarNav}
+          nav={adminNav}
           pathname={location.pathname}
           onLogout={handleLogout}
           profile={profile}
         />
       </aside>
 
-      {/* ── Mobile "Mais" bottom sheet ───────────────────── */}
-      {moreOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end">
+      {/* ── Mobile drawer overlay ────────────────────────── */}
+      {drawerOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex">
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setMoreOpen(false)}
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setDrawerOpen(false)}
           />
-          <div className="relative bg-sidebar rounded-t-2xl shadow-2xl">
-            {/* drag handle */}
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="h-1 w-10 rounded-full bg-border" />
-            </div>
-
-            <div className="px-4 pb-2 pt-1 flex items-center justify-between">
-              <span className="font-semibold text-sm text-sidebar-foreground">Menu</span>
+          <div className="relative w-72 bg-sidebar h-full shadow-xl flex flex-col">
+            <div className="flex items-center justify-between h-14 px-4 border-b border-border shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
+                  <Wallet className="h-3.5 w-3.5 text-primary-foreground" />
+                </div>
+                <span className="font-semibold text-sm text-sidebar-foreground">Rateio Creator</span>
+              </div>
               <button
-                onClick={() => setMoreOpen(false)}
-                className="p-2 rounded-lg hover:bg-accent text-muted-foreground"
+                onClick={() => setDrawerOpen(false)}
+                className="p-1.5 rounded-md text-muted-foreground hover:bg-accent"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="px-3 space-y-1 pb-2">
-              {moreNav.map((item) => {
+            <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
+              {adminNav.map((item) => {
                 const active =
                   location.pathname === item.to ||
                   location.pathname.startsWith(item.to + "/");
@@ -97,110 +83,64 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <Link
                     key={item.to}
                     to={item.to}
-                    onClick={() => setMoreOpen(false)}
+                    onClick={() => setDrawerOpen(false)}
                     className={cn(
-                      "flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-colors",
+                      "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
                       active
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-primary text-primary-foreground font-medium"
                         : "text-sidebar-foreground hover:bg-accent"
                     )}
                   >
-                    <Icon className="h-5 w-5" />
+                    <Icon className="h-4 w-4 shrink-0" />
                     {item.label}
                   </Link>
                 );
               })}
-            </div>
+            </nav>
 
-            <div className="mx-3 mb-3 border-t border-border pt-3">
-              <div className="px-4 py-2">
+            <div className="border-t border-border p-3 shrink-0">
+              <div className="px-3 py-2">
                 <p className="text-sm font-medium text-sidebar-foreground">{profile?.nome}</p>
                 <p className="text-xs text-muted-foreground truncate">{profile?.email}</p>
               </div>
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-muted-foreground hover:bg-accent transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent transition-colors"
               >
-                <LogOut className="h-5 w-5" />
+                <LogOut className="h-4 w-4" />
                 Sair da conta
               </button>
             </div>
-            {/* safe area spacer */}
-            <div className="h-safe-area-inset-bottom pb-2" />
           </div>
         </div>
       )}
 
       {/* ── Main content ─────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile top bar */}
-        <header className="lg:hidden sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-sidebar/95 backdrop-blur-md px-4 h-14 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-xl bg-primary flex items-center justify-center shadow-sm">
-              <Wallet className="h-4 w-4 text-primary-foreground" />
+        {/* Mobile top header */}
+        <header className="lg:hidden sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background/95 backdrop-blur-md px-4 h-12 shrink-0">
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="p-1.5 -ml-1 rounded-md text-muted-foreground hover:bg-accent"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div className="h-6 w-6 rounded-md bg-primary flex items-center justify-center shrink-0">
+              <Wallet className="h-3 w-3 text-primary-foreground" />
             </div>
-            <div>
-              <p className="font-bold text-sm leading-none text-sidebar-foreground">Rateio Creator</p>
-              <p className="text-[10px] text-sidebar-foreground/50 leading-none mt-0.5">
-                {profile?.role === "admin" ? "Administração" : "Colaborador"}
-              </p>
-            </div>
+            <span className="text-sm font-semibold text-foreground truncate">
+              {currentPage?.label ?? "Rateio Creator"}
+            </span>
           </div>
         </header>
 
-        <main className="flex-1 overflow-x-hidden pb-20 lg:pb-0">
+        <main className="flex-1 overflow-x-hidden">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-5 lg:py-10">
             {children}
           </div>
         </main>
-
-        {/* Mobile bottom navigation */}
-        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-sidebar/95 backdrop-blur-md border-t border-border">
-          <div className="flex items-stretch h-16">
-            {bottomNav.map((item) => {
-              const active =
-                location.pathname === item.to ||
-                location.pathname.startsWith(item.to + "/");
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={cn(
-                    "flex-1 flex flex-col items-center justify-center gap-1 py-2 text-[10px] font-medium transition-colors relative",
-                    active ? "text-primary" : "text-muted-foreground"
-                  )}
-                >
-                  {active && (
-                    <span className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-8 bg-primary rounded-full" />
-                  )}
-                  <Icon className={cn("h-[22px] w-[22px]", active && "stroke-[2.5]")} />
-                  <span className="leading-none truncate max-w-[52px] text-center px-0.5">
-                    {item.label}
-                  </span>
-                </Link>
-              );
-            })}
-
-            {moreNav.length > 0 && (
-              <button
-                onClick={() => setMoreOpen(true)}
-                className={cn(
-                  "flex-1 flex flex-col items-center justify-center gap-1 py-2 text-[10px] font-medium transition-colors relative",
-                  isMoreActive ? "text-primary" : "text-muted-foreground"
-                )}
-              >
-                {isMoreActive && (
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-8 bg-primary rounded-full" />
-                )}
-                <MoreHorizontal className="h-[22px] w-[22px]" />
-                <span className="leading-none">Mais</span>
-              </button>
-            )}
-          </div>
-          {/* safe area bottom */}
-          <div className="h-safe-area-inset-bottom" />
-        </nav>
       </div>
     </div>
   );

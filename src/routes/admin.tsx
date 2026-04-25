@@ -14,14 +14,10 @@ function AdminLayout() {
 
   useEffect(() => {
     if (loading) return;
-    if (!session) {
-      navigate({ to: "/login" });
-    } else if (profile && profile.role !== "admin") {
-      navigate({ to: "/colaborador/dashboard" });
-    }
-  }, [loading, session, profile, navigate]);
+    if (!session) navigate({ to: "/login" });
+  }, [loading, session, navigate]);
 
-  if (loading || !profile || profile.role !== "admin") {
+  if (loading || !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />

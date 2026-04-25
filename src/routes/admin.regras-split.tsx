@@ -62,19 +62,19 @@ function RulesPage() {
         actions={<Button onClick={() => setShowForm(v => !v)}><Plus className="h-4 w-4 mr-2"/>Nova regra</Button>} />
 
       {showForm && (
-        <form onSubmit={onSubmit} className="bg-card border border-border rounded-xl p-4 sm:p-5 mb-6 space-y-4">
+        <form onSubmit={onSubmit} className="bg-card border border-border rounded-lg p-4 sm:p-5 mb-6 space-y-4">
           <h3 className="font-semibold text-sm">Nova regra de split</h3>
           <div className="flex flex-col gap-1.5">
             <Label>Página</Label>
-            <select value={pageId} onChange={e => setPageId(e.target.value)} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
+            <select value={pageId} onChange={e => setPageId(e.target.value)} className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm">
               <option value="">Selecione…</option>
               {pages.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <div><Label>% Colab</Label><Input type="number" min={0} max={100} value={colPct} onChange={e => setColPct(Number(e.target.value))} className="h-11 rounded-xl mt-1"/></div>
-            <div><Label>% Página</Label><Input type="number" min={0} max={100} value={pgPct} onChange={e => setPgPct(Number(e.target.value))} className="h-11 rounded-xl mt-1"/></div>
-            <div><Label>% Equipe</Label><Input type="number" min={0} max={100} value={tmPct} onChange={e => setTmPct(Number(e.target.value))} className="h-11 rounded-xl mt-1"/></div>
+            <div><Label>% Colab</Label><Input type="number" min={0} max={100} value={colPct} onChange={e => setColPct(Number(e.target.value))} className="h-9 rounded-md mt-1"/></div>
+            <div><Label>% Página</Label><Input type="number" min={0} max={100} value={pgPct} onChange={e => setPgPct(Number(e.target.value))} className="h-9 rounded-md mt-1"/></div>
+            <div><Label>% Equipe</Label><Input type="number" min={0} max={100} value={tmPct} onChange={e => setTmPct(Number(e.target.value))} className="h-9 rounded-md mt-1"/></div>
           </div>
           <p className={`text-xs font-medium ${colPct+pgPct+tmPct === 100 ? "text-[#16a34a]" : "text-destructive"}`}>
             Soma: {colPct+pgPct+tmPct}% {colPct+pgPct+tmPct === 100 ? "✓" : "(deve ser 100%)"}
@@ -86,7 +86,7 @@ function RulesPage() {
         </form>
       )}
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
         {loading ? (
           <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground"/></div>
         ) : rules.length === 0 ? (

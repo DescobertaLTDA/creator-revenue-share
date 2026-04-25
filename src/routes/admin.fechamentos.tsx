@@ -72,6 +72,7 @@ async function fetchViewsPctByColabForMonth(monthRef: string): Promise<Record<st
 
 function Page() {
   const { profile } = useAuth();
+  const isAdmin = profile?.role === "admin";
   const [closings, setClosings] = useState<Closing[]>([]);
   const [pages, setPages] = useState<PageRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -298,7 +299,7 @@ function Page() {
       />
 
       {showForm && (
-        <form onSubmit={generate} className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4">
+        <form onSubmit={generate} className="bg-card border border-border rounded-lg p-4 sm:p-5 space-y-4">
           <h3 className="font-semibold">Novo fechamento</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
@@ -307,7 +308,7 @@ function Page() {
                 type="month"
                 value={formMonth}
                 onChange={(e) => setFormMonth(e.target.value)}
-                className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                 required
               />
             </div>
@@ -316,7 +317,7 @@ function Page() {
               <select
                 value={formPage}
                 onChange={(e) => setFormPage(e.target.value)}
-                className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
               >
                 <option value="all">Todas as páginas</option>
                 {pages.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
@@ -336,7 +337,7 @@ function Page() {
         </form>
       )}
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
         {loading ? (
           <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         ) : closings.length === 0 ? (

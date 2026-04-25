@@ -307,7 +307,7 @@ function ruleEffectiveDay(rule: SplitRule): string {
       {loading ? (
         <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground"/></div>
       ) : analytics.totalPosts === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-6">
+        <div className="bg-card border border-border rounded-lg p-6">
           <EmptyState icon={FileText} title="Nenhum post importado" description="Envie um CSV na aba Importacoes."/>
         </div>
       ) : (
@@ -321,13 +321,13 @@ function ruleEffectiveDay(rule: SplitRule): string {
           </div>
 
           {analytics.chartData.length > 0 && (
-            <Suspense fallback={<div className="h-48 bg-muted/30 rounded-xl animate-pulse" />}>
+            <Suspense fallback={<div className="h-48 bg-muted/30 rounded-lg animate-pulse" />}>
               <DashboardCharts data={analytics.chartData} />
             </Suspense>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-card border border-border rounded-xl p-5">
+            <div className="bg-card border border-border rounded-lg p-5">
               <h2 className="font-medium mb-3">Top 5 por receita</h2>
               <div className="space-y-3">
                 {analytics.topRevenue.map((post, idx) => (
@@ -341,7 +341,7 @@ function ruleEffectiveDay(rule: SplitRule): string {
               </div>
             </div>
 
-            <div className="bg-card border border-border rounded-xl p-5">
+            <div className="bg-card border border-border rounded-lg p-5">
               <h2 className="font-medium mb-3">Top 5 por views</h2>
               <div className="space-y-3">
                 {analytics.topViews.map((post, idx) => (
@@ -355,7 +355,7 @@ function ruleEffectiveDay(rule: SplitRule): string {
               </div>
             </div>
 
-            <div className="bg-card border border-border rounded-xl p-5">
+            <div className="bg-card border border-border rounded-lg p-5">
               <h2 className="font-medium mb-3">Top 5 por reacoes</h2>
               <div className="space-y-3">
                 {analytics.topReactions.map((post, idx) => (
@@ -370,7 +370,7 @@ function ruleEffectiveDay(rule: SplitRule): string {
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-lg overflow-hidden">
             <div className="px-4 sm:px-5 py-4 border-b border-border">
               <h2 className="font-medium">Colaboradores (split)</h2>
             </div>
@@ -421,7 +421,7 @@ function ruleEffectiveDay(rule: SplitRule): string {
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-lg overflow-hidden">
             <div className="px-4 sm:px-5 py-4 border-b border-border flex items-center justify-between gap-2">
               <h2 className="font-medium">Tabela de posts</h2>
               <div className="hidden sm:inline-flex text-xs text-muted-foreground items-center gap-1">

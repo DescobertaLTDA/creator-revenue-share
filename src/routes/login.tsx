@@ -21,7 +21,7 @@ function LoginPage() {
 
   useEffect(() => {
     if (!loading && session && profile) {
-      navigate({ to: profile.role === "admin" ? "/admin/dashboard" : "/colaborador/dashboard" });
+      navigate({ to: "/admin/dashboard" });
     }
   }, [loading, session, profile, navigate]);
 

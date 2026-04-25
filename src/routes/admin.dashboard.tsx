@@ -643,7 +643,7 @@ function AdminDashboard() {
         )}
       </div>
 
-      <div className="bg-card border border-border rounded-xl px-4 py-3">
+      <div className="bg-card border border-border rounded-lg px-4 py-3">
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end">
           <div className="flex flex-col gap-1">
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Página</label>
@@ -722,7 +722,7 @@ function AdminDashboard() {
 
       {!loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+          <div className="bg-card border border-border rounded-lg p-4 flex items-center justify-between">
             <div>
               <p className="text-xs uppercase text-muted-foreground font-medium tracking-widest">Posts no filtro</p>
               <p className="text-2xl font-bold mt-1">{totalPosts.toLocaleString("pt-BR")}</p>
@@ -733,7 +733,7 @@ function AdminDashboard() {
             <TrendingUp className="h-8 w-8 text-[#16a34a] opacity-60" />
           </div>
           {usdBrl && (
-            <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+            <div className="bg-card border border-border rounded-lg p-4 flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase text-muted-foreground font-medium tracking-widest">Total em BRL (cotacao atual)</p>
                 <p className="text-2xl font-bold mt-1">{formatBRL(totalGeral * usdBrl)}</p>
@@ -746,7 +746,7 @@ function AdminDashboard() {
       )}
 
       {!loading && (
-        <div className="bg-card border border-border rounded-xl p-5">
+        <div className="bg-card border border-border rounded-lg p-5">
           <div className="mb-4">
             <h2 className="font-medium">Colaboradores (regra de split)</h2>
           </div>
@@ -756,7 +756,7 @@ function AdminDashboard() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {collabCards.slice(0, 12).map((item) => (
-                <div key={item.id} className="rounded-xl border border-border p-4 flex items-center gap-4 sm:block">
+                <div key={item.id} className="rounded-lg border border-border p-4 flex items-center gap-4 sm:block">
                   <div className="flex items-start justify-between gap-3 sm:mb-3">
                     <div className="min-w-0">
                       <p className="font-semibold leading-tight truncate">{item.nome}</p>
@@ -787,12 +787,12 @@ function AdminDashboard() {
       )}
 
       {!loading && chartData.length > 0 && (
-        <Suspense fallback={<div className="h-48 bg-muted/30 rounded-xl animate-pulse" />}>
+        <Suspense fallback={<div className="h-48 bg-muted/30 rounded-lg animate-pulse" />}>
           <DashboardCharts data={chartData} />
         </Suspense>
       )}
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="font-medium">Importacoes recentes</h2>
           <Link to="/admin/importacoes" className="text-xs text-primary hover:underline inline-flex items-center gap-1">

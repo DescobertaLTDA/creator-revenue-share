@@ -266,7 +266,7 @@ function BonusManualPage() {
 
       {/* Month navigation */}
       <div className="flex items-center gap-2">
-        <button onClick={() => setMonthRef(prevMonth(monthRef))} className="p-2.5 rounded-xl border border-border hover:bg-muted transition-colors">
+        <button onClick={() => setMonthRef(prevMonth(monthRef))} className="p-2.5 rounded-lg border border-border hover:bg-muted transition-colors">
           <ChevronLeft className="h-5 w-5" />
         </button>
         <div className="flex-1 flex items-center gap-2">
@@ -274,35 +274,35 @@ function BonusManualPage() {
             type="month"
             value={monthRef}
             onChange={(e) => e.target.value && setMonthRef(e.target.value)}
-            className="flex-1 h-11 rounded-xl border border-input bg-background px-3 text-sm font-medium"
+            className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm font-medium"
           />
           <span className="hidden sm:block text-sm font-semibold text-muted-foreground whitespace-nowrap">{formatMonth(monthRef)}</span>
         </div>
-        <button onClick={() => setMonthRef(nextMonth(monthRef))} className="p-2.5 rounded-xl border border-border hover:bg-muted transition-colors" disabled={monthRef >= todayMonth}>
+        <button onClick={() => setMonthRef(nextMonth(monthRef))} className="p-2.5 rounded-lg border border-border hover:bg-muted transition-colors" disabled={monthRef >= todayMonth}>
           <ChevronRight className="h-5 w-5" />
         </button>
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-lg p-4">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Posts (USD)</p>
           <p className="text-xl font-bold mt-1">${totalPosts.toFixed(2)}</p>
           <p className="text-xs text-muted-foreground mt-0.5">calculado do CSV</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-lg p-4">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Real recebido (USD)</p>
           <p className="text-xl font-bold mt-1">${totalActual.toFixed(2)}</p>
           <p className="text-xs text-muted-foreground mt-0.5">{filledDays} dias preenchidos</p>
         </div>
-        <div className={`bg-card border rounded-xl p-4 ${totalBonus > 0 ? "border-[#16a34a]/30" : totalBonus < 0 ? "border-destructive/30" : "border-border"}`}>
+        <div className={`bg-card border rounded-lg p-4 ${totalBonus > 0 ? "border-[#16a34a]/30" : totalBonus < 0 ? "border-destructive/30" : "border-border"}`}>
           <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Bônus total (USD)</p>
           <p className={`text-xl font-bold mt-1 ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
             {totalBonus >= 0 ? "+" : ""}${totalBonus.toFixed(2)}
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">real − posts</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-lg p-4">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Progresso</p>
           <p className="text-xl font-bold mt-1">{filledDays}/{rows.length}</p>
           <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
@@ -312,7 +312,7 @@ function BonusManualPage() {
       </div>
 
       {/* Daily table */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
         <div className="px-4 sm:px-5 py-4 border-b border-border">
           <h2 className="font-semibold">Receita dia a dia — {formatMonth(monthRef)}</h2>
           <p className="text-xs text-muted-foreground mt-0.5">Digite o valor real do Facebook em cada dia. Salvo automaticamente.</p>
@@ -351,7 +351,7 @@ function BonusManualPage() {
                           value={row.actual_revenue ?? ""}
                           onChange={(e) => handleActualChange(row, e.target.value)}
                           onBlur={() => handleFieldBlur(row)}
-                          className="w-full h-10 rounded-xl border border-input bg-background px-3 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-30"
+                          className="w-full h-10 rounded-lg border border-input bg-background px-3 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-30"
                         />
                       </div>
                       {bonus != null && (
@@ -370,7 +370,7 @@ function BonusManualPage() {
                         value={row.note}
                         onChange={(e) => updateRow(row.date, "note", e.target.value)}
                         onBlur={() => handleFieldBlur(row)}
-                        className="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
+                        className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
                       />
                     )}
                   </div>
@@ -495,7 +495,7 @@ function BonusManualPage() {
       </div>
 
       {/* Bonus distribution preview */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-4">
           <div>
             <h2 className="font-semibold">Distribuição do bônus por colaborador</h2>

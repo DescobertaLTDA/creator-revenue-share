@@ -205,7 +205,7 @@ function Page() {
       />
 
       {showForm && (
-        <form onSubmit={onSubmit} className="bg-card border border-border rounded-xl p-5 mb-6 space-y-4">
+        <form onSubmit={onSubmit} className="bg-card border border-border rounded-lg p-5 mb-6 space-y-4">
           <h3 className="font-medium">{editId ? "Editar colaborador" : "Novo colaborador"}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -241,7 +241,7 @@ function Page() {
         </form>
       )}
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
         {loading ? (
           <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         ) : rows.length === 0 ? (

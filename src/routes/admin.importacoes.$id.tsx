@@ -112,7 +112,7 @@ function ImportDetail() {
         </div>
       )}
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
         <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
           <AlertTriangle className="h-4 w-4 text-warning-foreground" />
           <h2 className="font-medium">Erros por linha</h2>

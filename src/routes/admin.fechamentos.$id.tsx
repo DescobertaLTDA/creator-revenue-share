@@ -213,7 +213,7 @@ function ClosingDetail() {
           { label: "Pendente (USD)", value: `$${totalPendente.toFixed(2)}`, sub: `${countPendente} colab${countPendente !== 1 ? "s" : ""}` },
           { label: "Receita bruta (USD)", value: `$${Number(closing.total_gross ?? 0).toFixed(2)}`, sub: closing.pages?.nome },
         ].map((k) => (
-          <div key={k.label} className={`bg-card border rounded-xl p-4 ${k.accent ? "border-[#16a34a]/30" : "border-border"}`}>
+          <div key={k.label} className={`bg-card border rounded-lg p-4 ${k.accent ? "border-[#16a34a]/30" : "border-border"}`}>
             <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{k.label}</p>
             <p className={`text-xl font-bold mt-1 ${k.accent ? "text-[#16a34a]" : ""}`}>{k.value}</p>
             {k.sub && <p className="text-xs text-muted-foreground mt-0.5">{k.sub}</p>}
@@ -222,7 +222,7 @@ function ClosingDetail() {
       </div>
 
       {/* Items */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
         <div className="px-4 sm:px-5 py-4 border-b border-border flex items-center justify-between">
           <h2 className="font-semibold">Pagamentos por colaborador</h2>
           {!isFechado && <p className="text-xs text-muted-foreground hidden sm:block">Edite ajustes antes de aprovar</p>}
