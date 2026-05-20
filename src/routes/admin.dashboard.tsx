@@ -737,25 +737,41 @@ function AdminDashboard() {
     "#16a34a", "#0284c7", "#7c3aed", "#db2777", "#059669",
   ];
 
-  // Chart por página individual (quando filterPage === "all")
+  // Chart por página individual (quando filterPage === "all") — só páginas com receita > 0
   const multiPageChartData = useMemo(() => {
     if (filterPage !== "all") return null;
     const byPageDay = new Map<string, Map<string, number>>();
+    const pageTotal = new Map<string, number>();
+
     for (const p of allPosts) {
       if (!p.published_at) continue;
       const day = p.published_at.slice(0, 10);
       if (filterFrom && day < filterFrom) continue;
       if (filterTo && day > filterTo) continue;
       const val = getPostUsd(p);
+      if (val <= 0) continue; // só posts com receita
       if (!byPageDay.has(p.page_id)) byPageDay.set(p.page_id, new Map());
       const dm = byPageDay.get(p.page_id)!;
       dm.set(day, (dm.get(day) ?? 0) + val);
+      pageTotal.set(p.page_id, (pageTotal.get(p.page_id) ?? 0) + val);
     }
+
+    // Ordenar páginas por receita total (maior primeiro), máx 8
+    const pageIds = Array.from(pageTotal.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([id]) => id);
+
+    if (pageIds.length === 0) return null;
+
     const allDays = new Set<string>();
-    for (const [, dm] of byPageDay) for (const day of dm.keys()) allDays.add(day);
+    for (const pid of pageIds) {
+      const dm = byPageDay.get(pid);
+      if (dm) for (const day of dm.keys()) allDays.add(day);
+    }
     const sortedDays = Array.from(allDays).sort();
-    const pageIds = Array.from(byPageDay.keys());
     const pageNameById = new Map(pages.map((p) => [p.id, p.name]));
+
     const data = sortedDays.map((day) => {
       const [, mo, d] = day.split("-");
       const entry: Record<string, any> = { dia: `${d}/${mo}` };
@@ -764,7 +780,8 @@ function AdminDashboard() {
       }
       return entry;
     });
-    return { data, pageIds, pageNameById };
+
+    return { data, pageIds, pageNameById, pageTotal };
   }, [allPosts, filterFrom, filterTo, filterPage, pages]);
 
   // Projection chart data: last 30 days real + next 28 projected (página única)
@@ -920,37 +937,53 @@ function AdminDashboard() {
               </div>
             </div>
 
-            <div className="h-52">
+            <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 {filterPage === "all" && multiPageChartData && multiPageChartData.data.length > 0 ? (
-                  <LineChart data={multiPageChartData.data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <AreaChart data={multiPageChartData.data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <defs>
+                      {multiPageChartData.pageIds.map((pid, i) => (
+                        <linearGradient key={pid} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={PAGE_COLORS[i % PAGE_COLORS.length]} stopOpacity={0.4} />
+                          <stop offset="95%" stopColor={PAGE_COLORS[i % PAGE_COLORS.length]} stopOpacity={0.05} />
+                        </linearGradient>
+                      ))}
+                    </defs>
                     <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9d8fb0" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
                     <YAxis hide />
                     <Tooltip
                       formatter={(v: any, name: string) => {
-                        const pageName = multiPageChartData.pageNameById.get(name) ?? name.slice(0, 12);
+                        if (Number(v) === 0) return null as any;
+                        const pageName = multiPageChartData.pageNameById.get(name) ?? name.slice(0, 16);
                         const val = usdBrl ? formatBRL(Number(v) * usdBrl) : `$${Number(v).toFixed(4)}`;
                         return [val, pageName];
                       }}
-                      labelStyle={{ color: "#1a0533", fontSize: 11 }}
-                      contentStyle={{ border: "1px solid #e8e0f5", borderRadius: 10, fontSize: 11 }}
+                      labelStyle={{ color: "#1a0533", fontSize: 11, fontWeight: 600 }}
+                      contentStyle={{ border: "1px solid #e8e0f5", borderRadius: 12, fontSize: 11, boxShadow: "0 4px 16px #6200b315" }}
                     />
                     <Legend
-                      formatter={(value) => multiPageChartData.pageNameById.get(value) ?? value.slice(0, 16)}
-                      wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+                      formatter={(value) => {
+                        const name = multiPageChartData.pageNameById.get(value) ?? value.slice(0, 16);
+                        const total = multiPageChartData.pageTotal.get(value) ?? 0;
+                        const fmt = usdBrl ? formatBRL(total * usdBrl) : `$${total.toFixed(2)}`;
+                        return `${name} (${fmt})`;
+                      }}
+                      wrapperStyle={{ fontSize: 11, paddingTop: 12 }}
                     />
                     {multiPageChartData.pageIds.map((pid, i) => (
-                      <Line
+                      <Area
                         key={pid}
                         type="monotone"
                         dataKey={pid}
+                        stackId="1"
                         stroke={PAGE_COLORS[i % PAGE_COLORS.length]}
-                        strokeWidth={2}
+                        strokeWidth={1.5}
+                        fill={`url(#grad-${i})`}
                         dot={false}
                         connectNulls
                       />
                     ))}
-                  </LineChart>
+                  </AreaChart>
                 ) : (
                   <AreaChart data={projectionChartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
                     <defs>
