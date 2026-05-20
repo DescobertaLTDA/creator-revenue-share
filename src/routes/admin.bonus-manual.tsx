@@ -6,12 +6,20 @@ import { useAuth } from "@/hooks/use-auth";
 import { useWriteGuard } from "@/hooks/use-write-guard";
 import { formatMonth, formatPct } from "@/lib/format";
 import { toast } from "sonner";
-import { Check, Loader2, TrendingUp, TrendingDown, Minus, ChevronLeft, ChevronRight, Info } from "lucide-react";
+import { Check, Loader2, ChevronLeft, ChevronRight, Info, Coins, ChevronDown } from "lucide-react";
 
 export const Route = createFileRoute("/admin/bonus-manual")({
   head: () => ({ meta: [{ title: "Conciliação diária — Splash Creators" }] }),
   component: BonusManualPage,
 });
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface PageOption {
+  id: string;
+  nome: string;
+  isMonetized: boolean;
+}
 
 interface DayEntry {
   date: string;
@@ -38,6 +46,8 @@ interface ColabDist {
 
 const WEEKDAYS_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 function prevMonth(ref: string) {
   const [y, m] = ref.split("-").map(Number);
   const d = new Date(y, m - 2, 1);
@@ -56,7 +66,7 @@ function daysInMonth(ref: string): string[] {
   );
 }
 
-async function fetchViewsByColabForMonth(ref: string): Promise<ColabDist[]> {
+async function fetchViewsByColabForMonth(ref: string, pageId: string): Promise<ColabDist[]> {
   const days = daysInMonth(ref);
   const from = days[0];
   const to = days[days.length - 1];
@@ -64,6 +74,7 @@ async function fetchViewsByColabForMonth(ref: string): Promise<ColabDist[]> {
   const { data: postsData } = await supabase
     .from("posts")
     .select("id, views")
+    .eq("page_id", pageId)
     .gte("published_at", from)
     .lte("published_at", to + "T23:59:59");
 
@@ -113,16 +124,151 @@ async function fetchViewsByColabForMonth(ref: string): Promise<ColabDist[]> {
     .sort((a, b) => b.views - a.views);
 }
 
+// ─── PageSelect ───────────────────────────────────────────────────────────────
+
+function PageSelect({
+  pages,
+  value,
+  onChange,
+}: {
+  pages: PageOption[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  const selected = pages.find((p) => p.id === value);
+  const monetized = pages.filter((p) => p.isMonetized);
+  const nonMonetized = pages.filter((p) => !p.isMonetized);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={`h-10 min-w-[220px] flex items-center gap-2 px-3 rounded-xl border text-sm transition-colors bg-white ${
+          open ? "border-[#6200b3] ring-2 ring-[#6200b3]/20" : "border-border hover:border-[#c4b5d8]"
+        }`}
+      >
+        {selected ? (
+          <>
+            <Coins className={`h-4 w-4 shrink-0 ${selected.isMonetized ? "text-emerald-500" : "text-red-400"}`} />
+            <span className="flex-1 truncate text-left font-medium text-foreground">{selected.nome}</span>
+          </>
+        ) : (
+          <span className="flex-1 text-left text-muted-foreground">Selecionar página…</span>
+        )}
+        <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 top-full mt-1 left-0 min-w-full w-max max-w-sm bg-white border border-border rounded-xl shadow-lg overflow-hidden">
+          <div className="max-h-72 overflow-y-auto p-1.5 space-y-px">
+            {monetized.length > 0 && (
+              <>
+                <div className="flex items-center gap-1.5 px-3 pt-2 pb-1">
+                  <Coins className="h-3 w-3 text-emerald-500" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Monetizadas</span>
+                </div>
+                {monetized.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => { onChange(p.id); setOpen(false); }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left ${
+                      value === p.id ? "bg-[#6200b3] text-white" : "hover:bg-[#f3e8ff] text-foreground"
+                    }`}
+                  >
+                    <Coins className={`h-3.5 w-3.5 shrink-0 ${value === p.id ? "text-white/80" : "text-emerald-500"}`} />
+                    <span className="truncate">{p.nome}</span>
+                  </button>
+                ))}
+              </>
+            )}
+            {nonMonetized.length > 0 && (
+              <>
+                <div className="flex items-center gap-1.5 px-3 pt-2 pb-1">
+                  <Coins className="h-3 w-3 text-red-400" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-red-500">Não Monetizadas</span>
+                </div>
+                {nonMonetized.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => { onChange(p.id); setOpen(false); }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left ${
+                      value === p.id ? "bg-[#6200b3] text-white" : "hover:bg-[#f3e8ff] text-foreground"
+                    }`}
+                  >
+                    <Coins className={`h-3.5 w-3.5 shrink-0 ${value === p.id ? "text-white/80" : "text-red-400"}`} />
+                    <span className="truncate">{p.nome}</span>
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 function BonusManualPage() {
   const { profile } = useAuth();
   const { guard, WriteGuardDialog } = useWriteGuard();
   const todayMonth = new Date().toISOString().slice(0, 7);
   const [monthRef, setMonthRef] = useState(todayMonth);
+  const [pages, setPages] = useState<PageOption[]>([]);
+  const [selectedPageId, setSelectedPageId] = useState<string>("");
   const [rows, setRows] = useState<DayEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [colabDist, setColabDist] = useState<ColabDist[]>([]);
   const [distLoading, setDistLoading] = useState(false);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  // Load pages list once
+  useEffect(() => {
+    async function loadPages() {
+      const { data: pagesData } = await supabase
+        .from("pages")
+        .select("id, nome")
+        .order("nome");
+
+      if (!pagesData || pagesData.length === 0) return;
+
+      // A page is monetized if it has ≥3 posts with revenue
+      const { data: revPosts } = await supabase
+        .from("posts")
+        .select("page_id, monetization_approx, estimated_usd")
+        .or("monetization_approx.gt.0,estimated_usd.gt.0");
+
+      const revCounts = new Map<string, number>();
+      for (const p of (revPosts ?? []) as any[]) {
+        revCounts.set(p.page_id, (revCounts.get(p.page_id) ?? 0) + 1);
+      }
+
+      const list: PageOption[] = (pagesData as any[]).map((p) => ({
+        id: p.id,
+        nome: p.nome,
+        isMonetized: (revCounts.get(p.id) ?? 0) >= 3,
+      }));
+
+      setPages(list);
+      // Default to first monetized page, or first page
+      const first = list.find((p) => p.isMonetized) ?? list[0];
+      if (first) setSelectedPageId(first.id);
+    }
+    loadPages();
+  }, []);
 
   const buildRows = useCallback(
     (
@@ -151,7 +297,8 @@ function BonusManualPage() {
     []
   );
 
-  const load = useCallback(async (ref: string) => {
+  const load = useCallback(async (ref: string, pageId: string) => {
+    if (!pageId) return;
     setLoading(true);
     const days = daysInMonth(ref);
     const from = days[0];
@@ -161,11 +308,13 @@ function BonusManualPage() {
       supabase
         .from("posts")
         .select("published_at, monetization_approx")
+        .eq("page_id", pageId)
         .gte("published_at", from)
         .lte("published_at", to + "T23:59:59"),
-      supabase
+      (supabase as any)
         .from("daily_revenue_entries")
         .select("id, entry_date, actual_revenue_usd, distribution_mode, note")
+        .eq("page_id", pageId)
         .gte("entry_date", from)
         .lte("entry_date", to),
     ]);
@@ -184,18 +333,20 @@ function BonusManualPage() {
     setLoading(false);
   }, [buildRows]);
 
-  const loadDist = useCallback(async (ref: string) => {
+  const loadDist = useCallback(async (ref: string, pageId: string) => {
+    if (!pageId) return;
     setDistLoading(true);
     const prev = prevMonth(ref);
-    const dist = await fetchViewsByColabForMonth(prev);
+    const dist = await fetchViewsByColabForMonth(prev, pageId);
     setColabDist(dist);
     setDistLoading(false);
   }, []);
 
   useEffect(() => {
-    load(monthRef);
-    loadDist(monthRef);
-  }, [monthRef, load, loadDist]);
+    if (!selectedPageId) return;
+    load(monthRef, selectedPageId);
+    loadDist(monthRef, selectedPageId);
+  }, [monthRef, selectedPageId, load, loadDist]);
 
   const updateRow = (date: string, field: keyof DayEntry, value: unknown) => {
     setRows((prev) =>
@@ -204,9 +355,11 @@ function BonusManualPage() {
   };
 
   const saveRow = async (row: DayEntry) => {
+    if (!selectedPageId) return;
     setRows((prev) => prev.map((r) => r.date === row.date ? { ...r, saving: true } : r));
     const payload = {
       entry_date: row.date,
+      page_id: selectedPageId,
       actual_revenue_usd: row.actual_revenue,
       distribution_mode: row.distribution_mode,
       note: row.note.trim() || null,
@@ -215,7 +368,7 @@ function BonusManualPage() {
     };
     const { data, error } = await (supabase as any)
       .from("daily_revenue_entries")
-      .upsert(payload, { onConflict: "entry_date" })
+      .upsert(payload, { onConflict: "entry_date,page_id" })
       .select("id")
       .single();
     if (!error && data) setRows((prev) => prev.map((r) => r.date === row.date ? { ...r, id: data.id } : r));
@@ -248,13 +401,13 @@ function BonusManualPage() {
   const totalBonus = totalActual - totalPosts;
   const filledDays = rows.filter((r) => r.actual_revenue != null).length;
 
-  // Distribution with estimated bonus applied
   const distWithBonus: ColabDist[] = useMemo(() => {
     if (totalBonus <= 0) return colabDist.map((c) => ({ ...c, bonus_estimated: 0 }));
     return colabDist.map((c) => ({ ...c, bonus_estimated: totalBonus * c.pct }));
   }, [colabDist, totalBonus]);
 
   const prevMonthRef = prevMonth(monthRef);
+  const selectedPage = pages.find((p) => p.id === selectedPageId);
 
   return (
     <div className="space-y-6">
@@ -264,292 +417,323 @@ function BonusManualPage() {
         description="Compare o que os posts geraram com o que o Facebook realmente pagou. A diferença é o bônus distribuído pelas views do mês anterior."
       />
 
-      {/* Month navigation */}
-      <div className="flex items-center gap-2">
-        <button onClick={() => setMonthRef(prevMonth(monthRef))} className="p-2.5 rounded-lg border border-border hover:bg-muted transition-colors">
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <div className="flex-1 flex items-center gap-2">
-          <input
-            type="month"
-            value={monthRef}
-            onChange={(e) => e.target.value && setMonthRef(e.target.value)}
-            className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm font-medium"
-          />
-          <span className="hidden sm:block text-sm font-semibold text-muted-foreground whitespace-nowrap">{formatMonth(monthRef)}</span>
-        </div>
-        <button onClick={() => setMonthRef(nextMonth(monthRef))} className="p-2.5 rounded-lg border border-border hover:bg-muted transition-colors" disabled={monthRef >= todayMonth}>
-          <ChevronRight className="h-5 w-5" />
-        </button>
-      </div>
+      {/* Page + Month selectors */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Page selector */}
+        {pages.length > 0 && (
+          <PageSelect pages={pages} value={selectedPageId} onChange={setSelectedPageId} />
+        )}
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Posts (USD)</p>
-          <p className="text-xl font-bold mt-1">${totalPosts.toFixed(2)}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">calculado do CSV</p>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Real recebido (USD)</p>
-          <p className="text-xl font-bold mt-1">${totalActual.toFixed(2)}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">{filledDays} dias preenchidos</p>
-        </div>
-        <div className={`bg-card border rounded-lg p-4 ${totalBonus > 0 ? "border-[#16a34a]/30" : totalBonus < 0 ? "border-destructive/30" : "border-border"}`}>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Diferença (USD)</p>
-          <p className={`text-xl font-bold mt-1 ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
-            {totalBonus >= 0 ? "+" : ""}${totalBonus.toFixed(2)}
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5">real − posts</p>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Progresso</p>
-          <p className="text-xl font-bold mt-1">{filledDays}/{rows.length}</p>
-          <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-[#16a34a] rounded-full transition-all" style={{ width: rows.length ? `${(filledDays / rows.length) * 100}%` : "0%" }} />
+        {/* Month navigation */}
+        <div className="flex items-center gap-2 flex-1 min-w-[220px]">
+          <button onClick={() => setMonthRef(prevMonth(monthRef))} className="p-2.5 rounded-lg border border-border hover:bg-muted transition-colors">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <div className="flex-1 flex items-center gap-2">
+            <input
+              type="month"
+              value={monthRef}
+              onChange={(e) => e.target.value && setMonthRef(e.target.value)}
+              className="flex-1 h-10 rounded-xl border border-border bg-background px-3 text-sm font-medium"
+            />
+            <span className="hidden sm:block text-sm font-semibold text-muted-foreground whitespace-nowrap">{formatMonth(monthRef)}</span>
           </div>
+          <button onClick={() => setMonthRef(nextMonth(monthRef))} className="p-2.5 rounded-lg border border-border hover:bg-muted transition-colors" disabled={monthRef >= todayMonth}>
+            <ChevronRight className="h-5 w-5" />
+          </button>
         </div>
       </div>
 
-      {/* Daily table */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
-        <div className="px-4 sm:px-5 py-4 border-b border-border">
-          <h2 className="font-semibold">Receita dia a dia — {formatMonth(monthRef)}</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Digite o valor real do Facebook em cada dia. Salvo automaticamente.</p>
+      {/* No page selected */}
+      {!selectedPageId && (
+        <div className="border border-border rounded-xl p-8 text-center text-muted-foreground text-sm">
+          Selecione uma página acima para ver e registrar os ganhos.
         </div>
-        {loading ? (
-          <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-        ) : (
-          <>
-            {/* Mobile: compact card list */}
-            <div className="sm:hidden divide-y divide-border">
-              {rows.map((row) => {
-                const bonus = row.actual_revenue != null ? row.actual_revenue - row.posts_revenue : null;
-                const isWeekend = row.weekday === "Sáb" || row.weekday === "Dom";
-                const isFuture = row.date > new Date().toISOString().slice(0, 10);
-                return (
-                  <div key={row.date} className={`px-4 py-3 space-y-2.5 ${isWeekend ? "bg-muted/10" : ""} ${isFuture ? "opacity-40" : ""}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold tabular-nums text-sm">{row.label}</span>
-                        <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{row.weekday}</span>
-                        {row.posts_revenue > 0 && <span className="text-xs text-muted-foreground">posts: ${row.posts_revenue.toFixed(2)}</span>}
-                      </div>
-                      <div className="h-5 w-5 flex items-center justify-center">
-                        {row.saving ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                          : row.saved ? <Check className="h-3.5 w-3.5 text-[#16a34a]" />
-                          : row.dirty ? <div className="h-2 w-2 rounded-full bg-amber-400" />
-                          : null}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Real recebido (USD)</p>
-                        <input
-                          type="number" min="0" step="0.01" disabled={isFuture}
-                          placeholder="0.00"
-                          value={row.actual_revenue ?? ""}
-                          onChange={(e) => handleActualChange(row, e.target.value)}
-                          onBlur={() => handleFieldBlur(row)}
-                          className="w-full h-10 rounded-lg border border-input bg-background px-3 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-30"
-                        />
-                      </div>
-                      {bonus != null && (
-                        <div className="shrink-0 text-right">
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Bônus</p>
-                          <p className={`text-sm font-semibold tabular-nums ${bonus > 0 ? "text-[#16a34a]" : bonus < 0 ? "text-destructive" : "text-muted-foreground"}`}>
-                            {bonus > 0 ? "+" : ""}{bonus === 0 ? "$0.00" : `$${bonus.toFixed(2)}`}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    {row.actual_revenue != null && (
-                      <input
-                        type="text" disabled={isFuture}
-                        placeholder="Observação (opcional)"
-                        value={row.note}
-                        onChange={(e) => updateRow(row.date, "note", e.target.value)}
-                        onBlur={() => handleFieldBlur(row)}
-                        className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
-                      />
-                    )}
-                  </div>
-                );
-              })}
-              <div className="px-4 py-3 bg-muted/30 flex items-center justify-between font-semibold text-sm">
-                <span>Total</span>
-                <div className="text-right">
-                  <p>${totalActual.toFixed(2)}</p>
-                  <p className="text-xs text-muted-foreground font-normal">posts: ${totalPosts.toFixed(2)}</p>
-                </div>
+      )}
+
+      {selectedPageId && (
+        <>
+          {/* KPIs */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-card border border-border rounded-lg p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Posts (USD)</p>
+              <p className="text-xl font-bold mt-1">${totalPosts.toFixed(2)}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">calculado do CSV</p>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Real recebido (USD)</p>
+              <p className="text-xl font-bold mt-1">${totalActual.toFixed(2)}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{filledDays} dias preenchidos</p>
+            </div>
+            <div className={`bg-card border rounded-lg p-4 ${totalBonus > 0 ? "border-[#16a34a]/30" : totalBonus < 0 ? "border-destructive/30" : "border-border"}`}>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Diferença (USD)</p>
+              <p className={`text-xl font-bold mt-1 ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
+                {totalBonus >= 0 ? "+" : ""}${totalBonus.toFixed(2)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">real − posts</p>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Progresso</p>
+              <p className="text-xl font-bold mt-1">{filledDays}/{rows.length}</p>
+              <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-[#16a34a] rounded-full transition-all" style={{ width: rows.length ? `${(filledDays / rows.length) * 100}%` : "0%" }} />
               </div>
             </div>
+          </div>
 
-            {/* Desktop: full table */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="text-left px-4 py-3 font-medium w-24">Dia</th>
-                    <th className="text-right px-4 py-3 font-medium">Posts (USD)</th>
-                    <th className="text-right px-4 py-3 font-medium">Real recebido (USD)</th>
-                    <th className="w-8 px-4 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
+          {/* Daily table */}
+          <div className="bg-card border border-border rounded-lg overflow-hidden">
+            <div className="px-4 sm:px-5 py-4 border-b border-border flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-semibold">
+                  Receita dia a dia — {formatMonth(monthRef)}
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {selectedPage && (
+                    <span className="inline-flex items-center gap-1">
+                      <Coins className={`h-3 w-3 ${selectedPage.isMonetized ? "text-emerald-500" : "text-red-400"}`} />
+                      {selectedPage.nome}
+                      {" · "}
+                    </span>
+                  )}
+                  Digite o valor real do Facebook em cada dia. Salvo automaticamente.
+                </p>
+              </div>
+            </div>
+            {loading ? (
+              <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+            ) : (
+              <>
+                {/* Mobile: compact card list */}
+                <div className="sm:hidden divide-y divide-border">
                   {rows.map((row) => {
                     const bonus = row.actual_revenue != null ? row.actual_revenue - row.posts_revenue : null;
                     const isWeekend = row.weekday === "Sáb" || row.weekday === "Dom";
                     const isFuture = row.date > new Date().toISOString().slice(0, 10);
                     return (
-                      <tr key={row.date} className={`hover:bg-muted/20 ${isWeekend ? "bg-muted/10" : ""} ${isFuture ? "opacity-40" : ""}`}>
-                        <td className="px-4 py-2.5">
-                          <span className="font-semibold tabular-nums">{row.label}</span>
-                          <span className="text-[10px] text-muted-foreground ml-1.5">{row.weekday}</span>
-                        </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
-                          {row.posts_revenue > 0 ? `$${row.posts_revenue.toFixed(2)}` : <span className="text-muted-foreground/40">—</span>}
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
+                      <div key={row.date} className={`px-4 py-3 space-y-2.5 ${isWeekend ? "bg-muted/10" : ""} ${isFuture ? "opacity-40" : ""}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold tabular-nums text-sm">{row.label}</span>
+                            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{row.weekday}</span>
+                            {row.posts_revenue > 0 && <span className="text-xs text-muted-foreground">posts: ${row.posts_revenue.toFixed(2)}</span>}
+                          </div>
+                          <div className="h-5 w-5 flex items-center justify-center">
+                            {row.saving ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                              : row.saved ? <Check className="h-3.5 w-3.5 text-[#16a34a]" />
+                              : row.dirty ? <div className="h-2 w-2 rounded-full bg-amber-400" />
+                              : null}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1">
+                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Real recebido (USD)</p>
+                            <input
+                              type="number" min="0" step="0.01" disabled={isFuture}
+                              placeholder="0.00"
+                              value={row.actual_revenue ?? ""}
+                              onChange={(e) => handleActualChange(row, e.target.value)}
+                              onBlur={() => handleFieldBlur(row)}
+                              className="w-full h-10 rounded-lg border border-input bg-background px-3 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-30"
+                            />
+                          </div>
+                          {bonus != null && (
+                            <div className="shrink-0 text-right">
+                              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Bônus</p>
+                              <p className={`text-sm font-semibold tabular-nums ${bonus > 0 ? "text-[#16a34a]" : bonus < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                                {bonus > 0 ? "+" : ""}{bonus === 0 ? "$0.00" : `$${bonus.toFixed(2)}`}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        {row.actual_revenue != null && (
                           <input
-                            type="number" min="0" step="0.01" disabled={isFuture}
-                            placeholder="0.00"
-                            value={row.actual_revenue ?? ""}
-                            onChange={(e) => handleActualChange(row, e.target.value)}
+                            type="text" disabled={isFuture}
+                            placeholder="Observação (opcional)"
+                            value={row.note}
+                            onChange={(e) => updateRow(row.date, "note", e.target.value)}
                             onBlur={() => handleFieldBlur(row)}
-                            className="w-28 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
+                            className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
                           />
-                        </td>
-                        <td className="px-2 py-2.5 w-8">
-                          {row.saving ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                            : row.saved ? <Check className="h-3.5 w-3.5 text-[#16a34a]" />
-                            : row.dirty ? <div className="h-2 w-2 rounded-full bg-amber-400" title="Não salvo" />
-                            : null}
-                        </td>
-                      </tr>
+                        )}
+                      </div>
                     );
                   })}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-border bg-muted/30 font-semibold text-sm">
-                    <td className="px-4 py-3 text-muted-foreground">Total</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">${totalPosts.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">${totalActual.toFixed(2)}</td>
-                    <td />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Bonus distribution preview */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
-        <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-4">
-          <div>
-            <h2 className="font-semibold">Distribuição do bônus por colaborador</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Baseado nas views de <strong>{formatMonth(prevMonthRef)}</strong> — quem fez mais views recebe maior fatia do bônus de {formatMonth(monthRef)}.
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 mt-1">
-            <Info className="h-3.5 w-3.5" />
-            Bônus total: <span className={`font-semibold ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>${totalBonus.toFixed(2)}</span>
-          </div>
-        </div>
-
-        {distLoading ? (
-          <div className="p-8 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-        ) : distWithBonus.length === 0 ? (
-          <div className="p-6 text-sm text-muted-foreground text-center">
-            Sem dados de views em {formatMonth(prevMonthRef)}. Importe o CSV desse mês para calcular a distribuição.
-          </div>
-        ) : (
-          <>
-            {/* Mobile card list */}
-            <div className="sm:hidden divide-y divide-border">
-              {distWithBonus.map((c) => (
-                <div key={c.id} className="px-4 py-3 space-y-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-sm">{c.nome}</p>
-                      {c.hashtag && <p className="text-xs text-muted-foreground">#{c.hashtag}</p>}
+                  <div className="px-4 py-3 bg-muted/30 flex items-center justify-between font-semibold text-sm">
+                    <span>Total</span>
+                    <div className="text-right">
+                      <p>${totalActual.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground font-normal">posts: ${totalPosts.toFixed(2)}</p>
                     </div>
-                    <p className={`font-bold tabular-nums text-sm shrink-0 ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
-                      {totalBonus !== 0 ? `${totalBonus >= 0 ? "+" : ""}$${c.bonus_estimated.toFixed(2)}` : "—"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-[#16a34a] rounded-full transition-all" style={{ width: `${c.pct * 100}%` }} />
-                    </div>
-                    <span className="text-xs font-semibold w-12 text-right tabular-nums">{formatPct(c.pct * 100)}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {c.views >= 1_000_000 ? `${(c.views / 1_000_000).toFixed(1)}M` : c.views >= 1_000 ? `${(c.views / 1_000).toFixed(1)}k` : c.views.toLocaleString("pt-BR")} views
-                    </span>
                   </div>
                 </div>
-              ))}
+
+                {/* Desktop: full table */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                      <tr>
+                        <th className="text-left px-4 py-3 font-medium w-24">Dia</th>
+                        <th className="text-right px-4 py-3 font-medium">Posts (USD)</th>
+                        <th className="text-right px-4 py-3 font-medium">Real recebido (USD)</th>
+                        <th className="w-8 px-4 py-3" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {rows.map((row) => {
+                        const isWeekend = row.weekday === "Sáb" || row.weekday === "Dom";
+                        const isFuture = row.date > new Date().toISOString().slice(0, 10);
+                        return (
+                          <tr key={row.date} className={`hover:bg-muted/20 ${isWeekend ? "bg-muted/10" : ""} ${isFuture ? "opacity-40" : ""}`}>
+                            <td className="px-4 py-2.5">
+                              <span className="font-semibold tabular-nums">{row.label}</span>
+                              <span className="text-[10px] text-muted-foreground ml-1.5">{row.weekday}</span>
+                            </td>
+                            <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                              {row.posts_revenue > 0 ? `$${row.posts_revenue.toFixed(2)}` : <span className="text-muted-foreground/40">—</span>}
+                            </td>
+                            <td className="px-4 py-2.5 text-right">
+                              <input
+                                type="number" min="0" step="0.01" disabled={isFuture}
+                                placeholder="0.00"
+                                value={row.actual_revenue ?? ""}
+                                onChange={(e) => handleActualChange(row, e.target.value)}
+                                onBlur={() => handleFieldBlur(row)}
+                                className="w-28 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
+                              />
+                            </td>
+                            <td className="px-2 py-2.5 w-8">
+                              {row.saving ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                                : row.saved ? <Check className="h-3.5 w-3.5 text-[#16a34a]" />
+                                : row.dirty ? <div className="h-2 w-2 rounded-full bg-amber-400" title="Não salvo" />
+                                : null}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-border bg-muted/30 font-semibold text-sm">
+                        <td className="px-4 py-3 text-muted-foreground">Total</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">${totalPosts.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-right tabular-nums">${totalActual.toFixed(2)}</td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Bonus distribution preview */}
+          <div className="bg-card border border-border rounded-lg overflow-hidden">
+            <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-semibold">Distribuição do bônus por colaborador</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Baseado nas views de <strong>{formatMonth(prevMonthRef)}</strong> em <strong>{selectedPage?.nome}</strong> — quem fez mais views recebe maior fatia do bônus de {formatMonth(monthRef)}.
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 mt-1">
+                <Info className="h-3.5 w-3.5" />
+                Bônus total: <span className={`font-semibold ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>${totalBonus.toFixed(2)}</span>
+              </div>
             </div>
-            {/* Desktop table */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="text-left px-5 py-3 font-medium">Colaborador</th>
-                    <th className="text-right px-5 py-3 font-medium">Views em {formatMonth(prevMonthRef)}</th>
-                    <th className="text-right px-5 py-3 font-medium">% do total</th>
-                    <th className="text-right px-5 py-3 font-medium">Bônus estimado (USD)</th>
-                    <th className="px-5 py-3 font-medium w-48">Participação</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
+
+            {distLoading ? (
+              <div className="p-8 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+            ) : distWithBonus.length === 0 ? (
+              <div className="p-6 text-sm text-muted-foreground text-center">
+                Sem dados de views em {formatMonth(prevMonthRef)} para {selectedPage?.nome}. Importe o CSV desse mês para calcular a distribuição.
+              </div>
+            ) : (
+              <>
+                {/* Mobile card list */}
+                <div className="sm:hidden divide-y divide-border">
                   {distWithBonus.map((c) => (
-                    <tr key={c.id} className="hover:bg-muted/20">
-                      <td className="px-5 py-3">
-                        <p className="font-medium">{c.nome}</p>
-                        {c.hashtag && <p className="text-xs text-muted-foreground">#{c.hashtag}</p>}
-                      </td>
-                      <td className="px-5 py-3 text-right tabular-nums">
-                        {c.views >= 1_000_000 ? `${(c.views / 1_000_000).toFixed(1)}M` : c.views >= 1_000 ? `${(c.views / 1_000).toFixed(1)}k` : c.views.toLocaleString("pt-BR")}
-                      </td>
-                      <td className="px-5 py-3 text-right tabular-nums font-semibold">{formatPct(c.pct * 100)}</td>
-                      <td className={`px-5 py-3 text-right tabular-nums font-semibold ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
-                        {totalBonus !== 0 ? `${totalBonus >= 0 ? "+" : ""}$${c.bonus_estimated.toFixed(2)}` : "—"}
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div className="h-full bg-[#16a34a] rounded-full" style={{ width: `${c.pct * 100}%` }} />
-                          </div>
-                          <span className="text-xs text-muted-foreground w-10 text-right">{formatPct(c.pct * 100)}</span>
+                    <div key={c.id} className="px-4 py-3 space-y-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-sm">{c.nome}</p>
+                          {c.hashtag && <p className="text-xs text-muted-foreground">#{c.hashtag}</p>}
                         </div>
-                      </td>
-                    </tr>
+                        <p className={`font-bold tabular-nums text-sm shrink-0 ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
+                          {totalBonus !== 0 ? `${totalBonus >= 0 ? "+" : ""}$${c.bonus_estimated.toFixed(2)}` : "—"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-[#16a34a] rounded-full transition-all" style={{ width: `${c.pct * 100}%` }} />
+                        </div>
+                        <span className="text-xs font-semibold w-12 text-right tabular-nums">{formatPct(c.pct * 100)}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {c.views >= 1_000_000 ? `${(c.views / 1_000_000).toFixed(1)}M` : c.views >= 1_000 ? `${(c.views / 1_000).toFixed(1)}k` : c.views.toLocaleString("pt-BR")} views
+                        </span>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-border bg-muted/30 font-semibold text-sm">
-                    <td className="px-5 py-3">Total</td>
-                    <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">
-                      {(() => { const t = distWithBonus.reduce((s, c) => s + c.views, 0); return t >= 1_000_000 ? `${(t / 1_000_000).toFixed(1)}M` : t >= 1_000 ? `${(t / 1_000).toFixed(1)}k` : t.toLocaleString("pt-BR"); })()}
-                    </td>
-                    <td className="px-5 py-3 text-right">100%</td>
-                    <td className={`px-5 py-3 text-right tabular-nums ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
-                      {totalBonus !== 0 ? `${totalBonus >= 0 ? "+" : ""}$${totalBonus.toFixed(2)}` : "—"}
-                    </td>
-                    <td />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </>
-        )}
-      </div>
+                </div>
+                {/* Desktop table */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                      <tr>
+                        <th className="text-left px-5 py-3 font-medium">Colaborador</th>
+                        <th className="text-right px-5 py-3 font-medium">Views em {formatMonth(prevMonthRef)}</th>
+                        <th className="text-right px-5 py-3 font-medium">% do total</th>
+                        <th className="text-right px-5 py-3 font-medium">Bônus estimado (USD)</th>
+                        <th className="px-5 py-3 font-medium w-48">Participação</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {distWithBonus.map((c) => (
+                        <tr key={c.id} className="hover:bg-muted/20">
+                          <td className="px-5 py-3">
+                            <p className="font-medium">{c.nome}</p>
+                            {c.hashtag && <p className="text-xs text-muted-foreground">#{c.hashtag}</p>}
+                          </td>
+                          <td className="px-5 py-3 text-right tabular-nums">
+                            {c.views >= 1_000_000 ? `${(c.views / 1_000_000).toFixed(1)}M` : c.views >= 1_000 ? `${(c.views / 1_000).toFixed(1)}k` : c.views.toLocaleString("pt-BR")}
+                          </td>
+                          <td className="px-5 py-3 text-right tabular-nums font-semibold">{formatPct(c.pct * 100)}</td>
+                          <td className={`px-5 py-3 text-right tabular-nums font-semibold ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
+                            {totalBonus !== 0 ? `${totalBonus >= 0 ? "+" : ""}$${c.bonus_estimated.toFixed(2)}` : "—"}
+                          </td>
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div className="h-full bg-[#16a34a] rounded-full" style={{ width: `${c.pct * 100}%` }} />
+                              </div>
+                              <span className="text-xs text-muted-foreground w-10 text-right">{formatPct(c.pct * 100)}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-border bg-muted/30 font-semibold text-sm">
+                        <td className="px-5 py-3">Total</td>
+                        <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">
+                          {(() => { const t = distWithBonus.reduce((s, c) => s + c.views, 0); return t >= 1_000_000 ? `${(t / 1_000_000).toFixed(1)}M` : t >= 1_000 ? `${(t / 1_000).toFixed(1)}k` : t.toLocaleString("pt-BR"); })()}
+                        </td>
+                        <td className="px-5 py-3 text-right">100%</td>
+                        <td className={`px-5 py-3 text-right tabular-nums ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
+                          {totalBonus !== 0 ? `${totalBonus >= 0 ? "+" : ""}$${totalBonus.toFixed(2)}` : "—"}
+                        </td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
 
       <p className="text-xs text-muted-foreground text-center">
-        Dados salvos automaticamente. Dias futuros são bloqueados. Finais de semana em destaque.
+        Dados salvos automaticamente por página. Dias futuros são bloqueados. Finais de semana em destaque.
       </p>
     </div>
   );
