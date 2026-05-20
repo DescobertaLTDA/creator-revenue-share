@@ -306,7 +306,9 @@ function NumInput({ label, value, onChange, suffix, prefix, format, step = 1, de
 
   const display = focused
     ? raw
-    : (format ? format(value) : `${prefix ?? ""}${decimals > 0 ? value.toFixed(decimals) : String(value)}${suffix ? ` ${suffix}` : ""}`);
+    : (decimals > 0
+        ? value.toLocaleString("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+        : value.toLocaleString("pt-BR"));
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -334,7 +336,7 @@ function NumInput({ label, value, onChange, suffix, prefix, format, step = 1, de
             if (!isNaN(n)) onChange(n);
           }}
           readOnly={!focused}
-          className="w-full bg-transparent text-center text-lg font-bold text-foreground pt-4 pb-1 px-3 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none cursor-text"
+          className="w-full bg-transparent text-center text-lg font-bold text-muted-foreground pt-4 pb-1 px-3 focus:outline-none focus:text-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none cursor-text"
         />
         {!focused && (
           <p className="text-center text-[10px] text-muted-foreground pb-2.5">clique para editar</p>
