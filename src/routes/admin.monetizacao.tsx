@@ -353,38 +353,24 @@ export default function MonetizacaoPage() {
         <p className="text-sm text-muted-foreground mt-0.5">Transforme consistência em receita.</p>
       </div>
 
-      {/* Main layout */}
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_288px] gap-5 items-start">
-        {/* ── Left / Main content ── */}
-        <div className="space-y-5 min-w-0">
-          {/* Filter row */}
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
-            <PageDropdown
-              pages={pages} stats={stats} selectedId={selectedId}
-              onSelect={setSelectedId}
-            />
-            <ViewToggle view={view} onView={setView} />
-          </div>
-
-          {/* Content */}
-          {view === "individual" && selectedStat && template ? (
-            <IndividualDashboard
-              s={selectedStat} template={template} pagePosts={pagePosts}
-              allStats={stats}
-            />
-          ) : (
-            <OverviewGrid monetized={monetized} warmingSorted={warmingSorted} template={template} />
-          )}
-        </div>
-
-        {/* ── Right sidebar ── */}
-        {view === "individual" && selectedStat && template && (
-          <SidebarPanel
-            s={selectedStat} template={template} pagePosts={pagePosts}
-            leaderboard={leaderboard} allStats={stats} selectedId={selectedId}
-          />
-        )}
+      {/* Filter row */}
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+        <PageDropdown
+          pages={pages} stats={stats} selectedId={selectedId}
+          onSelect={setSelectedId}
+        />
+        <ViewToggle view={view} onView={setView} />
       </div>
+
+      {/* Content */}
+      {view === "individual" && selectedStat && template ? (
+        <IndividualDashboard
+          s={selectedStat} template={template} pagePosts={pagePosts}
+          allStats={stats}
+        />
+      ) : (
+        <OverviewGrid monetized={monetized} warmingSorted={warmingSorted} template={template} />
+      )}
     </div>
   );
 }
@@ -511,35 +497,138 @@ function ViewToggle({ view, onView }: { view: ViewMode; onView: (v: ViewMode) =>
 
 // ─── Individual Dashboard ─────────────────────────────────────────────────────
 
-function IndividualDashboard({ s, template, pagePosts, allStats }: {
+function IndividualDashboard({ s, template, pagePosts: _pagePosts, allStats: _allStats }: {
   s: PageMonetStat; template: Template; pagePosts: RawPost[];
   allStats: PageMonetStat[];
 }) {
   const score = s.isMonetized ? 100 : readinessScore(s, template);
   const days = estimateDaysNum(s, template);
   const milestones = useMemo(() => computeMilestones(s, template), [s, template]);
-  const dayData = useMemo(() => computeDayOfWeek(pagePosts), [pagePosts]);
-  const fmtData = useMemo(() => computeFormats(pagePosts), [pagePosts]);
-  const percentile = useMemo(() => computePercentile(s, allStats, template), [s, allStats, template]);
+  const nextGoal = useMemo(() => computeNextGoal(s, template), [s, template]);
+
+  const estimateText = s.isMonetized ? "Monetizada!"
+    : days === 9999 ? "Calculando..."
+    : days <= 0 ? "Pronto!"
+    : `~${days} dias`;
+
+  const estimateSub = s.isMonetized ? `Monetizou em ${s.daysToMonetize} dias`
+    : days === 9999 ? "Poste mais para calcular"
+    : "Se continuar nesse ritmo";
+
+  const metrics = [
+    { label: "Posts", value: s.posts, target: Math.round(template.posts), pct: Math.min((s.posts / template.posts) * 100, 100), color: "#6D4AFF" },
+    { label: "Views", value: s.views, target: Math.round(template.views), pct: Math.min((s.views / template.views) * 100, 100), color: "#0ea5e9" },
+    { label: "Dias ativos", value: s.activeDays, target: Math.round(template.activeDays), pct: Math.min((s.activeDays / template.activeDays) * 100, 100), color: "#10b981" },
+    { label: "Streak máx.", value: s.longestStreak, target: Math.round(template.longestStreak), pct: Math.min((s.longestStreak / template.longestStreak) * 100, 100), color: "#f59e0b", suffix: "d" },
+  ];
 
   return (
-    <div className="space-y-4">
-      {/* Hero: Previsão */}
-      <PrevisaoCard s={s} score={score} days={days} milestones={milestones} />
-
-      {/* Stats row */}
-      <StatsStrip s={s} template={template} />
-
-      {/* Charts row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <BestDayCard dayData={dayData} />
-        <BestFormatCard fmtData={fmtData} />
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* ── Card 1: Progresso ── */}
+      <div className="bg-white border border-border rounded-2xl shadow-sm p-6 flex flex-col gap-5">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Progresso</p>
+        <div className="flex flex-col items-center gap-3">
+          <RingProgress pct={score} size={96} dark={false} />
+          <div className="text-center">
+            <div className="text-2xl font-extrabold" style={{ color: "#0D0B1F" }}>{estimateText}</div>
+            <p className="text-xs text-muted-foreground mt-1">{estimateSub}</p>
+          </div>
+        </div>
+        <div className="space-y-2.5 border-t border-border pt-4">
+          {milestones.map((m, i) => (
+            <div key={i} className="flex items-center gap-2.5">
+              <MilestoneIconLight status={m.status} />
+              <span className={cn("text-xs flex-1 leading-snug",
+                m.status === "done" ? "text-foreground font-medium"
+                : m.status === "progress" ? "text-foreground"
+                : "text-muted-foreground"
+              )}>{m.label}</span>
+              <span className={cn("text-[10px] font-medium shrink-0",
+                m.status === "done" ? "text-green-600"
+                : m.status === "progress" ? "text-amber-500"
+                : "text-muted-foreground/50"
+              )}>{m.detail}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Motivational bottom */}
-      <MotivationalBanner percentile={percentile} />
+      {/* ── Card 2: Métricas ── */}
+      <div className="bg-white border border-border rounded-2xl shadow-sm p-6 flex flex-col gap-5">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Métricas</p>
+        <div className="flex-1 space-y-5">
+          {metrics.map(({ label, value, target, pct, color, suffix }) => (
+            <div key={label}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium" style={{ color: "#0D0B1F" }}>{label}</span>
+                <span className="text-xs text-muted-foreground">{fmt(value)}{suffix ?? ""} / {fmt(target)}{suffix ?? ""}</span>
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-2 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+              </div>
+              <p className="text-[11px] font-semibold mt-1.5 text-right" style={{ color }}>{Math.round(pct)}%</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Card 3: O que falta ── */}
+      <div className="bg-white border border-border rounded-2xl shadow-sm p-6 flex flex-col gap-5">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">O que falta</p>
+        {s.isMonetized ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 py-4">
+            <div className="h-16 w-16 rounded-2xl bg-green-50 flex items-center justify-center">
+              <CheckCircle2 className="h-8 w-8 text-green-500" />
+            </div>
+            <div className="text-center">
+              <p className="font-bold" style={{ color: "#0D0B1F" }}>Página Monetizada!</p>
+              {s.daysToMonetize && (
+                <p className="text-xs text-muted-foreground mt-1">Alcançou em {s.daysToMonetize} dias</p>
+              )}
+            </div>
+          </div>
+        ) : nextGoal ? (
+          <div className="flex-1 flex flex-col justify-center gap-5">
+            <div>
+              <p className="text-4xl font-extrabold" style={{ color: "#0D0B1F" }}>
+                {fmt(nextGoal.target - nextGoal.current)}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1.5">{nextGoal.label} ainda faltam</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-[11px] text-muted-foreground">
+                <span>{fmt(nextGoal.current)} atual</span>
+                <span>meta: {fmt(nextGoal.target)}</span>
+              </div>
+              <div className="h-3 bg-muted rounded-full overflow-hidden">
+                <div className="h-3 rounded-full bg-[#6D4AFF] transition-all"
+                  style={{ width: `${Math.min((nextGoal.current / nextGoal.target) * 100, 100)}%` }} />
+              </div>
+              <p className="text-xs font-semibold text-[#6D4AFF] text-right">
+                {Math.round(Math.min((nextGoal.current / nextGoal.target) * 100, 100))}% completo
+              </p>
+            </div>
+            {days < 9999 && days > 0 && (
+              <div className="rounded-xl bg-[#EDE9FF] px-4 py-3 text-center">
+                <p className="text-sm font-bold text-[#6D4AFF]">~{days} dias</p>
+                <p className="text-[11px] text-[#6D4AFF]/70 mt-0.5">estimativa de monetização</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+            Sem dados suficientes
+          </div>
+        )}
+      </div>
     </div>
   );
+}
+
+function MilestoneIconLight({ status }: { status: "done" | "progress" | "pending" }) {
+  if (status === "done") return <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />;
+  if (status === "progress") return <div className="h-4 w-4 rounded-full border-2 border-amber-400 bg-amber-50 shrink-0" />;
+  return <div className="h-4 w-4 rounded-full border-2 border-border shrink-0" />;
 }
 
 // ─── Sidebar Panel ────────────────────────────────────────────────────────────
@@ -653,22 +742,25 @@ function MilestoneIcon({ status }: { status: "done" | "progress" | "pending" }) 
 
 // ─── Ring Progress ────────────────────────────────────────────────────────────
 
-function RingProgress({ pct, size = 100 }: { pct: number; size?: number }) {
+function RingProgress({ pct, size = 100, dark = true }: { pct: number; size?: number; dark?: boolean }) {
   const sw = Math.round(size * 0.1);
   const r = (size - sw) / 2;
   const circ = 2 * Math.PI * r;
   const dash = (Math.min(pct, 100) / 100) * circ;
-  const color = pct >= 75 ? "#4ade80" : pct >= 50 ? "#fbbf24" : pct >= 25 ? "#fb923c" : "#c4b5fd";
+  const color = pct >= 75 ? "#4ade80" : pct >= 50 ? "#fbbf24" : pct >= 25 ? "#fb923c" : "#a78bfa";
+  const trackColor = dark ? "rgba(255,255,255,0.15)" : "#e5e7eb";
+  const textColor = dark ? "#fff" : "#0D0B1F";
+  const subColor = dark ? "rgba(255,255,255,0.5)" : "#9ca3af";
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={sw} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={trackColor} strokeWidth={sw} />
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={sw}
           strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-        <span className="font-extrabold leading-none text-white" style={{ fontSize: size * 0.22 }}>{pct}%</span>
-        <span className="text-white/50 leading-none" style={{ fontSize: size * 0.09 }}>pronto</span>
+        <span className="font-extrabold leading-none" style={{ fontSize: size * 0.22, color: textColor }}>{pct}%</span>
+        <span className="leading-none" style={{ fontSize: size * 0.09, color: subColor }}>pronto</span>
       </div>
     </div>
   );
