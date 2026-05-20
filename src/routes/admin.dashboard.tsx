@@ -323,7 +323,7 @@ function AdminDashboard() {
 
   useEffect(() => {
     const load = async () => {
-      const [posts, pas, { data: pagesData }, { data: colabsData }, { data: rulesData }, { data: imports }, { data: dailyData }] =
+      const [posts, pas, { data: pagesData }, { data: colabsData }, { data: rulesData }, { data: imports }] =
         await Promise.all([
           fetchAllRows<RawPost>(() =>
             supabase.from("posts").select(
@@ -340,7 +340,6 @@ function AdminDashboard() {
             .select("id, file_name, status, created_at, valid_rows, total_rows, detected_pages_count")
             .order("created_at", { ascending: false })
             .limit(5),
-          (supabase as any).from("daily_revenue_entries").select("entry_date, actual_revenue_usd"),
         ]);
 
       setAllPosts(posts);
@@ -349,11 +348,25 @@ function AdminDashboard() {
       setPages((pagesData ?? []).map((p: any) => ({ id: p.id, name: p.nome })));
       setColabs((colabsData ?? []).map((c: any) => ({ id: c.id, nome: c.nome, hashtag: c.hashtag })));
       setRecentImports((imports ?? []) as RecentImport[]);
-      setDailyEntries((dailyData ?? []) as unknown as DailyEntry[]);
       setLoading(false);
     };
     load();
   }, []);
+
+  // Fetch daily revenue entries whenever the date filter changes
+  useEffect(() => {
+    const fetchEntries = async () => {
+      const from = filterFrom || "2020-01-01";
+      const to = filterTo || new Date().toISOString().slice(0, 10);
+      const { data } = await (supabase as any)
+        .from("daily_revenue_entries")
+        .select("entry_date, actual_revenue_usd")
+        .gte("entry_date", from)
+        .lte("entry_date", to);
+      setDailyEntries((data ?? []) as DailyEntry[]);
+    };
+    fetchEntries();
+  }, [filterFrom, filterTo]);
 
   useEffect(() => {
     const loadManualBonuses = async () => {
@@ -859,14 +872,12 @@ function AdminDashboard() {
   const dailyActualByDia = useMemo(() => {
     const map = new Map<string, number>();
     for (const e of dailyEntries) {
-      if (!e.actual_revenue_usd) continue;
-      if (filterFrom && e.entry_date < filterFrom) continue;
-      if (filterTo && e.entry_date > filterTo) continue;
+      if (e.actual_revenue_usd == null) continue;
       const [, mo, d] = e.entry_date.split("-");
       map.set(`${d}/${mo}`, Number(e.actual_revenue_usd));
     }
     return map;
-  }, [dailyEntries, filterFrom, filterTo]);
+  }, [dailyEntries]);
 
   // Scores always computed across ALL pages (date-filtered only, never page-filtered)
   // so a single-page view doesn't self-normalize to 100.
