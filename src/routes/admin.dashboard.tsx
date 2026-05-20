@@ -845,7 +845,50 @@ function AdminDashboard() {
     return [...hist, ...futuro];
   }, [chartData, projections]);
 
-  const visiblePages = showAllPages ? pageStats : pageStats.slice(0, 5);
+  // Scores always computed across ALL pages (date-filtered only, never page-filtered)
+  // so a single-page view doesn't self-normalize to 100.
+  const globalPageScores = useMemo(() => {
+    const pageMap = new Map(pages.map((p) => [p.id, p.name]));
+    const agg = new Map<string, Omit<PageStat, "score">>();
+    for (const p of allPosts) {
+      if (filterFrom && p.published_at && p.published_at.slice(0, 10) < filterFrom) continue;
+      if (filterTo && p.published_at && p.published_at.slice(0, 10) > filterTo) continue;
+      const pageName = pageMap.get(p.page_id) ?? p.page_id.slice(0, 8);
+      if (!agg.has(p.page_id)) {
+        agg.set(p.page_id, {
+          id: p.page_id, name: pageName,
+          posts: 0, views: 0, reactions: 0, comments: 0, shares: 0, revenue: 0,
+          rpm: 0, engagementRate: 0, isMonetized: false, videoCount: 0, imageCount: 0,
+        });
+      }
+      const ps = agg.get(p.page_id)!;
+      const val = getPostUsd(p);
+      const views = Number(p.views ?? 0);
+      ps.posts += 1; ps.views += views;
+      ps.reactions += Number(p.reactions ?? 0);
+      ps.comments += Number(p.comments ?? 0);
+      ps.shares += Number(p.shares ?? 0);
+      ps.revenue += val;
+      if (val > 0) ps.isMonetized = true;
+      const t = (p.post_type ?? "").toLowerCase();
+      if (t.includes("video") || t === "reel") ps.videoCount += 1;
+      else if (t.includes("foto") || t.includes("photo") || t.includes("image")) ps.imageCount += 1;
+    }
+    for (const [, ps] of agg) {
+      ps.rpm = ps.views > 0 ? (ps.revenue / ps.views) * 1000 : 0;
+      ps.engagementRate = ps.views > 0 ? (ps.reactions + ps.comments + ps.shares) / ps.views : 0;
+    }
+    const scored = computePageScores(Array.from(agg.values()));
+    return new Map(scored.map((p) => [p.id, p.score]));
+  }, [allPosts, filterFrom, filterTo, pages]);
+
+  // Apply global scores onto the (possibly page-filtered) pageStats
+  const pageStatsWithGlobalScores = useMemo(
+    () => pageStats.map((ps) => ({ ...ps, score: globalPageScores.get(ps.id) ?? ps.score })),
+    [pageStats, globalPageScores],
+  );
+
+  const visiblePages = showAllPages ? pageStatsWithGlobalScores : pageStatsWithGlobalScores.slice(0, 5);
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -950,8 +993,8 @@ function AdminDashboard() {
               },
               {
                 label: "Score Médio",
-                value: loading ? "—" : `${avgScore}/100`,
-                sub: `${pageStats.length} páginas`,
+                value: loading ? "—" : `${pageStatsWithGlobalScores.length > 0 ? Math.round(pageStatsWithGlobalScores.reduce((s, p) => s + p.score, 0) / pageStatsWithGlobalScores.length) : 0}/100`,
+                sub: `${pageStatsWithGlobalScores.length} páginas`,
                 icon: TrendingUp,
               },
             ].map(({ label, value, sub, icon: Icon }) => (
