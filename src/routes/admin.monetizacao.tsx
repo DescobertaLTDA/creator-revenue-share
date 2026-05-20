@@ -144,8 +144,13 @@ function buildStats(pages: PageRow[], posts: RawPost[]): PageMonetStat[] {
 
     const firstPostDate = all[0]?.published_at?.slice(0, 10) ?? null;
     const lastPostDate = all[all.length - 1]?.published_at?.slice(0, 10) ?? null;
-    const firstPayIdx = all.findIndex((p) => getUsd(p) > 0);
-    const isMonetized = firstPayIdx >= 0;
+    // A page is monetized only when it has ≥3 posts with revenue (1-2 = likely import noise)
+    const revenuePostIndices = all.reduce<number[]>((acc, p, i) => {
+      if (getUsd(p) > 0) acc.push(i);
+      return acc;
+    }, []);
+    const isMonetized = revenuePostIndices.length >= 3;
+    const firstPayIdx = isMonetized ? revenuePostIndices[0] : -1;
     const firstPaymentDate = isMonetized
       ? all[firstPayIdx].published_at?.slice(0, 10) ?? null
       : null;
