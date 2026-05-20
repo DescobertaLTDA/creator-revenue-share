@@ -293,6 +293,7 @@ function AdminDashboard() {
   const [draftGoals, setDraftGoals] = useState<Goals>(loadGoals);
   const [showAllPages, setShowAllPages] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "charts">("overview");
+  const [chartMetric, setChartMetric] = useState<"receita" | "views" | "curtidas" | "comentarios" | "compartilhamentos">("receita");
 
   const [filterPage, setFilterPage] = useState("all");
   const [filterColab, setFilterColab] = useState("all");
@@ -737,52 +738,97 @@ function AdminDashboard() {
     "#16a34a", "#0284c7", "#7c3aed", "#db2777", "#059669",
   ];
 
-  // Chart por página individual (quando filterPage === "all") — só páginas com receita > 0
-  const multiPageChartData = useMemo(() => {
+  // All multi-page metrics computed in a single loop
+  const multiPageAllMetrics = useMemo(() => {
     if (filterPage !== "all") return null;
-    const byPageDay = new Map<string, Map<string, number>>();
-    const pageTotal = new Map<string, number>();
+    type MK = "receita" | "views" | "curtidas" | "comentarios" | "compartilhamentos";
+    const mkeys: MK[] = ["receita", "views", "curtidas", "comentarios", "compartilhamentos"];
+    const byPageDay: Record<MK, Map<string, Map<string, number>>> = {
+      receita: new Map(), views: new Map(), curtidas: new Map(),
+      comentarios: new Map(), compartilhamentos: new Map(),
+    };
+    const pageTotal: Record<MK, Map<string, number>> = {
+      receita: new Map(), views: new Map(), curtidas: new Map(),
+      comentarios: new Map(), compartilhamentos: new Map(),
+    };
 
     for (const p of allPosts) {
       if (!p.published_at) continue;
       const day = p.published_at.slice(0, 10);
       if (filterFrom && day < filterFrom) continue;
       if (filterTo && day > filterTo) continue;
-      const val = getPostUsd(p);
-      if (val <= 0) continue; // só posts com receita
-      if (!byPageDay.has(p.page_id)) byPageDay.set(p.page_id, new Map());
-      const dm = byPageDay.get(p.page_id)!;
-      dm.set(day, (dm.get(day) ?? 0) + val);
-      pageTotal.set(p.page_id, (pageTotal.get(p.page_id) ?? 0) + val);
+      const vals: Record<MK, number> = {
+        receita: getPostUsd(p),
+        views: Number(p.views ?? 0),
+        curtidas: Number(p.reactions ?? 0),
+        comentarios: Number(p.comments ?? 0),
+        compartilhamentos: Number(p.shares ?? 0),
+      };
+      for (const mk of mkeys) {
+        const v = vals[mk];
+        if (v <= 0) continue;
+        if (!byPageDay[mk].has(p.page_id)) byPageDay[mk].set(p.page_id, new Map());
+        const dm = byPageDay[mk].get(p.page_id)!;
+        dm.set(day, (dm.get(day) ?? 0) + v);
+        pageTotal[mk].set(p.page_id, (pageTotal[mk].get(p.page_id) ?? 0) + v);
+      }
     }
 
-    // Ordenar páginas por receita total (maior primeiro), máx 8
-    const pageIds = Array.from(pageTotal.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([id]) => id);
-
-    if (pageIds.length === 0) return null;
-
-    const allDays = new Set<string>();
-    for (const pid of pageIds) {
-      const dm = byPageDay.get(pid);
-      if (dm) for (const day of dm.keys()) allDays.add(day);
-    }
-    const sortedDays = Array.from(allDays).sort();
     const pageNameById = new Map(pages.map((p) => [p.id, p.name]));
 
-    const data = sortedDays.map((day) => {
-      const [, mo, d] = day.split("-");
-      const entry: Record<string, any> = { dia: `${d}/${mo}` };
+    const buildDataset = (mk: MK) => {
+      const pageIds = Array.from(pageTotal[mk].entries())
+        .filter(([, t]) => t > 0)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([id]) => id);
+      if (pageIds.length === 0) return null;
+      const allDays = new Set<string>();
       for (const pid of pageIds) {
-        entry[pid] = parseFloat(((byPageDay.get(pid)?.get(day) ?? 0)).toFixed(4));
+        const dm = byPageDay[mk].get(pid);
+        if (dm) for (const d of dm.keys()) allDays.add(d);
       }
-      return entry;
-    });
+      const data = Array.from(allDays).sort().map((day) => {
+        const [, mo, d] = day.split("-");
+        const entry: Record<string, any> = { dia: `${d}/${mo}` };
+        for (const pid of pageIds) entry[pid] = byPageDay[mk].get(pid)?.get(day) ?? 0;
+        return entry;
+      });
+      return { data, pageIds, pageNameById, pageTotal: pageTotal[mk] };
+    };
 
-    return { data, pageIds, pageNameById, pageTotal };
+    return {
+      receita: buildDataset("receita"),
+      views: buildDataset("views"),
+      curtidas: buildDataset("curtidas"),
+      comentarios: buildDataset("comentarios"),
+      compartilhamentos: buildDataset("compartilhamentos"),
+    };
   }, [allPosts, filterFrom, filterTo, filterPage, pages]);
+
+  // Single-page non-revenue metric chart data
+  const singlePageMetricData = useMemo(() => {
+    if (filterPage === "all" || chartMetric === "receita") return null;
+    const fieldMap: Record<string, keyof RawPost> = {
+      views: "views", curtidas: "reactions",
+      comentarios: "comments", compartilhamentos: "shares",
+    };
+    const field = fieldMap[chartMetric];
+    const byDay = new Map<string, number>();
+    for (const p of allPosts) {
+      if (p.page_id !== filterPage || !p.published_at) continue;
+      const day = p.published_at.slice(0, 10);
+      if (filterFrom && day < filterFrom) continue;
+      if (filterTo && day > filterTo) continue;
+      byDay.set(day, (byDay.get(day) ?? 0) + Number((p as any)[field] ?? 0));
+    }
+    return Array.from(byDay.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([day, value]) => {
+        const [, mo, d] = day.split("-");
+        return { dia: `${d}/${mo}`, value };
+      });
+  }, [allPosts, filterPage, filterFrom, filterTo, chartMetric]);
 
   // Projection chart data: last 30 days real + next 28 projected (página única)
   const projectionChartData = useMemo(() => {
@@ -922,94 +968,156 @@ function AdminDashboard() {
             ))}
           </div>
 
-          {/* ── Gráfico de Receita ── */}
-          <div className="bg-white border border-[#e8e0f5] rounded-2xl p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-sm font-semibold">
-                  {filterPage === "all" ? "Receita por Página" : "Receita + Projeção"}
-                </h2>
-                <p className="text-xs text-[#9d8fb0] mt-0.5">
-                  {filterPage === "all"
-                    ? "Uma linha por página no período selecionado"
-                    : "Histórico real e projeção dos próximos 28 dias"}
-                </p>
-              </div>
-            </div>
+          {/* ── Gráfico com abas de métricas ── */}
+          {(() => {
+            const METRIC_TABS = [
+              { key: "receita" as const,           label: "Receita" },
+              { key: "views" as const,              label: "Views" },
+              { key: "curtidas" as const,           label: "Curtidas" },
+              { key: "comentarios" as const,        label: "Comentários" },
+              { key: "compartilhamentos" as const,  label: "Compartilhamentos" },
+            ];
 
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                {filterPage === "all" && multiPageChartData && multiPageChartData.data.length > 0 ? (
-                  <AreaChart data={multiPageChartData.data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                    <defs>
-                      {multiPageChartData.pageIds.map((pid, i) => (
-                        <linearGradient key={pid} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor={PAGE_COLORS[i % PAGE_COLORS.length]} stopOpacity={0.4} />
-                          <stop offset="95%" stopColor={PAGE_COLORS[i % PAGE_COLORS.length]} stopOpacity={0.05} />
-                        </linearGradient>
-                      ))}
-                    </defs>
-                    <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9d8fb0" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
-                    <YAxis hide />
-                    <Tooltip
-                      formatter={(v: any, name: string) => {
-                        if (Number(v) === 0) return null as any;
-                        const val = usdBrl ? formatBRL(Number(v) * usdBrl) : `$${Number(v).toFixed(4)}`;
-                        return [val, name];
-                      }}
-                      labelStyle={{ color: "#1a0533", fontSize: 11, fontWeight: 600 }}
-                      contentStyle={{ border: "1px solid #e8e0f5", borderRadius: 12, fontSize: 11, boxShadow: "0 4px 16px #6200b315" }}
-                    />
-                    <Legend
-                      formatter={(value) => {
-                        const name = multiPageChartData.pageNameById.get(value) ?? value.slice(0, 16);
-                        const total = multiPageChartData.pageTotal.get(value) ?? 0;
-                        const fmt = usdBrl ? formatBRL(total * usdBrl) : `$${total.toFixed(2)}`;
-                        return `${name} (${fmt})`;
-                      }}
-                      wrapperStyle={{ fontSize: 11, paddingTop: 12 }}
-                    />
-                    {multiPageChartData.pageIds.map((pid, i) => (
-                      <Area
-                        key={pid}
-                        type="monotone"
-                        dataKey={pid}
-                        name={multiPageChartData.pageNameById.get(pid) ?? "Sem nome"}
-                        stackId="1"
-                        stroke={PAGE_COLORS[i % PAGE_COLORS.length]}
-                        strokeWidth={1.5}
-                        fill={`url(#grad-${i})`}
-                        dot={false}
-                        connectNulls
-                      />
+            const fmtMetricVal = (v: number) => {
+              if (chartMetric === "receita") return usdBrl ? formatBRL(v * usdBrl) : `$${v.toFixed(4)}`;
+              return v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M`
+                : v >= 1_000 ? `${(v / 1_000).toFixed(1)}k`
+                : v.toLocaleString("pt-BR");
+            };
+
+            const activeDataset = filterPage === "all"
+              ? multiPageAllMetrics?.[chartMetric] ?? null
+              : null;
+
+            return (
+              <div className="bg-white border border-[#e8e0f5] rounded-2xl p-5 shadow-sm">
+                {/* Header: title + tabs */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                  <div>
+                    <h2 className="text-sm font-semibold">
+                      {filterPage === "all" ? "Métricas por Página" : "Métricas" + (chartMetric === "receita" ? " + Projeção" : "")}
+                    </h2>
+                    <p className="text-xs text-[#9d8fb0] mt-0.5">
+                      {filterPage === "all" ? "Uma área por página" : chartMetric === "receita" ? "Histórico real e projeção 28 dias" : "Histórico do período"}
+                    </p>
+                  </div>
+                  {/* Tabs */}
+                  <div className="flex flex-wrap gap-1">
+                    {METRIC_TABS.map(({ key, label }) => (
+                      <button
+                        key={key}
+                        onClick={() => setChartMetric(key)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+                          chartMetric === key
+                            ? "bg-[#6200b3] text-white"
+                            : "text-[#7c6f8e] border border-[#e8e0f5] hover:bg-[#f3e8ff]"
+                        }`}
+                      >
+                        {label}
+                      </button>
                     ))}
-                  </AreaChart>
-                ) : (
-                  <AreaChart data={projectionChartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="gradReal" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6200b3" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="#6200b3" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="gradProj" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ea7af4" stopOpacity={0.15} />
-                        <stop offset="95%" stopColor="#ea7af4" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9d8fb0" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
-                    <YAxis hide />
-                    <Tooltip
-                      formatter={(v: any) => v !== null ? (usdBrl ? formatBRL(Number(v) * usdBrl) : `$${Number(v).toFixed(4)}`) : "—"}
-                      labelStyle={{ color: "#1a0533", fontSize: 11 }}
-                      contentStyle={{ border: "1px solid #e8e0f5", borderRadius: 10, fontSize: 11 }}
-                    />
-                    <Area type="monotone" dataKey="real" stroke="#6200b3" strokeWidth={2} fill="url(#gradReal)" dot={false} connectNulls={false} name="Real" />
-                    <Area type="monotone" dataKey="proj" stroke="#ea7af4" strokeWidth={1.5} strokeDasharray="4 3" fill="url(#gradProj)" dot={false} connectNulls={false} name="Projeção" />
-                  </AreaChart>
+                  </div>
+                </div>
+
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    {filterPage === "all" && activeDataset && activeDataset.data.length > 0 ? (
+                      <AreaChart data={activeDataset.data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                        <defs>
+                          {activeDataset.pageIds.map((pid, i) => (
+                            <linearGradient key={pid} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor={PAGE_COLORS[i % PAGE_COLORS.length]} stopOpacity={0.4} />
+                              <stop offset="95%" stopColor={PAGE_COLORS[i % PAGE_COLORS.length]} stopOpacity={0.05} />
+                            </linearGradient>
+                          ))}
+                        </defs>
+                        <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9d8fb0" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
+                        <YAxis hide />
+                        <Tooltip
+                          formatter={(v: any, name: string) => {
+                            if (Number(v) === 0) return null as any;
+                            return [fmtMetricVal(Number(v)), name];
+                          }}
+                          labelStyle={{ color: "#1a0533", fontSize: 11, fontWeight: 600 }}
+                          contentStyle={{ border: "1px solid #e8e0f5", borderRadius: 12, fontSize: 11, boxShadow: "0 4px 16px #6200b315" }}
+                        />
+                        <Legend
+                          formatter={(value) => {
+                            const name = activeDataset.pageNameById.get(value) ?? value.slice(0, 16);
+                            const total = activeDataset.pageTotal.get(value) ?? 0;
+                            return `${name} (${fmtMetricVal(total)})`;
+                          }}
+                          wrapperStyle={{ fontSize: 11, paddingTop: 12 }}
+                        />
+                        {activeDataset.pageIds.map((pid, i) => (
+                          <Area
+                            key={pid}
+                            type="monotone"
+                            dataKey={pid}
+                            name={activeDataset.pageNameById.get(pid) ?? "Sem nome"}
+                            stackId="1"
+                            stroke={PAGE_COLORS[i % PAGE_COLORS.length]}
+                            strokeWidth={1.5}
+                            fill={`url(#grad-${i})`}
+                            dot={false}
+                            connectNulls
+                          />
+                        ))}
+                      </AreaChart>
+                    ) : filterPage !== "all" && chartMetric === "receita" ? (
+                      <AreaChart data={projectionChartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="gradReal" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#6200b3" stopOpacity={0.25} />
+                            <stop offset="95%" stopColor="#6200b3" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="gradProj" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#ea7af4" stopOpacity={0.15} />
+                            <stop offset="95%" stopColor="#ea7af4" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9d8fb0" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
+                        <YAxis hide />
+                        <Tooltip
+                          formatter={(v: any) => v !== null ? (usdBrl ? formatBRL(Number(v) * usdBrl) : `$${Number(v).toFixed(4)}`) : "—"}
+                          labelStyle={{ color: "#1a0533", fontSize: 11 }}
+                          contentStyle={{ border: "1px solid #e8e0f5", borderRadius: 10, fontSize: 11 }}
+                        />
+                        <Area type="monotone" dataKey="real" stroke="#6200b3" strokeWidth={2} fill="url(#gradReal)" dot={false} connectNulls={false} name="Real" />
+                        <Area type="monotone" dataKey="proj" stroke="#ea7af4" strokeWidth={1.5} strokeDasharray="4 3" fill="url(#gradProj)" dot={false} connectNulls={false} name="Projeção" />
+                      </AreaChart>
+                    ) : singlePageMetricData && singlePageMetricData.length > 0 ? (
+                      <AreaChart data={singlePageMetricData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="gradSingle" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#6200b3" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#6200b3" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9d8fb0" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
+                        <YAxis hide />
+                        <Tooltip
+                          formatter={(v: any) => [fmtMetricVal(Number(v)), METRIC_TABS.find((t) => t.key === chartMetric)?.label ?? chartMetric]}
+                          labelStyle={{ color: "#1a0533", fontSize: 11 }}
+                          contentStyle={{ border: "1px solid #e8e0f5", borderRadius: 10, fontSize: 11 }}
+                        />
+                        <Area type="monotone" dataKey="value" stroke="#6200b3" strokeWidth={2} fill="url(#gradSingle)" dot={false} connectNulls />
+                      </AreaChart>
+                    ) : (
+                      <AreaChart data={[]} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                        <XAxis tick={{ fontSize: 10, fill: "#9d8fb0" }} axisLine={false} tickLine={false} />
+                        <YAxis hide />
+                      </AreaChart>
+                    )}
+                  </ResponsiveContainer>
+                </div>
+
+                {filterPage === "all" && !activeDataset && (
+                  <p className="text-center text-xs text-[#9d8fb0] mt-2">Nenhum dado para esta métrica no período</p>
                 )}
-              </ResponsiveContainer>
-            </div>
-          </div>
+              </div>
+            );
+          })()}
 
           {/* ── Pages + Import ── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
