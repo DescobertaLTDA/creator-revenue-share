@@ -299,6 +299,41 @@ function GoalBar({ label, current, target, formatVal }: {
   );
 }
 
+// ─── Speedometer ─────────────────────────────────────────────────────────────
+
+function DashSpeedometer({ score }: { score: number }) {
+  const pct = Math.min(Math.max(score, 0), 100);
+  const color = pct >= 75 ? "#16a34a" : pct >= 50 ? "#f59e0b" : pct >= 25 ? "#f97316" : "#7c3aed";
+  const cx = 52, cy = 48, r = 36, sw = 8;
+  const arcLen = Math.PI * r;
+  const fillLen = (pct / 100) * arcLen;
+  const bgPath = `M ${cx - r},${cy} A ${r},${r} 0 0,1 ${cx + r},${cy}`;
+  const needleAngle = Math.PI - (pct / 100) * Math.PI;
+  const nx = cx + (r - 7) * Math.cos(needleAngle);
+  const ny = cy - (r - 7) * Math.sin(needleAngle);
+  const ticks = [0, 25, 50, 75, 100].map((t) => {
+    const a = Math.PI - (t / 100) * Math.PI;
+    const inner = r + sw / 2 + 2;
+    const outer = r + sw / 2 + 7;
+    return { x1: cx + inner * Math.cos(a), y1: cy - inner * Math.sin(a), x2: cx + outer * Math.cos(a), y2: cy - outer * Math.sin(a) };
+  });
+  return (
+    <svg width="104" height="64" viewBox="0 0 104 64">
+      <path d={bgPath} fill="none" stroke="#f3e8ff" strokeWidth={sw} strokeLinecap="round" />
+      <path d={bgPath} fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round"
+        strokeDasharray={`${fillLen} ${arcLen}`} />
+      {ticks.map((t, i) => (
+        <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} stroke="#ddd6fe" strokeWidth="1.5" />
+      ))}
+      <text x={cx - r - 1} y={cy + 13} fontSize="8" fill="#9d8fb0" textAnchor="middle">0</text>
+      <text x={cx + r + 1} y={cy + 13} fontSize="8" fill="#9d8fb0" textAnchor="middle">100</text>
+      <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx={cx} cy={cy} r="5" fill={color} />
+      <circle cx={cx} cy={cy} r="2.5" fill="white" />
+    </svg>
+  );
+}
+
 // ─── PageSelect ───────────────────────────────────────────────────────────────
 
 function PageSelect({
@@ -1175,45 +1210,68 @@ function AdminDashboard() {
       {activeTab === "overview" && (
         <>
           {/* ── KPI Strip ── */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {[
-              {
-                label: "Receita do Período",
-                value: loading ? "—" : usdBrl ? formatBRL(totalMonth * usdBrl) : `$${totalMonth.toFixed(2)}`,
-                sub: usdBrl && !loading ? `$${totalMonth.toFixed(2)} USD` : null,
-                icon: DollarSign,
-              },
-              {
-                label: "RPM Médio",
-                value: loading ? "—" : (usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(4)}`),
-                sub: "por mil visualizações",
-                icon: Zap,
-              },
-              {
-                label: "Visualizações",
-                value: loading ? "—" : fmt(totalViews),
-                sub: `${kpis.totalPosts.toLocaleString("pt-BR")} posts`,
-                icon: Eye,
-              },
-              {
-                label: "Score Médio",
-                value: loading ? "—" : `${pageStatsWithGlobalScores.length > 0 ? Math.round(pageStatsWithGlobalScores.reduce((s, p) => s + p.score, 0) / pageStatsWithGlobalScores.length) : 0}/100`,
-                sub: `${pageStatsWithGlobalScores.length} páginas`,
-                icon: TrendingUp,
-              },
-            ].map(({ label, value, sub, icon: Icon }) => (
-              <div key={label} className="bg-white border border-[#e8e0f5] rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-medium text-[#9d8fb0] uppercase tracking-wider">{label}</p>
-                  <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#f3e8ff] to-[#e8d5ff] flex items-center justify-center">
-                    <Icon className="h-4 w-4 text-[#6200b3]" />
+          {(() => {
+            const avgScore = !loading && pageStatsWithGlobalScores.length > 0
+              ? Math.round(pageStatsWithGlobalScores.reduce((s, p) => s + p.score, 0) / pageStatsWithGlobalScores.length)
+              : 0;
+            const scoreColor = avgScore >= 75 ? "#16a34a" : avgScore >= 50 ? "#f59e0b" : avgScore >= 25 ? "#f97316" : "#7c3aed";
+            return (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                  {
+                    label: "Receita do Período",
+                    value: loading ? "—" : usdBrl ? formatBRL(totalMonth * usdBrl) : `$${totalMonth.toFixed(2)}`,
+                    sub: usdBrl && !loading ? `$${totalMonth.toFixed(2)} USD` : null,
+                    icon: DollarSign,
+                  },
+                  {
+                    label: "RPM Médio",
+                    value: loading ? "—" : (usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(4)}`),
+                    sub: "por mil visualizações",
+                    icon: Zap,
+                  },
+                  {
+                    label: "Visualizações",
+                    value: loading ? "—" : fmt(totalViews),
+                    sub: `${kpis.totalPosts.toLocaleString("pt-BR")} posts`,
+                    icon: Eye,
+                  },
+                ].map(({ label, value, sub, icon: Icon }) => (
+                  <div key={label} className="bg-white border border-[#e8e0f5] rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs font-medium text-[#9d8fb0] uppercase tracking-wider">{label}</p>
+                      <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#f3e8ff] to-[#e8d5ff] flex items-center justify-center">
+                        <Icon className="h-4 w-4 text-[#6200b3]" />
+                      </div>
+                    </div>
+                    <p className="text-2xl font-bold tracking-tight tabular-nums text-[#1a0533]">{value}</p>
+                    {sub && <p className="text-xs text-[#9d8fb0] mt-1">{sub}</p>}
                   </div>
+                ))}
+
+                {/* Score Médio — com velocímetro */}
+                <div className="bg-white border border-[#e8e0f5] rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs font-medium text-[#9d8fb0] uppercase tracking-wider">Score Médio</p>
+                    <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#f3e8ff] to-[#e8d5ff] flex items-center justify-center">
+                      <TrendingUp className="h-4 w-4 text-[#6200b3]" />
+                    </div>
+                  </div>
+                  {loading ? (
+                    <p className="text-2xl font-bold text-[#1a0533] mt-2">—</p>
+                  ) : (
+                    <div className="flex items-end gap-3">
+                      <DashSpeedometer score={avgScore} />
+                      <div className="pb-1">
+                        <p className="text-2xl font-bold tabular-nums" style={{ color: scoreColor }}>{avgScore}<span className="text-sm font-normal text-[#9d8fb0]">/100</span></p>
+                        <p className="text-xs text-[#9d8fb0] mt-0.5">{pageStatsWithGlobalScores.length} páginas</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <p className="text-2xl font-bold tracking-tight tabular-nums text-[#1a0533]">{value}</p>
-                {sub && <p className="text-xs text-[#9d8fb0] mt-1">{sub}</p>}
               </div>
-            ))}
-          </div>
+            );
+          })()}
 
           {/* ── Gráfico com abas de métricas ── */}
           {(() => {
