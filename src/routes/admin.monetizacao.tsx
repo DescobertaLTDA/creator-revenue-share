@@ -2,6 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+} from "recharts";
+import {
   CheckCircle2, Flame, AlertCircle, Activity, Rocket, Target,
   ChevronDown, Search, BarChart2, Zap, Eye, FileText, TrendingUp,
   LayoutGrid, User, ArrowUp, Info,
@@ -497,7 +500,7 @@ function ViewToggle({ view, onView }: { view: ViewMode; onView: (v: ViewMode) =>
 
 // ─── Individual Dashboard ─────────────────────────────────────────────────────
 
-function IndividualDashboard({ s, template, pagePosts: _pagePosts, allStats: _allStats }: {
+function IndividualDashboard({ s, template, pagePosts, allStats: _allStats }: {
   s: PageMonetStat; template: Template; pagePosts: RawPost[];
   allStats: PageMonetStat[];
 }) {
@@ -505,6 +508,21 @@ function IndividualDashboard({ s, template, pagePosts: _pagePosts, allStats: _al
   const days = estimateDaysNum(s, template);
   const milestones = useMemo(() => computeMilestones(s, template), [s, template]);
   const nextGoal = useMemo(() => computeNextGoal(s, template), [s, template]);
+
+  const viewsChartData = useMemo(() => {
+    const byDay = new Map<string, number>();
+    for (const p of pagePosts) {
+      if (!p.published_at || !p.views) continue;
+      const day = p.published_at.slice(0, 10);
+      byDay.set(day, (byDay.get(day) ?? 0) + Number(p.views));
+    }
+    return [...byDay.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, views]) => ({
+        dia: date.slice(5).replace("-", "/"),
+        views,
+      }));
+  }, [pagePosts]);
 
   const estimateText = s.isMonetized ? "Monetizada!"
     : days === 9999 ? "Calculando..."
@@ -523,6 +541,7 @@ function IndividualDashboard({ s, template, pagePosts: _pagePosts, allStats: _al
   ];
 
   return (
+    <div className="space-y-4">
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {/* ── Card 1: Progresso ── */}
       <div className="bg-white border border-border rounded-2xl shadow-sm p-6 flex flex-col gap-5">
@@ -621,6 +640,56 @@ function IndividualDashboard({ s, template, pagePosts: _pagePosts, allStats: _al
           </div>
         )}
       </div>
+    </div>
+
+    {/* ── Views Chart ── */}
+    {viewsChartData.length > 1 && (
+      <div className="bg-white border border-border rounded-2xl shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-sm font-semibold" style={{ color: "#0D0B1F" }}>Views por dia</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{s.name}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-lg font-extrabold" style={{ color: "#0D0B1F" }}>{fmt(s.views)}</p>
+            <p className="text-[11px] text-muted-foreground">total acumulado</p>
+          </div>
+        </div>
+        <ResponsiveContainer width="100%" height={180}>
+          <AreaChart data={viewsChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id="viewsGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#6D4AFF" stopOpacity={0.25} />
+                <stop offset="95%" stopColor="#6D4AFF" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0edf8" vertical={false} />
+            <XAxis
+              dataKey="dia"
+              tick={{ fontSize: 10, fill: "#9d8fb0" }}
+              axisLine={false}
+              tickLine={false}
+              interval="preserveStartEnd"
+            />
+            <YAxis hide />
+            <Tooltip
+              formatter={(v: any) => [fmt(Number(v)), "views"]}
+              labelStyle={{ color: "#1a0533", fontSize: 11, fontWeight: 600 }}
+              contentStyle={{ border: "1px solid #e8e0f5", borderRadius: 10, fontSize: 11 }}
+            />
+            <Area
+              type="monotone"
+              dataKey="views"
+              stroke="#6D4AFF"
+              strokeWidth={2}
+              fill="url(#viewsGrad)"
+              dot={false}
+              connectNulls
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    )}
     </div>
   );
 }
