@@ -16,13 +16,6 @@ interface RawPost {
   views: number | null; estimated_usd: number | null;
 }
 interface PageRow { id: string; nome: string }
-type RhythmKey = "slow" | "medium" | "fast";
-
-const RHYTHMS = [
-  { key: "slow"   as RhythmKey, label: "Lento", emoji: "🐢", mult: 0.8 },
-  { key: "medium" as RhythmKey, label: "Médio", emoji: "🚀", mult: 1.0, badge: "Atual" },
-  { key: "fast"   as RhythmKey, label: "Alto",  emoji: "⚡", mult: 1.3 },
-];
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -68,7 +61,6 @@ export default function ProjecoesPage() {
   // ── Simulator controls
   const [postsPerDay, setPostsPerDay]   = useState(1);
   const [avgViews, setAvgViews]         = useState(12_000);
-  const [rhythm, setRhythm]             = useState<RhythmKey>("medium");
 
   // ── Exchange rate
   const [brlRate, setBrlRate] = useState(5.0);
@@ -132,8 +124,7 @@ export default function ProjecoesPage() {
 
   // ── Projection math
   const projection = useMemo(() => {
-    const rhythmMult  = RHYTHMS.find(r => r.key === rhythm)?.mult ?? 1.0;
-    const dailyRev    = postsPerDay * (avgViews / 1_000) * rpm * rhythmMult;
+    const dailyRev    = postsPerDay * (avgViews / 1_000) * rpm;
     const totalDays   = daysInCurrentMonth();
     const elapsed     = daysElapsedInMonth();
     const daysLeft    = totalDays - elapsed;
@@ -151,12 +142,8 @@ export default function ProjecoesPage() {
       }
     });
 
-    // Uplift: +1 post/day
-    const upliftDailyRev = (postsPerDay + 1) * (avgViews / 1_000) * rpm * rhythmMult;
-    const upliftExtra = (upliftDailyRev - dailyRev) * daysLeft * brlRate;
-
-    return { dailyRev, projectedRev, totalRev, progress, chartData, daysLeft, upliftExtra };
-  }, [postsPerDay, avgViews, rhythm, rpm, actualRevMonth, brlRate]);
+    return { dailyRev, projectedRev, totalRev, progress, chartData, daysLeft };
+  }, [postsPerDay, avgViews, rpm, actualRevMonth, brlRate]);
 
   return (
     <div className="space-y-4">
@@ -180,8 +167,6 @@ export default function ProjecoesPage() {
               setPostsPerDay={setPostsPerDay}
               avgViews={avgViews}
               setAvgViews={setAvgViews}
-              rhythm={rhythm}
-              setRhythm={setRhythm}
               rpm={rpm}
               setRpm={setRpm}
             />
@@ -252,21 +237,18 @@ function PageDropdown({ pages, value, onChange }: { pages: PageRow[]; value: str
 function ControlsPanel({
   postsPerDay, setPostsPerDay,
   avgViews, setAvgViews,
-  rhythm, setRhythm,
   rpm, setRpm,
 }: {
   postsPerDay: number; setPostsPerDay: (v: number) => void;
   avgViews: number; setAvgViews: (v: number) => void;
-  rhythm: RhythmKey; setRhythm: (v: RhythmKey) => void;
   rpm: number; setRpm: (v: number) => void;
 }) {
   const tip = useMemo(() => {
     if (postsPerDay === 0) return "Tente postar pelo menos 1 vez por dia!";
     if (postsPerDay >= 5) return "Qualidade supera quantidade — mantenha o nível!";
     if (avgViews < 5_000) return "Conteúdo com boas thumbnails costuma ter mais views.";
-    if (rhythm === "fast") return "Ritmo alto pode dar um salto — continue assim!";
-    return "Você está indo bem. Simule um ritmo mais alto!";
-  }, [postsPerDay, avgViews, rhythm]);
+    return "Você está indo bem!";
+  }, [postsPerDay, avgViews]);
 
   return (
     <div className="bg-white rounded-2xl border border-border p-5 space-y-4 lg:sticky lg:top-4">
@@ -295,36 +277,6 @@ function ControlsPanel({
           step={0.1}
           decimals={2}
         />
-      </div>
-
-      {/* Rhythm */}
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ritmo</p>
-        <div className="grid grid-cols-3 gap-2">
-          {RHYTHMS.map(r => (
-            <button
-              key={r.key}
-              onClick={() => setRhythm(r.key)}
-              className={cn(
-                "relative flex flex-col items-center gap-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all",
-                rhythm === r.key
-                  ? "border-[#6D4AFF] bg-[#6D4AFF]/8 text-[#6D4AFF]"
-                  : "border-border text-muted-foreground hover:border-[#6D4AFF]/40 hover:text-foreground"
-              )}
-            >
-              {r.badge && (
-                <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] bg-[#6D4AFF] text-white px-1.5 py-0.5 rounded-full font-bold">
-                  {r.badge}
-                </span>
-              )}
-              <span className="text-lg">{r.emoji}</span>
-              <span className="text-xs">{r.label}</span>
-              <span className="text-[10px] font-normal opacity-60">
-                {r.mult < 1 ? `×${r.mult}` : r.mult === 1 ? "×1" : `×${r.mult}`}
-              </span>
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Tip */}
