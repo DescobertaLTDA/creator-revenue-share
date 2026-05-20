@@ -1,5 +1,5 @@
 ﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState, useMemo, lazy, Suspense, useRef } from "react";
+import { useEffect, useState, useMemo, lazy, Suspense, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { EmptyState } from "@/components/app/EmptyState";
@@ -302,7 +302,69 @@ function GoalBar({ label, current, target, formatVal }: {
 // ─── Speedometer ─────────────────────────────────────────────────────────────
 
 function DashSpeedometer({ score }: { score: number }) {
-  const pct = Math.min(Math.max(score, 0), 100);
+  const [display, setDisplay] = useState(score);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearTimer = () => { if (timerRef.current) clearTimeout(timerRef.current); };
+
+  const runAnimation = useCallback(() => {
+    const peak = 94; // tries to reach here but can't quite make 100
+    let frame = 0;
+
+    // Phase 1: rise toward peak (60 steps, ~1.4s) — eases out near top
+    const rise = () => {
+      frame++;
+      const t = frame / 60;
+      const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+      setDisplay(score + (peak - score) * eased);
+      if (frame < 60) {
+        timerRef.current = setTimeout(rise, 23);
+      } else {
+        // pause at peak pretending to try harder
+        timerRef.current = setTimeout(struggle, 350);
+      }
+    };
+
+    // Phase 2: tiny final push that fails
+    let struggleFrame = 0;
+    const struggle = () => {
+      struggleFrame++;
+      const wobble = Math.sin(struggleFrame * 1.2) * 2; // small shake
+      setDisplay(peak + wobble);
+      if (struggleFrame < 8) {
+        timerRef.current = setTimeout(struggle, 80);
+      } else {
+        timerRef.current = setTimeout(fall, 200);
+      }
+    };
+
+    // Phase 3: fall back to real score (40 steps, ~1s) — ease-in
+    let fallFrame = 0;
+    const fall = () => {
+      fallFrame++;
+      const t = fallFrame / 40;
+      const eased = t * t; // ease-in quad — accelerates as it falls
+      setDisplay(peak - (peak - score) * eased);
+      if (fallFrame < 40) {
+        timerRef.current = setTimeout(fall, 25);
+      } else {
+        setDisplay(score); // snap to exact value
+      }
+    };
+
+    rise();
+  }, [score]);
+
+  useEffect(() => {
+    setDisplay(score);
+    // Fire once after 3s on mount (so user sees it quickly the first time)
+    timerRef.current = setTimeout(runAnimation, 3000);
+    // Then repeat every 2 minutes
+    const interval = setInterval(runAnimation, 2 * 60 * 1000);
+    return () => { clearTimer(); clearInterval(interval); };
+  }, [score, runAnimation]);
+
+  const pct = Math.min(Math.max(display, 0), 100);
   const color = pct >= 75 ? "#16a34a" : pct >= 50 ? "#f59e0b" : pct >= 25 ? "#f97316" : "#7c3aed";
   const cx = 52, cy = 48, r = 36, sw = 8;
   const arcLen = Math.PI * r;
