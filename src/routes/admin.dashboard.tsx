@@ -954,9 +954,8 @@ function AdminDashboard() {
                     <Tooltip
                       formatter={(v: any, name: string) => {
                         if (Number(v) === 0) return null as any;
-                        const pageName = multiPageChartData.pageNameById.get(name) ?? name.slice(0, 16);
                         const val = usdBrl ? formatBRL(Number(v) * usdBrl) : `$${Number(v).toFixed(4)}`;
-                        return [val, pageName];
+                        return [val, name];
                       }}
                       labelStyle={{ color: "#1a0533", fontSize: 11, fontWeight: 600 }}
                       contentStyle={{ border: "1px solid #e8e0f5", borderRadius: 12, fontSize: 11, boxShadow: "0 4px 16px #6200b315" }}
@@ -975,6 +974,7 @@ function AdminDashboard() {
                         key={pid}
                         type="monotone"
                         dataKey={pid}
+                        name={multiPageChartData.pageNameById.get(pid) ?? "Sem nome"}
                         stackId="1"
                         stroke={PAGE_COLORS[i % PAGE_COLORS.length]}
                         strokeWidth={1.5}
