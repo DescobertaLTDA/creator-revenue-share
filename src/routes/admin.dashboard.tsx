@@ -669,12 +669,11 @@ function AdminDashboard() {
     const pageStatsRaw = Array.from(pageAgg.values());
     const pageStats = computePageScores(pageStatsRaw, periodMonths).sort((a, b) => b.score - a.score);
 
-    // Average RPM — only monetized pages
+    // Average RPM — total revenue (incl. corrections) ÷ views of monetized pages only
     const totalRevenue = geralUsd;
     const monetizedPages = Array.from(pageAgg.values()).filter((p) => p.isMonetized);
     const monetizedViews = monetizedPages.reduce((s, p) => s + p.views, 0);
-    const monetizedRevenue = monetizedPages.reduce((s, p) => s + p.revenue, 0);
-    const avgRpm = monetizedViews > 0 ? (monetizedRevenue / monetizedViews) * 1000 : 0;
+    const avgRpm = monetizedViews > 0 ? (totalRevenue / monetizedViews) * 1000 : 0;
     const avgScore = pageStats.length > 0 ? Math.round(pageStats.reduce((s, p) => s + p.score, 0) / pageStats.length) : 0;
 
     // Sparkline per page (last 14 days of revenue)
