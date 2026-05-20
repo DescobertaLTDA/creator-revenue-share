@@ -21,6 +21,7 @@ import { Route as AdminFechamentosRouteImport } from './routes/admin.fechamentos
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 import { Route as AdminColaboradoresRouteImport } from './routes/admin.colaboradores'
 import { Route as AdminMetasRouteImport } from './routes/admin.metas'
+import { Route as AdminMonetizacaoRouteImport } from './routes/admin.monetizacao'
 import { Route as AdminBonusManualRouteImport } from './routes/admin.bonus-manual'
 import { Route as AdminCadastroRouteImport } from './routes/admin.cadastro'
 import { Route as AdminImportacoesIdRouteImport } from './routes/admin.importacoes.$id'
@@ -86,6 +87,11 @@ const AdminMetasRoute = AdminMetasRouteImport.update({
   path: '/metas',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminMonetizacaoRoute = AdminMonetizacaoRouteImport.update({
+  id: '/monetizacao',
+  path: '/monetizacao',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminBonusManualRoute = AdminBonusManualRouteImport.update({
   id: '/bonus-manual',
   path: '/bonus-manual',
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/admin/bonus-manual': typeof AdminBonusManualRoute
   '/admin/cadastro': typeof AdminCadastroRoute
   '/admin/metas': typeof AdminMetasRoute
+  '/admin/monetizacao': typeof AdminMonetizacaoRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/fechamentos': typeof AdminFechamentosRouteWithChildren
@@ -133,6 +140,7 @@ export interface FileRoutesByTo {
   '/admin/bonus-manual': typeof AdminBonusManualRoute
   '/admin/cadastro': typeof AdminCadastroRoute
   '/admin/metas': typeof AdminMetasRoute
+  '/admin/monetizacao': typeof AdminMonetizacaoRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/fechamentos': typeof AdminFechamentosRouteWithChildren
@@ -152,6 +160,7 @@ export interface FileRoutesById {
   '/admin/bonus-manual': typeof AdminBonusManualRoute
   '/admin/cadastro': typeof AdminCadastroRoute
   '/admin/metas': typeof AdminMetasRoute
+  '/admin/monetizacao': typeof AdminMonetizacaoRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/fechamentos': typeof AdminFechamentosRouteWithChildren
@@ -172,6 +181,7 @@ export interface FileRouteTypes {
     | '/admin/bonus-manual'
     | '/admin/cadastro'
     | '/admin/metas'
+    | '/admin/monetizacao'
     | '/admin/colaboradores'
     | '/admin/dashboard'
     | '/admin/fechamentos'
@@ -190,6 +200,7 @@ export interface FileRouteTypes {
     | '/admin/bonus-manual'
     | '/admin/cadastro'
     | '/admin/metas'
+    | '/admin/monetizacao'
     | '/admin/colaboradores'
     | '/admin/dashboard'
     | '/admin/fechamentos'
@@ -208,6 +219,7 @@ export interface FileRouteTypes {
     | '/admin/bonus-manual'
     | '/admin/cadastro'
     | '/admin/metas'
+    | '/admin/monetizacao'
     | '/admin/colaboradores'
     | '/admin/dashboard'
     | '/admin/fechamentos'
@@ -319,6 +331,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMetasRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/monetizacao': {
+      id: '/admin/monetizacao'
+      path: '/monetizacao'
+      fullPath: '/admin/monetizacao'
+      preLoaderRoute: typeof AdminMonetizacaoRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/cadastro': {
       id: '/admin/cadastro'
       path: '/cadastro'
@@ -369,6 +388,7 @@ interface AdminRouteChildren {
   AdminBonusManualRoute: typeof AdminBonusManualRoute
   AdminCadastroRoute: typeof AdminCadastroRoute
   AdminMetasRoute: typeof AdminMetasRoute
+  AdminMonetizacaoRoute: typeof AdminMonetizacaoRoute
   AdminColaboradoresRoute: typeof AdminColaboradoresRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminFechamentosRoute: typeof AdminFechamentosRouteWithChildren
@@ -381,6 +401,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminBonusManualRoute: AdminBonusManualRoute,
   AdminCadastroRoute: AdminCadastroRoute,
   AdminMetasRoute: AdminMetasRoute,
+  AdminMonetizacaoRoute: AdminMonetizacaoRoute,
   AdminColaboradoresRoute: AdminColaboradoresRoute,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminFechamentosRoute: AdminFechamentosRouteWithChildren,
