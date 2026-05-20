@@ -243,13 +243,6 @@ function ControlsPanel({
   avgViews: number; setAvgViews: (v: number) => void;
   rpm: number; setRpm: (v: number) => void;
 }) {
-  const tip = useMemo(() => {
-    if (postsPerDay === 0) return "Tente postar pelo menos 1 vez por dia!";
-    if (postsPerDay >= 5) return "Qualidade supera quantidade — mantenha o nível!";
-    if (avgViews < 5_000) return "Conteúdo com boas thumbnails costuma ter mais views.";
-    return "Você está indo bem!";
-  }, [postsPerDay, avgViews]);
-
   return (
     <div className="bg-white rounded-2xl border border-border p-5 space-y-4 lg:sticky lg:top-4">
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Parâmetros</p>
@@ -279,11 +272,6 @@ function ControlsPanel({
         />
       </div>
 
-      {/* Tip */}
-      <div className="bg-[#F3F0FF] rounded-xl px-3 py-2.5 flex items-center gap-2">
-        <span className="text-sm">💡</span>
-        <p className="text-xs text-[#6D4AFF] font-medium">{tip}</p>
-      </div>
     </div>
   );
 }
@@ -293,32 +281,28 @@ function NumInput({ label, value, onChange, suffix, prefix, format, step = 1, de
   suffix?: string; prefix?: string; format?: (n: number) => string;
   step?: number; decimals?: number;
 }) {
-  const [raw, setRaw] = useState(String(value));
+  const [raw, setRaw] = useState("");
   const [focused, setFocused] = useState(false);
 
-  useEffect(() => {
-    if (!focused) setRaw(decimals > 0 ? value.toFixed(decimals) : String(value));
-  }, [value, focused, decimals]);
-
-  const display = format ? format(value) : (decimals > 0 ? value.toFixed(decimals) : String(value));
+  const display = focused
+    ? raw
+    : (format ? format(value) : `${prefix ?? ""}${decimals > 0 ? value.toFixed(decimals) : String(value)}${suffix ? ` ${suffix}` : ""}`);
 
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-[11px] font-semibold text-muted-foreground">{label}</span>
       <div className={cn(
-        "rounded-xl border-2 transition-colors bg-[#F9F8FF] overflow-hidden",
+        "rounded-xl border-2 transition-colors bg-[#F9F8FF]",
         focused ? "border-[#6D4AFF]" : "border-border"
       )}>
-        <div className="px-2 pt-2 text-center">
-          <span className="text-[11px] text-[#6D4AFF] font-black">
-            {prefix}{display}{suffix ? ` ${suffix}` : ""}
-          </span>
-        </div>
         <input
-          type="number"
+          type={focused ? "number" : "text"}
           step={step}
-          value={focused ? raw : value}
-          onFocus={() => { setFocused(true); setRaw(decimals > 0 ? value.toFixed(decimals) : String(value)); }}
+          value={display}
+          onFocus={() => {
+            setRaw(decimals > 0 ? value.toFixed(decimals) : String(value));
+            setFocused(true);
+          }}
           onBlur={() => {
             setFocused(false);
             const n = parseFloat(raw);
@@ -329,7 +313,8 @@ function NumInput({ label, value, onChange, suffix, prefix, format, step = 1, de
             const n = parseFloat(e.target.value);
             if (!isNaN(n)) onChange(n);
           }}
-          className="w-full bg-transparent text-center text-sm font-bold text-foreground py-1.5 px-2 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          readOnly={!focused}
+          className="w-full bg-transparent text-center text-sm font-bold text-[#6D4AFF] py-3 px-2 focus:outline-none focus:text-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none cursor-pointer"
         />
       </div>
     </div>
