@@ -314,7 +314,7 @@ function NumInput({ label, value, onChange, suffix, prefix, format, step = 1, de
             if (!isNaN(n)) onChange(n);
           }}
           readOnly={!focused}
-          className="w-full bg-transparent text-center text-sm font-bold text-[#6D4AFF] py-3 px-2 focus:outline-none focus:text-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none cursor-pointer"
+          className="w-full bg-transparent text-center text-xl font-bold text-foreground py-5 px-3 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none cursor-pointer"
         />
       </div>
     </div>
