@@ -200,7 +200,8 @@ function readinessScore(s: PageMonetStat, tpl: Template): number {
   const postsPct = Math.min(s.posts / tpl.posts, 1);
   const engPct = tpl.engRate > 0 ? Math.min(s.engRate / tpl.engRate, 1) : 1;
   const cadPct = tpl.postsPerActiveDay > 0 ? Math.min(s.postsPerActiveDay / tpl.postsPerActiveDay, 1) : 1;
-  return Math.round((viewsPct * 40 + postsPct * 35 + engPct * 15 + cadPct * 10) * 100);
+  // weights sum to 100 — result is already 0-100, no extra multiplication
+  return Math.round(viewsPct * 40 + postsPct * 35 + engPct * 15 + cadPct * 10);
 }
 
 interface Template {
@@ -545,8 +546,8 @@ function AquecimentoTab({ pages, template }: { pages: PageMonetStat[]; template:
 
 function WarmingCard({ s, template }: { s: PageMonetStat; template: Template }) {
   const score = readinessScore(s, template);
-  const scoreColor = score >= 75 ? "#16a34a" : score >= 40 ? "#f59e0b" : "#6200b3";
-  const scoreLabel = score >= 75 ? "Quase lá" : score >= 40 ? "Em progresso" : "Início";
+  const scoreColor = score >= 75 ? "#16a34a" : score >= 50 ? "#f59e0b" : score >= 25 ? "#f97316" : "#7c3aed";
+  const scoreLabel = score >= 75 ? "Quase lá" : score >= 50 ? "Em progresso" : score >= 25 ? "Aquecendo" : "Início";
 
   const viewsPct = Math.min((s.views / template.views) * 100, 100);
   const postsPct = Math.min((s.posts / template.posts) * 100, 100);
@@ -556,31 +557,34 @@ function WarmingCard({ s, template }: { s: PageMonetStat; template: Template }) 
   return (
     <div className="bg-white border border-[#e8e0f5] rounded-2xl shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-[#f3e8ff]">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className={cn(
-            "h-2 w-2 rounded-full shrink-0",
-            s.isActive ? "bg-green-500" : "bg-red-400"
-          )} />
-          <span className="font-semibold text-[#1a0533] truncate">{s.name}</span>
-          {!s.isActive && s.daysSinceLastPost !== null && (
-            <span className="text-xs text-red-400 shrink-0 flex items-center gap-1">
-              <AlertCircle className="h-3 w-3" />
-              {s.daysSinceLastPost}d sem postar
-            </span>
-          )}
-          {s.currentStreak > 0 && (
-            <span className="text-xs text-amber-600 shrink-0 flex items-center gap-1">
-              <Flame className="h-3 w-3" />
-              {s.currentStreak}d seguidos
-            </span>
-          )}
+      <div className="flex items-start gap-4 px-5 py-4 border-b border-[#f3e8ff]">
+        {/* Thermometer — left side */}
+        <div className="shrink-0 pt-1">
+          <Thermometer score={score} pageId={s.id} />
         </div>
-        <div className="flex items-center gap-2 shrink-0 ml-4">
-          <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ color: scoreColor, backgroundColor: `${scoreColor}18` }}>
-            {scoreLabel}
+
+        {/* Name + badges */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className={cn("h-2 w-2 rounded-full shrink-0 mt-0.5", s.isActive ? "bg-green-500" : "bg-red-400")} />
+            <span className="font-semibold text-[#1a0533] truncate">{s.name}</span>
+            {!s.isActive && s.daysSinceLastPost !== null && (
+              <span className="text-xs text-red-400 shrink-0 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {s.daysSinceLastPost}d sem postar
+              </span>
+            )}
+            {s.currentStreak > 0 && (
+              <span className="text-xs text-amber-600 shrink-0 flex items-center gap-1">
+                <Flame className="h-3 w-3" />
+                {s.currentStreak}d seguidos
+              </span>
+            )}
+          </div>
+          {/* Score label below name */}
+          <span className="mt-1.5 inline-block text-xs font-medium px-2 py-0.5 rounded-full" style={{ color: scoreColor, backgroundColor: `${scoreColor}18` }}>
+            {scoreLabel} — {score}/100
           </span>
-          <span className="text-lg font-bold" style={{ color: scoreColor }}>{score}%</span>
         </div>
       </div>
 
@@ -616,6 +620,46 @@ function WarmingCard({ s, template }: { s: PageMonetStat; template: Template }) 
         <MiniMetric icon={MessageCircle} label="Coment./post" value={fmt(s.avgComments)} sub={`meta: ${fmt(template.avgComments)}`} />
         <MiniMetric icon={Share2} label="Shares/post" value={fmt(s.avgShares)} sub={`meta: ${fmt(template.avgShares)}`} />
       </div>
+    </div>
+  );
+}
+
+// ─── Thermometer ──────────────────────────────────────────────────────────────
+
+function Thermometer({ score, pageId }: { score: number; pageId: string }) {
+  const pct = Math.min(Math.max(score, 0), 100);
+  const color = pct >= 75 ? "#16a34a" : pct >= 50 ? "#f59e0b" : pct >= 25 ? "#f97316" : "#7c3aed";
+  const tubeH = 72;
+  const fillH = Math.round((pct / 100) * tubeH);
+  const fillY = 2 + tubeH - fillH;
+  const clipId = `thermo-${pageId.replace(/-/g, "")}`;
+
+  return (
+    <div className="flex flex-col items-center gap-1 select-none" title={`${pct}/100 — probabilidade de monetização`}>
+      <svg width="18" height="96" viewBox="0 0 18 96" overflow="visible">
+        <defs>
+          <clipPath id={clipId}>
+            <rect x="4" y={fillY} width="6" height={fillH} />
+          </clipPath>
+        </defs>
+        {/* Tube background */}
+        <rect x="4" y="2" width="6" height={tubeH} rx="3" fill="#f3e8ff" stroke="#ddd6fe" strokeWidth="1" />
+        {/* Mercury fill */}
+        <rect x="4" y="2" width="6" height={tubeH} rx="3" fill={color} clipPath={`url(#${clipId})`} />
+        {/* Tick marks at 25 / 50 / 75 */}
+        {[0.25, 0.5, 0.75].map((t) => (
+          <line key={t}
+            x1="10" y1={2 + tubeH * (1 - t)}
+            x2="14" y2={2 + tubeH * (1 - t)}
+            stroke="#c4b5fd" strokeWidth="1"
+          />
+        ))}
+        {/* Bulb */}
+        <circle cx="7" cy={2 + tubeH + 10} r="8" fill="#f3e8ff" stroke="#ddd6fe" strokeWidth="1" />
+        <circle cx="7" cy={2 + tubeH + 10} r="6" fill={color} />
+      </svg>
+      <span className="text-[11px] font-bold leading-none" style={{ color }}>{pct}</span>
+      <span className="text-[9px] text-muted-foreground leading-none">/ 100</span>
     </div>
   );
 }
