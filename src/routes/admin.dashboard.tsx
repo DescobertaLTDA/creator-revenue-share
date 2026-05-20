@@ -841,7 +841,7 @@ function AdminDashboard() {
               },
               {
                 label: "RPM Médio",
-                value: loading ? "—" : `$${avgRpm.toFixed(2)}`,
+                value: loading ? "—" : `$${avgRpm < 0.01 && avgRpm > 0 ? avgRpm.toFixed(4) : avgRpm.toFixed(2)}`,
                 sub: "por mil visualizações",
                 icon: Zap,
               },
@@ -963,7 +963,7 @@ function AdminDashboard() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{ps.name}</p>
                           <p className="text-xs text-[#9d8fb0]">
-                            RPM ${ps.rpm.toFixed(2)} · {ps.posts} posts
+                            RPM ${ps.rpm < 0.01 && ps.rpm > 0 ? ps.rpm.toFixed(4) : ps.rpm.toFixed(2)} · {ps.posts} posts
                             {ps.videoCount > 0 && ` · ${ps.videoCount}v`}
                             {ps.imageCount > 0 && ` · ${ps.imageCount}i`}
                           </p>
