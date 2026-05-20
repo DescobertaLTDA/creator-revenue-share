@@ -366,13 +366,17 @@ function PageSelect({
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  // Close on scroll/resize so it doesn't float away
+  // Close on scroll/resize so it doesn't float away, but ignore scrolls inside the dropdown itself
   useEffect(() => {
     if (!open) return;
-    const close = () => setOpen(false);
+    const close = (e: Event) => {
+      if (dropRef.current && e.target instanceof Node && dropRef.current.contains(e.target)) return;
+      setOpen(false);
+    };
+    const closeResize = () => setOpen(false);
     window.addEventListener("scroll", close, true);
-    window.addEventListener("resize", close);
-    return () => { window.removeEventListener("scroll", close, true); window.removeEventListener("resize", close); };
+    window.addEventListener("resize", closeResize);
+    return () => { window.removeEventListener("scroll", close, true); window.removeEventListener("resize", closeResize); };
   }, [open]);
 
   function openDrop() {
