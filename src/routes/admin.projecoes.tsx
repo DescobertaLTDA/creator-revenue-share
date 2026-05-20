@@ -172,7 +172,7 @@ export default function ProjecoesPage() {
       {loading ? (
         <LoadingSkeleton />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-4 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-5 items-start">
           {/* ── Left: Controls ── */}
           <ControlsPanel
             postsPerDay={postsPerDay}
@@ -269,59 +269,71 @@ function ControlsPanel({
   }, [postsPerDay, avgViews, rhythm]);
 
   return (
-    <div className="bg-white rounded-2xl border border-border p-4 space-y-4 lg:sticky lg:top-4">
+    <div className="bg-white rounded-2xl border border-border p-5 space-y-5 lg:sticky lg:top-4">
       {/* Posts per day */}
-      <ControlRow label="Posts por dia" hint="Mais posts = mais alcance">
-        <StepButton onClick={() => setPostsPerDay(Math.max(0, postsPerDay - 1))}>−</StepButton>
-        <span className="flex-1 text-center text-2xl font-black text-[#6D4AFF]">
-          {postsPerDay} <span className="text-sm font-semibold text-muted-foreground">posts</span>
-        </span>
-        <StepButton onClick={() => setPostsPerDay(Math.min(30, postsPerDay + 1))}>+</StepButton>
-        <input
-          type="range" min={0} max={30} step={1} value={postsPerDay}
-          onChange={e => setPostsPerDay(Number(e.target.value))}
-          className="w-full accent-[#6D4AFF] h-1.5 rounded-full"
-        />
-      </ControlRow>
+      <ControlRow
+        label="Posts por dia"
+        hint="Mais posts = mais alcance"
+        stepper={<>
+          <StepButton onClick={() => setPostsPerDay(Math.max(0, postsPerDay - 1))}>−</StepButton>
+          <span className="flex-1 text-center text-3xl font-black text-[#6D4AFF]">
+            {postsPerDay} <span className="text-sm font-semibold text-muted-foreground">posts</span>
+          </span>
+          <StepButton onClick={() => setPostsPerDay(Math.min(30, postsPerDay + 1))}>+</StepButton>
+        </>}
+        slider={
+          <input type="range" min={0} max={30} step={1} value={postsPerDay}
+            onChange={e => setPostsPerDay(Number(e.target.value))}
+            className="w-full accent-[#6D4AFF] h-2 rounded-full" />
+        }
+      />
 
       {/* Avg views */}
-      <ControlRow label="Média de views por post" hint="Mais views = mais receita">
-        <StepButton onClick={() => setAvgViews(Math.max(1_000, avgViews - viewsStep(avgViews)))}>−</StepButton>
-        <span className="flex-1 text-center text-2xl font-black text-[#6D4AFF]">
-          {fmtViewsPt(avgViews)} <span className="text-sm font-semibold text-muted-foreground">views</span>
-        </span>
-        <StepButton onClick={() => setAvgViews(Math.min(10_000_000, avgViews + viewsStep(avgViews)))}>+</StepButton>
-        <input
-          type="range" min={1_000} max={10_000_000} step={1_000} value={avgViews}
-          onChange={e => setAvgViews(Number(e.target.value))}
-          className="w-full accent-[#6D4AFF] h-1.5 rounded-full"
-        />
-      </ControlRow>
+      <ControlRow
+        label="Média de views por post"
+        hint="Mais views = mais receita"
+        stepper={<>
+          <StepButton onClick={() => setAvgViews(Math.max(1_000, avgViews - viewsStep(avgViews)))}>−</StepButton>
+          <span className="flex-1 text-center text-3xl font-black text-[#6D4AFF]">
+            {fmtViewsPt(avgViews)} <span className="text-sm font-semibold text-muted-foreground">views</span>
+          </span>
+          <StepButton onClick={() => setAvgViews(Math.min(10_000_000, avgViews + viewsStep(avgViews)))}>+</StepButton>
+        </>}
+        slider={
+          <input type="range" min={1_000} max={10_000_000} step={1_000} value={avgViews}
+            onChange={e => setAvgViews(Number(e.target.value))}
+            className="w-full accent-[#6D4AFF] h-2 rounded-full" />
+        }
+      />
 
       {/* RPM */}
-      <ControlRow label="RPM (por mil views)" hint="Estimado dos seus dados">
-        <StepButton onClick={() => setRpm(Math.max(0, Math.round((rpm - 0.1) * 10) / 10))}>−</StepButton>
-        <span className="flex-1 text-center text-2xl font-black text-[#6D4AFF]">
-          ${rpm.toFixed(2)}
-        </span>
-        <StepButton onClick={() => setRpm(Math.min(100, Math.round((rpm + 0.1) * 10) / 10))}>+</StepButton>
-        <input
-          type="range" min={0} max={100} step={0.1} value={rpm}
-          onChange={e => setRpm(Number(e.target.value))}
-          className="w-full accent-[#6D4AFF] h-1.5 rounded-full"
-        />
-      </ControlRow>
+      <ControlRow
+        label="RPM (por mil views)"
+        hint="Estimado dos seus dados"
+        stepper={<>
+          <StepButton onClick={() => setRpm(Math.max(0, Math.round((rpm - 0.1) * 10) / 10))}>−</StepButton>
+          <span className="flex-1 text-center text-3xl font-black text-[#6D4AFF]">
+            ${rpm.toFixed(2)}
+          </span>
+          <StepButton onClick={() => setRpm(Math.min(100, Math.round((rpm + 0.1) * 10) / 10))}>+</StepButton>
+        </>}
+        slider={
+          <input type="range" min={0} max={100} step={0.1} value={rpm}
+            onChange={e => setRpm(Number(e.target.value))}
+            className="w-full accent-[#6D4AFF] h-2 rounded-full" />
+        }
+      />
 
       {/* Rhythm */}
-      <div>
-        <label className="block text-xs font-semibold text-foreground mb-2">Ritmo de postagem</label>
+      <div className="space-y-2">
+        <span className="block text-sm font-semibold text-foreground">Ritmo de postagem</span>
         <div className="grid grid-cols-3 gap-2">
           {RHYTHMS.map(r => (
             <button
               key={r.key}
               onClick={() => setRhythm(r.key)}
               className={cn(
-                "relative flex flex-col items-center justify-center gap-0.5 py-2 rounded-xl border-2 text-xs font-semibold transition-all",
+                "relative flex flex-col items-center justify-center gap-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all",
                 rhythm === r.key
                   ? "border-[#6D4AFF] bg-[#6D4AFF]/10 text-[#6D4AFF]"
                   : "border-border bg-white text-muted-foreground hover:border-[#6D4AFF]/40 hover:text-foreground"
@@ -332,9 +344,9 @@ function ControlsPanel({
                   {r.badge}
                 </span>
               )}
-              <span className="text-lg">{r.emoji}</span>
+              <span className="text-xl">{r.emoji}</span>
               <span>{r.label}</span>
-              <span className="text-[10px] font-normal opacity-70">
+              <span className="text-[11px] font-normal opacity-70">
                 {r.mult < 1 ? `${Math.round(r.mult * 100)}%` : r.mult === 1 ? "100%" : `+${Math.round((r.mult - 1) * 100)}%`}
               </span>
             </button>
@@ -343,22 +355,26 @@ function ControlsPanel({
       </div>
 
       {/* Tip */}
-      <div className="bg-[#F3F0FF] rounded-xl px-3 py-2 flex items-center gap-2">
-        <span className="text-sm">💡</span>
-        <p className="text-xs text-[#6D4AFF] font-medium leading-snug">{tip}</p>
+      <div className="bg-[#F3F0FF] rounded-xl px-4 py-3 flex items-center gap-2.5">
+        <span className="text-base">💡</span>
+        <p className="text-sm text-[#6D4AFF] font-medium leading-snug">{tip}</p>
       </div>
     </div>
   );
 }
 
-function ControlRow({ label, hint, children }: { label: string; hint: string; children: React.ReactNode }) {
+function ControlRow({ label, hint, stepper, slider }: {
+  label: string; hint: string;
+  stepper: React.ReactNode; slider: React.ReactNode;
+}) {
   return (
-    <div>
-      <div className="flex items-baseline justify-between mb-1">
-        <label className="text-xs font-semibold text-foreground">{label}</label>
-        <span className="text-[10px] text-muted-foreground">{hint}</span>
+    <div className="space-y-1.5">
+      <div className="flex items-baseline justify-between">
+        <span className="text-sm font-semibold text-foreground">{label}</span>
+        <span className="text-[11px] text-muted-foreground">{hint}</span>
       </div>
-      <div className="flex items-center gap-2 mb-1">{children}</div>
+      <div className="flex items-center gap-3">{stepper}</div>
+      {slider}
     </div>
   );
 }
