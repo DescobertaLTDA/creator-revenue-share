@@ -348,16 +348,39 @@ function PageSelect({
   monetizedIds: Set<string>;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
 
+  // Close on outside click
   useEffect(() => {
     if (!open) return;
     function onDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (
+        triggerRef.current?.contains(e.target as Node) ||
+        dropRef.current?.contains(e.target as Node)
+      ) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
+
+  // Close on scroll/resize so it doesn't float away
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => { window.removeEventListener("scroll", close, true); window.removeEventListener("resize", close); };
+  }, [open]);
+
+  function openDrop() {
+    if (!triggerRef.current) return;
+    const r = triggerRef.current.getBoundingClientRect();
+    setDropPos({ top: r.bottom + 6, left: r.left, width: Math.max(r.width, 240) });
+    setOpen((o) => !o);
+  }
 
   const selected = value === "all" ? null : pages.find((p) => p.id === value) ?? null;
   const monetized = pages.filter((p) => monetizedIds.has(p.id));
@@ -369,66 +392,88 @@ function PageSelect({
     return (
       <button
         onClick={() => { onChange(page.id); setOpen(false); }}
-        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left ${
-          active ? "bg-[#6200b3] text-white" : "hover:bg-[#f3e8ff] text-[#2a1a4a]"
+        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
+          active
+            ? "bg-[#6200b3] text-white"
+            : "text-[#2a1a4a] hover:bg-[#f3e8ff]"
         }`}
       >
         <Coins className={`h-3.5 w-3.5 shrink-0 ${active ? "text-white/80" : isM ? "text-emerald-500" : "text-red-400"}`} />
         <span className="truncate">{page.name}</span>
+        {active && <span className="ml-auto text-white/60 text-xs">✓</span>}
       </button>
     );
   }
 
   return (
-    <div ref={ref} className="relative w-full sm:min-w-[180px]">
+    <div className="w-full sm:min-w-[200px]">
+      {/* Trigger */}
       <button
-        onClick={() => setOpen((o) => !o)}
-        className={`w-full h-8 flex items-center gap-2 px-2.5 rounded-lg border text-sm transition-colors bg-white ${
-          open ? "border-[#6200b3] ring-1 ring-[#6200b3]/20" : "border-[#e8e0f5] hover:border-[#c4b5d8]"
+        ref={triggerRef}
+        onClick={openDrop}
+        className={`w-full h-8 flex items-center gap-2 px-3 rounded-lg border text-sm transition-all bg-white ${
+          open
+            ? "border-[#6200b3] ring-2 ring-[#6200b3]/15 shadow-sm"
+            : "border-[#e8e0f5] hover:border-[#b89fd8] hover:shadow-sm"
         }`}
       >
         {selected ? (
           <>
             <Coins className={`h-3.5 w-3.5 shrink-0 ${monetizedIds.has(selected.id) ? "text-emerald-500" : "text-red-400"}`} />
-            <span className="flex-1 truncate text-left text-[#2a1a4a]">{selected.name}</span>
+            <span className="flex-1 truncate text-left font-medium text-[#2a1a4a]">{selected.name}</span>
           </>
         ) : (
           <span className="flex-1 text-left text-[#7c6f8e]">Todas as páginas</span>
         )}
-        <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[#9d8fb0] transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[#9d8fb0] transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
 
+      {/* Dropdown — fixed to escape overflow:hidden parents */}
       {open && (
-        <div className="absolute z-50 top-full mt-1 left-0 min-w-full w-max max-w-xs bg-white border border-[#e8e0f5] rounded-xl shadow-lg overflow-hidden">
-          <div className="max-h-64 overflow-y-auto p-1.5 space-y-px">
+        <div
+          ref={dropRef}
+          style={{ position: "fixed", top: dropPos.top, left: dropPos.left, minWidth: dropPos.width, zIndex: 9999 }}
+          className="bg-white border border-[#e8e0f5] rounded-2xl shadow-xl overflow-hidden"
+        >
+          {/* "Todas as páginas" option */}
+          <div className="p-2 border-b border-[#f3e8ff]">
             <button
               onClick={() => { onChange("all"); setOpen(false); }}
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left ${
-                value === "all" ? "bg-[#6200b3] text-white" : "hover:bg-[#f3e8ff] text-[#2a1a4a]"
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                value === "all"
+                  ? "bg-[#6200b3] text-white"
+                  : "text-[#2a1a4a] hover:bg-[#f3e8ff]"
               }`}
             >
               <span className="h-3.5 w-3.5 shrink-0" />
-              <span>Todas as páginas</span>
+              Todas as páginas
+              {value === "all" && <span className="ml-auto text-white/70 text-xs">✓</span>}
             </button>
+          </div>
 
+          <div className="max-h-72 overflow-y-auto p-2 space-y-3">
             {monetized.length > 0 && (
-              <>
-                <div className="flex items-center gap-1.5 px-3 pt-2 pb-1">
+              <div>
+                <div className="flex items-center gap-1.5 px-3 py-1.5">
                   <Coins className="h-3 w-3 text-emerald-500" />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Monetizadas</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Monetizadas</span>
                 </div>
-                {monetized.map((p) => <Item key={p.id} page={p} />)}
-              </>
+                <div className="space-y-px">
+                  {monetized.map((p) => <Item key={p.id} page={p} />)}
+                </div>
+              </div>
             )}
 
             {nonMonetized.length > 0 && (
-              <>
-                <div className="flex items-center gap-1.5 px-3 pt-2 pb-1">
+              <div>
+                <div className="flex items-center gap-1.5 px-3 py-1.5">
                   <Coins className="h-3 w-3 text-red-400" />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-red-500">Não Monetizadas</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-red-500">Não Monetizadas</span>
                 </div>
-                {nonMonetized.map((p) => <Item key={p.id} page={p} />)}
-              </>
+                <div className="space-y-px">
+                  {nonMonetized.map((p) => <Item key={p.id} page={p} />)}
+                </div>
+              </div>
             )}
           </div>
         </div>
