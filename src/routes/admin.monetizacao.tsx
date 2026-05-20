@@ -557,16 +557,11 @@ function WarmingCard({ s, template }: { s: PageMonetStat; template: Template }) 
   return (
     <div className="bg-white border border-[#e8e0f5] rounded-2xl shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="flex items-start gap-4 px-5 py-4 border-b border-[#f3e8ff]">
-        {/* Thermometer — left side */}
-        <div className="shrink-0 pt-1">
-          <Thermometer score={score} pageId={s.id} />
-        </div>
-
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[#f3e8ff]">
         {/* Name + badges */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <div className={cn("h-2 w-2 rounded-full shrink-0 mt-0.5", s.isActive ? "bg-green-500" : "bg-red-400")} />
+            <div className={cn("h-2 w-2 rounded-full shrink-0", s.isActive ? "bg-green-500" : "bg-red-400")} />
             <span className="font-semibold text-[#1a0533] truncate">{s.name}</span>
             {!s.isActive && s.daysSinceLastPost !== null && (
               <span className="text-xs text-red-400 shrink-0 flex items-center gap-1">
@@ -581,10 +576,14 @@ function WarmingCard({ s, template }: { s: PageMonetStat; template: Template }) 
               </span>
             )}
           </div>
-          {/* Score label below name */}
           <span className="mt-1.5 inline-block text-xs font-medium px-2 py-0.5 rounded-full" style={{ color: scoreColor, backgroundColor: `${scoreColor}18` }}>
-            {scoreLabel} — {score}/100
+            {scoreLabel}
           </span>
+        </div>
+
+        {/* Speedometer — right side */}
+        <div className="shrink-0 ml-4 flex flex-col items-center">
+          <Speedometer score={score} />
         </div>
       </div>
 
@@ -624,42 +623,56 @@ function WarmingCard({ s, template }: { s: PageMonetStat; template: Template }) 
   );
 }
 
-// ─── Thermometer ──────────────────────────────────────────────────────────────
+// ─── Speedometer ─────────────────────────────────────────────────────────────
 
-function Thermometer({ score, pageId }: { score: number; pageId: string }) {
+function Speedometer({ score }: { score: number }) {
   const pct = Math.min(Math.max(score, 0), 100);
   const color = pct >= 75 ? "#16a34a" : pct >= 50 ? "#f59e0b" : pct >= 25 ? "#f97316" : "#7c3aed";
-  const tubeH = 72;
-  const fillH = Math.round((pct / 100) * tubeH);
-  const fillY = 2 + tubeH - fillH;
-  const clipId = `thermo-${pageId.replace(/-/g, "")}`;
+
+  const cx = 44, cy = 42, r = 30, sw = 7;
+  const arcLen = Math.PI * r; // semicircle length
+  const fillLen = (pct / 100) * arcLen;
+  const bgPath = `M ${cx - r},${cy} A ${r},${r} 0 0,1 ${cx + r},${cy}`;
+
+  // Needle: 0% = left (π), 100% = right (0)
+  const needleAngle = Math.PI - (pct / 100) * Math.PI;
+  const nx = cx + (r - 6) * Math.cos(needleAngle);
+  const ny = cy - (r - 6) * Math.sin(needleAngle);
+
+  // Ticks at 0, 25, 50, 75, 100
+  const ticks = [0, 25, 50, 75, 100].map((t) => {
+    const a = Math.PI - (t / 100) * Math.PI;
+    const inner = r + sw / 2 + 2;
+    const outer = r + sw / 2 + 6;
+    return {
+      x1: cx + inner * Math.cos(a), y1: cy - inner * Math.sin(a),
+      x2: cx + outer * Math.cos(a), y2: cy - outer * Math.sin(a),
+    };
+  });
 
   return (
-    <div className="flex flex-col items-center gap-1 select-none" title={`${pct}/100 — probabilidade de monetização`}>
-      <svg width="18" height="96" viewBox="0 0 18 96" overflow="visible">
-        <defs>
-          <clipPath id={clipId}>
-            <rect x="4" y={fillY} width="6" height={fillH} />
-          </clipPath>
-        </defs>
-        {/* Tube background */}
-        <rect x="4" y="2" width="6" height={tubeH} rx="3" fill="#f3e8ff" stroke="#ddd6fe" strokeWidth="1" />
-        {/* Mercury fill */}
-        <rect x="4" y="2" width="6" height={tubeH} rx="3" fill={color} clipPath={`url(#${clipId})`} />
-        {/* Tick marks at 25 / 50 / 75 */}
-        {[0.25, 0.5, 0.75].map((t) => (
-          <line key={t}
-            x1="10" y1={2 + tubeH * (1 - t)}
-            x2="14" y2={2 + tubeH * (1 - t)}
-            stroke="#c4b5fd" strokeWidth="1"
-          />
+    <div className="flex flex-col items-center gap-0.5 select-none" title={`${pct}/100 — probabilidade de monetização`}>
+      <svg width="88" height="56" viewBox="0 0 88 56">
+        {/* Track */}
+        <path d={bgPath} fill="none" stroke="#f3e8ff" strokeWidth={sw} strokeLinecap="round" />
+        {/* Fill */}
+        <path d={bgPath} fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round"
+          strokeDasharray={`${fillLen} ${arcLen}`} />
+        {/* Ticks */}
+        {ticks.map((t, i) => (
+          <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} stroke="#ddd6fe" strokeWidth="1.5" />
         ))}
-        {/* Bulb */}
-        <circle cx="7" cy={2 + tubeH + 10} r="8" fill="#f3e8ff" stroke="#ddd6fe" strokeWidth="1" />
-        <circle cx="7" cy={2 + tubeH + 10} r="6" fill={color} />
+        {/* 0 / 100 labels */}
+        <text x={cx - r - 1} y={cy + 13} fontSize="7.5" fill="#9d8fb0" textAnchor="middle">0</text>
+        <text x={cx + r + 1} y={cy + 13} fontSize="7.5" fill="#9d8fb0" textAnchor="middle">100</text>
+        {/* Needle */}
+        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+        {/* Hub */}
+        <circle cx={cx} cy={cy} r="4" fill={color} />
+        <circle cx={cx} cy={cy} r="2" fill="white" />
+        {/* Score */}
+        <text x={cx} y={cy + 15} fontSize="12" fontWeight="bold" fill={color} textAnchor="middle">{pct}</text>
       </svg>
-      <span className="text-[11px] font-bold leading-none" style={{ color }}>{pct}</span>
-      <span className="text-[9px] text-muted-foreground leading-none">/ 100</span>
     </div>
   );
 }
