@@ -7,7 +7,7 @@ import { formatBRL, formatDateTime, formatMonth } from "@/lib/format";
 import {
   DollarSign, Eye, TrendingUp, Upload, ArrowRight,
   FileSpreadsheet, CheckCircle2, Clock, ChevronRight,
-  Target, Zap,
+  Target, Zap, Coins, ChevronDown,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -294,6 +294,109 @@ function GoalBar({ label, current, target, formatVal }: {
         />
       </div>
       <p className="text-xs text-[#9d8fb0]">{pct.toFixed(0)}% da meta</p>
+    </div>
+  );
+}
+
+// ─── PageSelect ───────────────────────────────────────────────────────────────
+
+function PageSelect({
+  pages,
+  value,
+  onChange,
+  monetizedIds,
+}: {
+  pages: PageOption[];
+  value: string;
+  onChange: (v: string) => void;
+  monetizedIds: Set<string>;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  const selected = value === "all" ? null : pages.find((p) => p.id === value) ?? null;
+  const monetized = pages.filter((p) => monetizedIds.has(p.id));
+  const nonMonetized = pages.filter((p) => !monetizedIds.has(p.id));
+
+  function Item({ page }: { page: PageOption }) {
+    const isM = monetizedIds.has(page.id);
+    const active = value === page.id;
+    return (
+      <button
+        onClick={() => { onChange(page.id); setOpen(false); }}
+        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left ${
+          active ? "bg-[#6200b3] text-white" : "hover:bg-[#f3e8ff] text-[#2a1a4a]"
+        }`}
+      >
+        <Coins className={`h-3.5 w-3.5 shrink-0 ${active ? "text-white/80" : isM ? "text-emerald-500" : "text-red-400"}`} />
+        <span className="truncate">{page.name}</span>
+      </button>
+    );
+  }
+
+  return (
+    <div ref={ref} className="relative w-full sm:min-w-[180px]">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={`w-full h-8 flex items-center gap-2 px-2.5 rounded-lg border text-sm transition-colors bg-white ${
+          open ? "border-[#6200b3] ring-1 ring-[#6200b3]/20" : "border-[#e8e0f5] hover:border-[#c4b5d8]"
+        }`}
+      >
+        {selected ? (
+          <>
+            <Coins className={`h-3.5 w-3.5 shrink-0 ${monetizedIds.has(selected.id) ? "text-emerald-500" : "text-red-400"}`} />
+            <span className="flex-1 truncate text-left text-[#2a1a4a]">{selected.name}</span>
+          </>
+        ) : (
+          <span className="flex-1 text-left text-[#7c6f8e]">Todas as páginas</span>
+        )}
+        <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[#9d8fb0] transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 top-full mt-1 left-0 min-w-full w-max max-w-xs bg-white border border-[#e8e0f5] rounded-xl shadow-lg overflow-hidden">
+          <div className="max-h-64 overflow-y-auto p-1.5 space-y-px">
+            <button
+              onClick={() => { onChange("all"); setOpen(false); }}
+              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left ${
+                value === "all" ? "bg-[#6200b3] text-white" : "hover:bg-[#f3e8ff] text-[#2a1a4a]"
+              }`}
+            >
+              <span className="h-3.5 w-3.5 shrink-0" />
+              <span>Todas as páginas</span>
+            </button>
+
+            {monetized.length > 0 && (
+              <>
+                <div className="flex items-center gap-1.5 px-3 pt-2 pb-1">
+                  <Coins className="h-3 w-3 text-emerald-500" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Monetizadas</span>
+                </div>
+                {monetized.map((p) => <Item key={p.id} page={p} />)}
+              </>
+            )}
+
+            {nonMonetized.length > 0 && (
+              <>
+                <div className="flex items-center gap-1.5 px-3 pt-2 pb-1">
+                  <Coins className="h-3 w-3 text-red-400" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-red-500">Não Monetizadas</span>
+                </div>
+                {nonMonetized.map((p) => <Item key={p.id} page={p} />)}
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -969,6 +1072,15 @@ function AdminDashboard() {
     [pageStats, globalPageScores],
   );
 
+  // All-time monetized page IDs (ignores date filter — a page that ever earned is "monetized")
+  const monetizedPageIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const p of allPosts) {
+      if (getPostUsd(p) > 0) ids.add(p.page_id);
+    }
+    return ids;
+  }, [allPosts]);
+
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -1007,11 +1119,12 @@ function AdminDashboard() {
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end">
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-medium uppercase tracking-wider text-[#9d8fb0]">Página</label>
-            <select value={filterPage} onChange={(e) => setFilterPage(e.target.value)}
-              className="h-8 rounded-lg border border-[#e8e0f5] bg-white px-2 text-sm w-full sm:min-w-[140px]">
-              <option value="all">Todas as páginas</option>
-              {pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <PageSelect
+              pages={pages}
+              value={filterPage}
+              onChange={setFilterPage}
+              monetizedIds={monetizedPageIds}
+            />
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-medium uppercase tracking-wider text-[#9d8fb0]">Colaborador</label>
