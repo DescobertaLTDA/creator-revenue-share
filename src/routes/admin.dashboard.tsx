@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip,
-  LineChart, Line, Legend,
+  LineChart, Line, Legend, ComposedChart,
 } from "recharts";
 
 const DashboardCharts = lazy(() =>
@@ -1100,7 +1100,7 @@ function AdminDashboard() {
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     {filterPage === "all" && activeDataset && activeDataset.data.length > 0 ? (
-                      <AreaChart
+                      <ComposedChart
                         data={chartMetric === "receita"
                           ? activeDataset.data.map((row) => ({ ...row, __actual: dailyActualByDia.get(row.dia) ?? null }))
                           : activeDataset.data}
@@ -1118,7 +1118,7 @@ function AdminDashboard() {
                         <YAxis hide />
                         <Tooltip
                           formatter={(v: any, name: string) => {
-                            if (Number(v) === 0) return null as any;
+                            if (v === null || Number(v) === 0) return null as any;
                             return [fmtMetricVal(Number(v)), name];
                           }}
                           labelStyle={{ color: "#1a0533", fontSize: 11, fontWeight: 600 }}
@@ -1156,11 +1156,11 @@ function AdminDashboard() {
                             strokeWidth={2.5}
                             strokeDasharray="6 3"
                             dot={false}
-                            connectNulls={false}
+                            connectNulls
                             legendType="plainline"
                           />
                         )}
-                      </AreaChart>
+                      </ComposedChart>
                     ) : filterPage !== "all" && chartMetric === "receita" ? (
                       <AreaChart
                         data={projectionChartData.map((row) => ({ ...row, actual: dailyActualByDia.get(row.dia) ?? null }))}
