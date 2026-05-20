@@ -41,7 +41,8 @@ function viewsStep(v: number) {
   if (v < 5_000) return 500;
   if (v < 20_000) return 1_000;
   if (v < 100_000) return 5_000;
-  return 10_000;
+  if (v < 1_000_000) return 50_000;
+  return 500_000;
 }
 function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
@@ -116,8 +117,8 @@ export default function ProjecoesPage() {
           : 10_000;
 
         setRpm(calcRpm);
-        setPostsPerDay(clamp(estimatedPostsPerDay, 1, 10));
-        setAvgViews(clamp(avgViewsCalc, 1_000, 500_000));
+        setPostsPerDay(clamp(estimatedPostsPerDay, 1, 30));
+        setAvgViews(clamp(avgViewsCalc, 1_000, 10_000_000));
 
         // Actual this-month revenue
         const monthStart = new Date(); monthStart.setDate(1);
@@ -158,14 +159,12 @@ export default function ProjecoesPage() {
   }, [postsPerDay, avgViews, rhythm, rpm, actualRevMonth, brlRate]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+      <div className="flex items-center gap-3 justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Simulador de Ganhos</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Ajuste os controles e veja quanto você pode ganhar
-          </p>
+          <h1 className="text-xl font-bold text-foreground">Simulador de Ganhos</h1>
+          <p className="text-xs text-muted-foreground">Ajuste os controles e veja quanto você pode ganhar</p>
         </div>
         <PageDropdown pages={pages} value={pageId} onChange={setPageId} />
       </div>
@@ -173,7 +172,7 @@ export default function ProjecoesPage() {
       {loading ? (
         <LoadingSkeleton />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-5 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-4 items-start">
           {/* ── Left: Controls ── */}
           <ControlsPanel
             postsPerDay={postsPerDay}
@@ -187,7 +186,7 @@ export default function ProjecoesPage() {
           />
 
           {/* ── Right: Result + Chart ── */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             <HeroCard
               totalRev={projection.totalRev}
               projectedRev={projection.projectedRev}
@@ -197,9 +196,6 @@ export default function ProjecoesPage() {
               daysLeft={projection.daysLeft}
             />
             <SimpleChart chartData={projection.chartData} totalRev={projection.totalRev} />
-            {projection.upliftExtra > 0 && (
-              <UpliftTip upliftExtra={projection.upliftExtra} onTry={() => setPostsPerDay(Math.min(postsPerDay + 1, 10))} />
-            )}
           </div>
         </div>
       )}
@@ -273,82 +269,59 @@ function ControlsPanel({
   }, [postsPerDay, avgViews, rhythm]);
 
   return (
-    <div className="bg-white rounded-2xl border border-border p-5 space-y-6 lg:sticky lg:top-6">
-      <div>
-        <h2 className="text-lg font-bold text-foreground">Simule seu desempenho</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">Mexa nos controles e veja o resultado ao lado</p>
-      </div>
-
+    <div className="bg-white rounded-2xl border border-border p-4 space-y-4 lg:sticky lg:top-4">
       {/* Posts per day */}
-      <div className="space-y-3">
-        <label className="block text-sm font-semibold text-foreground">Posts por dia</label>
-        <div className="flex items-center gap-4">
-          <StepButton onClick={() => setPostsPerDay(Math.max(0, postsPerDay - 1))}>−</StepButton>
-          <span className="flex-1 text-center text-3xl font-black text-[#6D4AFF]">
-            {postsPerDay} <span className="text-base font-semibold text-muted-foreground">posts</span>
-          </span>
-          <StepButton onClick={() => setPostsPerDay(Math.min(10, postsPerDay + 1))}>+</StepButton>
-        </div>
+      <ControlRow label="Posts por dia" hint="Mais posts = mais alcance">
+        <StepButton onClick={() => setPostsPerDay(Math.max(0, postsPerDay - 1))}>−</StepButton>
+        <span className="flex-1 text-center text-2xl font-black text-[#6D4AFF]">
+          {postsPerDay} <span className="text-sm font-semibold text-muted-foreground">posts</span>
+        </span>
+        <StepButton onClick={() => setPostsPerDay(Math.min(30, postsPerDay + 1))}>+</StepButton>
         <input
-          type="range"
-          min={0} max={10} step={1}
-          value={postsPerDay}
+          type="range" min={0} max={30} step={1} value={postsPerDay}
           onChange={e => setPostsPerDay(Number(e.target.value))}
-          className="w-full accent-[#6D4AFF] h-2 rounded-full"
+          className="w-full accent-[#6D4AFF] h-1.5 rounded-full"
         />
-        <p className="text-xs text-muted-foreground">Mais posts podem aumentar seu alcance</p>
-      </div>
+      </ControlRow>
 
       {/* Avg views */}
-      <div className="space-y-3">
-        <label className="block text-sm font-semibold text-foreground">Média de views por post</label>
-        <div className="flex items-center gap-4">
-          <StepButton onClick={() => setAvgViews(Math.max(1_000, avgViews - viewsStep(avgViews)))}>−</StepButton>
-          <span className="flex-1 text-center text-3xl font-black text-[#6D4AFF]">
-            {fmtViewsPt(avgViews)} <span className="text-base font-semibold text-muted-foreground">views</span>
-          </span>
-          <StepButton onClick={() => setAvgViews(Math.min(500_000, avgViews + viewsStep(avgViews)))}>+</StepButton>
-        </div>
+      <ControlRow label="Média de views por post" hint="Mais views = mais receita">
+        <StepButton onClick={() => setAvgViews(Math.max(1_000, avgViews - viewsStep(avgViews)))}>−</StepButton>
+        <span className="flex-1 text-center text-2xl font-black text-[#6D4AFF]">
+          {fmtViewsPt(avgViews)} <span className="text-sm font-semibold text-muted-foreground">views</span>
+        </span>
+        <StepButton onClick={() => setAvgViews(Math.min(10_000_000, avgViews + viewsStep(avgViews)))}>+</StepButton>
         <input
-          type="range"
-          min={1_000} max={500_000} step={1_000}
-          value={avgViews}
+          type="range" min={1_000} max={10_000_000} step={1_000} value={avgViews}
           onChange={e => setAvgViews(Number(e.target.value))}
-          className="w-full accent-[#6D4AFF] h-2 rounded-full"
+          className="w-full accent-[#6D4AFF] h-1.5 rounded-full"
         />
-        <p className="text-xs text-muted-foreground">Mais views geram mais receita</p>
-      </div>
+      </ControlRow>
 
       {/* RPM */}
-      <div className="space-y-3">
-        <label className="block text-sm font-semibold text-foreground">RPM (receita por mil views)</label>
-        <div className="flex items-center gap-4">
-          <StepButton onClick={() => setRpm(Math.max(0.5, Math.round((rpm - 0.5) * 10) / 10))}>−</StepButton>
-          <span className="flex-1 text-center text-3xl font-black text-[#6D4AFF]">
-            ${rpm.toFixed(2)}
-          </span>
-          <StepButton onClick={() => setRpm(Math.min(20, Math.round((rpm + 0.5) * 10) / 10))}>+</StepButton>
-        </div>
+      <ControlRow label="RPM (por mil views)" hint="Estimado dos seus dados">
+        <StepButton onClick={() => setRpm(Math.max(0, Math.round((rpm - 0.1) * 10) / 10))}>−</StepButton>
+        <span className="flex-1 text-center text-2xl font-black text-[#6D4AFF]">
+          ${rpm.toFixed(2)}
+        </span>
+        <StepButton onClick={() => setRpm(Math.min(100, Math.round((rpm + 0.1) * 10) / 10))}>+</StepButton>
         <input
-          type="range"
-          min={0.5} max={20} step={0.5}
-          value={rpm}
+          type="range" min={0} max={100} step={0.1} value={rpm}
           onChange={e => setRpm(Number(e.target.value))}
-          className="w-full accent-[#6D4AFF] h-2 rounded-full"
+          className="w-full accent-[#6D4AFF] h-1.5 rounded-full"
         />
-        <p className="text-xs text-muted-foreground">Estimado dos seus dados — ajuste se necessário</p>
-      </div>
+      </ControlRow>
 
       {/* Rhythm */}
-      <div className="space-y-3">
-        <label className="block text-sm font-semibold text-foreground">Ritmo de postagem</label>
+      <div>
+        <label className="block text-xs font-semibold text-foreground mb-2">Ritmo de postagem</label>
         <div className="grid grid-cols-3 gap-2">
           {RHYTHMS.map(r => (
             <button
               key={r.key}
               onClick={() => setRhythm(r.key)}
               className={cn(
-                "relative flex flex-col items-center justify-center gap-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all",
+                "relative flex flex-col items-center justify-center gap-0.5 py-2 rounded-xl border-2 text-xs font-semibold transition-all",
                 rhythm === r.key
                   ? "border-[#6D4AFF] bg-[#6D4AFF]/10 text-[#6D4AFF]"
                   : "border-border bg-white text-muted-foreground hover:border-[#6D4AFF]/40 hover:text-foreground"
@@ -359,7 +332,7 @@ function ControlsPanel({
                   {r.badge}
                 </span>
               )}
-              <span className="text-xl">{r.emoji}</span>
+              <span className="text-lg">{r.emoji}</span>
               <span>{r.label}</span>
               <span className="text-[10px] font-normal opacity-70">
                 {r.mult < 1 ? `${Math.round(r.mult * 100)}%` : r.mult === 1 ? "100%" : `+${Math.round((r.mult - 1) * 100)}%`}
@@ -370,10 +343,22 @@ function ControlsPanel({
       </div>
 
       {/* Tip */}
-      <div className="bg-[#F3F0FF] rounded-xl px-4 py-3 flex items-start gap-2.5">
-        <span className="text-base mt-0.5">💡</span>
-        <p className="text-sm text-[#6D4AFF] font-medium leading-snug">{tip}</p>
+      <div className="bg-[#F3F0FF] rounded-xl px-3 py-2 flex items-center gap-2">
+        <span className="text-sm">💡</span>
+        <p className="text-xs text-[#6D4AFF] font-medium leading-snug">{tip}</p>
       </div>
+    </div>
+  );
+}
+
+function ControlRow({ label, hint, children }: { label: string; hint: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-1">
+        <label className="text-xs font-semibold text-foreground">{label}</label>
+        <span className="text-[10px] text-muted-foreground">{hint}</span>
+      </div>
+      <div className="flex items-center gap-2 mb-1">{children}</div>
     </div>
   );
 }
@@ -382,7 +367,7 @@ function StepButton({ children, onClick }: { children: React.ReactNode; onClick:
   return (
     <button
       onClick={onClick}
-      className="h-10 w-10 rounded-xl bg-[#F3F0FF] text-[#6D4AFF] text-xl font-bold flex items-center justify-center hover:bg-[#6D4AFF]/20 transition-colors shrink-0"
+      className="h-8 w-8 rounded-lg bg-[#F3F0FF] text-[#6D4AFF] text-lg font-bold flex items-center justify-center hover:bg-[#6D4AFF]/20 transition-colors shrink-0"
     >
       {children}
     </button>
@@ -402,33 +387,26 @@ function HeroCard({
 
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: "linear-gradient(135deg, #6D4AFF 0%, #9B71FF 100%)" }}>
-      <div className="p-6 text-white space-y-4">
-        <div className="flex items-center justify-between">
+      <div className="p-4 text-white">
+        <div className="flex items-start justify-between mb-3">
           <div>
-            <p className="text-white/70 text-sm font-medium">Projeção do mês</p>
-            <p className="text-4xl font-black tracking-tight mt-1">{fmtUSD(totalRev)}</p>
-            <p className="text-white/80 text-lg font-semibold mt-0.5">{fmtBRL(totalBRL)}</p>
+            <p className="text-white/70 text-xs font-medium">Projeção do mês</p>
+            <p className="text-3xl font-black tracking-tight mt-0.5">{fmtUSD(totalRev)}</p>
+            <p className="text-white/80 text-base font-semibold">{fmtBRL(totalBRL)}</p>
           </div>
           <div className="flex flex-col items-end gap-1">
-            <span className="bg-white/20 text-white text-xs font-bold px-3 py-1 rounded-full">
+            <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full">
               {pct}% do mês
             </span>
             <span className="text-white/70 text-xs">{daysLeft} dias restantes</span>
           </div>
         </div>
-
-        {/* Progress bar */}
-        <div className="space-y-1">
-          <div className="h-2.5 bg-white/20 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-white rounded-full transition-all duration-500"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <div className="flex justify-between text-xs text-white/60">
-            <span>Realizado: {fmtUSD(actualRevMonth)}</span>
-            <span>Projetado: +{fmtUSD(projectedRev)}</span>
-          </div>
+        <div className="h-2 bg-white/20 rounded-full overflow-hidden mb-1">
+          <div className="h-full bg-white rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="flex justify-between text-[11px] text-white/60">
+          <span>Realizado: {fmtUSD(actualRevMonth)}</span>
+          <span>Projetado: +{fmtUSD(projectedRev)}</span>
         </div>
       </div>
     </div>
@@ -441,7 +419,7 @@ interface ChartPoint { day: number; value: number; projected: boolean }
 
 function SimpleChart({ chartData, totalRev }: { chartData: ChartPoint[]; totalRev: number }) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const W = 600, H = 160, PAD = { top: 16, right: 16, bottom: 24, left: 40 };
+  const W = 600, H = 220, PAD = { top: 16, right: 16, bottom: 24, left: 40 };
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
 
@@ -489,7 +467,7 @@ function SimpleChart({ chartData, totalRev }: { chartData: ChartPoint[]; totalRe
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
         className="w-full"
-        style={{ height: 140 }}
+        style={{ height: 200 }}
       >
         {/* Y grid + labels */}
         {yLabels.map(({ v, y: yy }) => (
