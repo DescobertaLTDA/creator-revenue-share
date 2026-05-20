@@ -855,6 +855,19 @@ function AdminDashboard() {
     return [...hist, ...futuro];
   }, [chartData, projections]);
 
+  // Map "dd/mm" → actual_revenue_usd for overlay on revenue charts
+  const dailyActualByDia = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of dailyEntries) {
+      if (!e.actual_revenue_usd) continue;
+      if (filterFrom && e.entry_date < filterFrom) continue;
+      if (filterTo && e.entry_date > filterTo) continue;
+      const [, mo, d] = e.entry_date.split("-");
+      map.set(`${d}/${mo}`, Number(e.actual_revenue_usd));
+    }
+    return map;
+  }, [dailyEntries, filterFrom, filterTo]);
+
   // Scores always computed across ALL pages (date-filtered only, never page-filtered)
   // so a single-page view doesn't self-normalize to 100.
   const globalPageScores = useMemo(() => {
@@ -1076,7 +1089,12 @@ function AdminDashboard() {
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     {filterPage === "all" && activeDataset && activeDataset.data.length > 0 ? (
-                      <AreaChart data={activeDataset.data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                      <AreaChart
+                        data={chartMetric === "receita" && dailyActualByDia.size > 0
+                          ? activeDataset.data.map((row) => ({ ...row, __actual: dailyActualByDia.get(row.dia) ?? null }))
+                          : activeDataset.data}
+                        margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+                      >
                         <defs>
                           {activeDataset.pageIds.map((pid, i) => (
                             <linearGradient key={pid} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
@@ -1117,9 +1135,26 @@ function AdminDashboard() {
                             connectNulls
                           />
                         ))}
+                        {chartMetric === "receita" && dailyActualByDia.size > 0 && (
+                          <Line
+                            type="monotone"
+                            dataKey="__actual"
+                            name="Real Recebido"
+                            stroke="#f59e0b"
+                            strokeWidth={2}
+                            strokeDasharray="5 3"
+                            dot={false}
+                            connectNulls={false}
+                          />
+                        )}
                       </AreaChart>
                     ) : filterPage !== "all" && chartMetric === "receita" ? (
-                      <AreaChart data={projectionChartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                      <AreaChart
+                        data={dailyActualByDia.size > 0
+                          ? projectionChartData.map((row) => ({ ...row, actual: dailyActualByDia.get(row.dia) ?? null }))
+                          : projectionChartData}
+                        margin={{ top: 4, right: 0, left: 0, bottom: 0 }}
+                      >
                         <defs>
                           <linearGradient id="gradReal" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#6200b3" stopOpacity={0.25} />
@@ -1137,8 +1172,11 @@ function AdminDashboard() {
                           labelStyle={{ color: "#1a0533", fontSize: 11 }}
                           contentStyle={{ border: "1px solid #e8e0f5", borderRadius: 10, fontSize: 11 }}
                         />
-                        <Area type="monotone" dataKey="real" stroke="#6200b3" strokeWidth={2} fill="url(#gradReal)" dot={false} connectNulls={false} name="Real" />
+                        <Area type="monotone" dataKey="real" stroke="#6200b3" strokeWidth={2} fill="url(#gradReal)" dot={false} connectNulls={false} name="CSV" />
                         <Area type="monotone" dataKey="proj" stroke="#ea7af4" strokeWidth={1.5} strokeDasharray="4 3" fill="url(#gradProj)" dot={false} connectNulls={false} name="Projeção" />
+                        {dailyActualByDia.size > 0 && (
+                          <Line type="monotone" dataKey="actual" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls={false} name="Real Recebido" />
+                        )}
                       </AreaChart>
                     ) : singlePageMetricData && singlePageMetricData.length > 0 ? (
                       <AreaChart data={singlePageMetricData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
