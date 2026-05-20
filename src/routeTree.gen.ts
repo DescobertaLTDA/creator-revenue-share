@@ -20,6 +20,7 @@ import { Route as AdminImportacoesRouteImport } from './routes/admin.importacoes
 import { Route as AdminFechamentosRouteImport } from './routes/admin.fechamentos'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 import { Route as AdminColaboradoresRouteImport } from './routes/admin.colaboradores'
+import { Route as AdminMetasRouteImport } from './routes/admin.metas'
 import { Route as AdminBonusManualRouteImport } from './routes/admin.bonus-manual'
 import { Route as AdminCadastroRouteImport } from './routes/admin.cadastro'
 import { Route as AdminImportacoesIdRouteImport } from './routes/admin.importacoes.$id'
@@ -80,6 +81,11 @@ const AdminColaboradoresRoute = AdminColaboradoresRouteImport.update({
   path: '/colaboradores',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminMetasRoute = AdminMetasRouteImport.update({
+  id: '/metas',
+  path: '/metas',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminBonusManualRoute = AdminBonusManualRouteImport.update({
   id: '/bonus-manual',
   path: '/bonus-manual',
@@ -108,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/admin/bonus-manual': typeof AdminBonusManualRoute
   '/admin/cadastro': typeof AdminCadastroRoute
+  '/admin/metas': typeof AdminMetasRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/fechamentos': typeof AdminFechamentosRouteWithChildren
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/admin/bonus-manual': typeof AdminBonusManualRoute
   '/admin/cadastro': typeof AdminCadastroRoute
+  '/admin/metas': typeof AdminMetasRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/fechamentos': typeof AdminFechamentosRouteWithChildren
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/admin/bonus-manual': typeof AdminBonusManualRoute
   '/admin/cadastro': typeof AdminCadastroRoute
+  '/admin/metas': typeof AdminMetasRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/fechamentos': typeof AdminFechamentosRouteWithChildren
@@ -162,6 +171,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/bonus-manual'
     | '/admin/cadastro'
+    | '/admin/metas'
     | '/admin/colaboradores'
     | '/admin/dashboard'
     | '/admin/fechamentos'
@@ -179,6 +189,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/bonus-manual'
     | '/admin/cadastro'
+    | '/admin/metas'
     | '/admin/colaboradores'
     | '/admin/dashboard'
     | '/admin/fechamentos'
@@ -196,6 +207,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/bonus-manual'
     | '/admin/cadastro'
+    | '/admin/metas'
     | '/admin/colaboradores'
     | '/admin/dashboard'
     | '/admin/fechamentos'
@@ -300,6 +312,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminBonusManualRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/metas': {
+      id: '/admin/metas'
+      path: '/metas'
+      fullPath: '/admin/metas'
+      preLoaderRoute: typeof AdminMetasRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/cadastro': {
       id: '/admin/cadastro'
       path: '/cadastro'
@@ -349,6 +368,7 @@ const AdminImportacoesRouteWithChildren =
 interface AdminRouteChildren {
   AdminBonusManualRoute: typeof AdminBonusManualRoute
   AdminCadastroRoute: typeof AdminCadastroRoute
+  AdminMetasRoute: typeof AdminMetasRoute
   AdminColaboradoresRoute: typeof AdminColaboradoresRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminFechamentosRoute: typeof AdminFechamentosRouteWithChildren
@@ -360,6 +380,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminBonusManualRoute: AdminBonusManualRoute,
   AdminCadastroRoute: AdminCadastroRoute,
+  AdminMetasRoute: AdminMetasRoute,
   AdminColaboradoresRoute: AdminColaboradoresRoute,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminFechamentosRoute: AdminFechamentosRouteWithChildren,

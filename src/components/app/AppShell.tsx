@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import {
   LayoutDashboard, FileSpreadsheet, FileText, Percent,
-  CalendarCheck, Users, HandCoins, LogOut, Wallet, Menu, X, UserCog,
+  CalendarCheck, Users, HandCoins, LogOut, Wallet, Menu, X, UserCog, Target,
 } from "lucide-react";
 
 interface NavItem {
@@ -16,6 +16,7 @@ interface NavItem {
 
 const allNav: NavItem[] = [
   { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/admin/metas", label: "Metas", icon: Target },
   { to: "/admin/posts", label: "Posts", icon: FileText },
   { to: "/admin/fechamentos", label: "Fechamentos", icon: CalendarCheck },
   { to: "/admin/colaboradores", label: "Equipe", icon: Users },

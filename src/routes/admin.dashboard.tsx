@@ -298,10 +298,6 @@ function AdminDashboard() {
   const [dailyEntries, setDailyEntries] = useState<DailyEntry[]>([]);
   const [recentImports, setRecentImports] = useState<RecentImport[]>([]);
   const [usdBrl, setUsdBrl] = useState<number | null>(null);
-  const [goals, setGoals] = useState<Goals>(loadGoals);
-  const [editingGoals, setEditingGoals] = useState(false);
-  const [draftGoals, setDraftGoals] = useState<Goals>(loadGoals);
-  const [showAllPages, setShowAllPages] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "charts">("overview");
   const [chartMetric, setChartMetric] = useState<"receita" | "views" | "curtidas" | "comentarios" | "compartilhamentos">("receita");
 
@@ -905,8 +901,6 @@ function AdminDashboard() {
     [pageStats, globalPageScores],
   );
 
-  const visiblePages = showAllPages ? pageStatsWithGlobalScores : pageStatsWithGlobalScores.slice(0, 5);
-
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -1179,162 +1173,6 @@ function AdminDashboard() {
             );
           })()}
 
-          {/* ── Pages + Import ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-            {/* Performance das Páginas */}
-            <div className="bg-white border border-[#e8e0f5] rounded-2xl overflow-hidden shadow-sm">
-              <div className="px-5 py-3.5 border-b border-[#f0ebfa] flex items-center justify-between">
-                <h2 className="text-sm font-semibold">Performance das Páginas</h2>
-                <Link to="/admin/posts" className="text-xs text-[#9d8fb0] hover:text-[#3b0086] flex items-center gap-1 transition-colors">
-                  Ver posts <ChevronRight className="h-3 w-3" />
-                </Link>
-              </div>
-
-              {loading ? (
-                <div className="p-5 space-y-3">
-                  {[1, 2, 3].map((i) => <div key={i} className="h-10 bg-[#f8f5ff] rounded-lg animate-pulse" />)}
-                </div>
-              ) : pageStats.length === 0 ? (
-                <div className="p-5">
-                  <EmptyState icon={TrendingUp} title="Nenhuma página" description="Importe um CSV para ver o desempenho." />
-                </div>
-              ) : (
-                <div className="divide-y divide-[#f8f5ff]">
-                  {visiblePages.map((ps) => {
-                    const spark = sparklineByPage.get(ps.id) ?? [];
-                    return (
-                      <div key={ps.id} className="px-5 py-3 flex items-center gap-3 hover:bg-[#f3e8ff]/50 transition-colors">
-                        {/* Avatar */}
-                        <div className="h-8 w-8 rounded-full bg-[#f3e8ff] flex items-center justify-center shrink-0 text-xs font-semibold text-[#4a3560]">
-                          {ps.name.slice(0, 2).toUpperCase()}
-                        </div>
-                        {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{ps.name}</p>
-                          <p className="text-xs text-[#9d8fb0]">
-                            RPM ${ps.rpm < 0.01 && ps.rpm > 0 ? ps.rpm.toFixed(4) : ps.rpm.toFixed(2)} · {ps.posts} posts
-                            {ps.videoCount > 0 && ` · ${ps.videoCount}v`}
-                            {ps.imageCount > 0 && ` · ${ps.imageCount}i`}
-                          </p>
-                        </div>
-                        {/* Monetized dot */}
-                        <div className="shrink-0" title={ps.isMonetized ? "Monetizada" : "Não monetizada"}>
-                          <div className={`h-2 w-2 rounded-full ${ps.isMonetized ? "bg-emerald-500" : "bg-zinc-300"}`} />
-                        </div>
-                        {/* Sparkline */}
-                        <div className="shrink-0">
-                          <MiniSparkline data={spark} />
-                        </div>
-                        {/* Score */}
-                        <span
-                          className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${scoreColor(ps.score)}`}
-                          title={`Score ${ps.score}/100\n100% = R$10k+/mês, RPM $1+, 3M views, 3% eng., 80 posts`}
-                        >
-                          {ps.score}
-                        </span>
-                      </div>
-                    );
-                  })}
-                  {pageStats.length > 5 && (
-                    <button onClick={() => setShowAllPages(!showAllPages)}
-                      className="w-full px-5 py-2.5 text-xs text-[#9d8fb0] hover:text-[#3b0086] hover:bg-[#f3e8ff] transition-colors text-center">
-                      {showAllPages ? "Mostrar menos" : `Ver mais ${pageStats.length - 5} páginas`}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Importar CSV */}
-            <div className="bg-white border border-[#e8e0f5] rounded-2xl overflow-hidden shadow-sm">
-              <div className="px-5 py-3.5 border-b border-[#f0ebfa] flex items-center justify-between">
-                <h2 className="text-sm font-semibold">Importar Dados</h2>
-                <Link to="/admin/importacoes" className="text-xs text-[#9d8fb0] hover:text-[#3b0086] flex items-center gap-1 transition-colors">
-                  Ver todas <ChevronRight className="h-3 w-3" />
-                </Link>
-              </div>
-
-              {/* Drop zone shortcut */}
-              <div className="p-5 space-y-4">
-                <button
-                  onClick={() => navigate({ to: "/admin/importacoes" })}
-                  className="w-full border-2 border-dashed border-[#e8e0f5] rounded-xl py-8 flex flex-col items-center gap-2 hover:border-zinc-400 hover:bg-[#f3e8ff]/50 transition-all group"
-                >
-                  <div className="h-10 w-10 rounded-xl bg-[#f3e8ff] flex items-center justify-center group-hover:bg-zinc-200 transition-colors">
-                    <Upload className="h-5 w-5 text-[#7c6f8e]" />
-                  </div>
-                  <p className="text-sm font-medium text-[#3b0086]">Arraste ou clique para importar</p>
-                  <p className="text-xs text-[#9d8fb0]">CSVs do Facebook Business Suite</p>
-                </button>
-
-                {/* Recent imports */}
-                {recentImports.length > 0 && (
-                  <div className="space-y-1">
-                    {recentImports.slice(0, 3).map((imp) => (
-                      <Link key={imp.id} to="/admin/importacoes/$id" params={{ id: imp.id }}
-                        className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#f3e8ff] transition-colors group">
-                        <div className="shrink-0">
-                          {imp.status === "concluido" ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                            : imp.status === "processando" ? <Clock className="h-4 w-4 text-amber-500" />
-                            : <FileSpreadsheet className="h-4 w-4 text-[#9d8fb0]" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-[#3b0086] truncate">{imp.file_name}</p>
-                          <p className="text-[10px] text-[#9d8fb0]">
-                            {imp.detected_pages_count != null ? `${imp.detected_pages_count} páginas · ` : ""}
-                            {imp.valid_rows} posts · {formatDateTime(imp.created_at)}
-                          </p>
-                        </div>
-                        <ArrowRight className="h-3 w-3 text-[#c4b5d4] group-hover:text-[#7c6f8e] transition-colors shrink-0" />
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* ── Metas do Mês ── */}
-          <div className="bg-white border border-[#e8e0f5] rounded-2xl p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Target className="h-4 w-4 text-[#6200b3]" />
-                <h2 className="text-sm font-semibold">Metas do Mês</h2>
-                {activeMonthRef && (
-                  <span className="text-xs bg-[#f3e8ff] text-[#7c6f8e] px-2 py-0.5 rounded-full">
-                    {formatMonth(activeMonthRef)}
-                  </span>
-                )}
-              </div>
-              <button onClick={() => { setDraftGoals(goals); setEditingGoals(true); }}
-                className="text-xs text-[#9d8fb0] hover:text-[#3b0086] transition-colors">
-                Editar metas
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <GoalBar
-                label="Receita Total"
-                current={usdBrl ? totalMonth * usdBrl : totalMonth}
-                target={goals.receita}
-                formatVal={(n) => usdBrl ? formatBRL(n) : `$${n.toFixed(0)}`}
-              />
-              <GoalBar
-                label="Visualizações"
-                current={totalViews}
-                target={goals.views}
-                formatVal={(n) => fmt(n)}
-              />
-              <GoalBar
-                label="RPM Médio"
-                current={avgRpm}
-                target={goals.rpm}
-                formatVal={(n) => `$${n.toFixed(2)}`}
-              />
-            </div>
-          </div>
-
           {/* ── Colaboradores ── */}
           {!loading && collabCards.filter((c) => c.id !== SEM_COLAB_ID && c.posts > 0).length > 0 && (
             <div className="bg-white border border-[#e8e0f5] rounded-xl overflow-hidden">
@@ -1373,43 +1211,6 @@ function AdminDashboard() {
           )}
         </>
       )}
-
-      {/* ── Edit Goals Dialog ── */}
-      <Dialog open={editingGoals} onOpenChange={setEditingGoals}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Editar Metas do Mês</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
-            {[
-              { key: "receita" as const, label: usdBrl ? "Receita (BRL)" : "Receita (USD)", step: 100 },
-              { key: "views" as const, label: "Visualizações", step: 100000 },
-              { key: "rpm" as const, label: "RPM Médio (USD)", step: 0.5 },
-            ].map(({ key, label, step }) => (
-              <div key={key} className="space-y-1">
-                <label className="text-xs font-medium text-[#7c6f8e] uppercase tracking-wider">{label}</label>
-                <input
-                  type="number"
-                  step={step}
-                  value={draftGoals[key]}
-                  onChange={(e) => setDraftGoals({ ...draftGoals, [key]: parseFloat(e.target.value) || 0 })}
-                  className="w-full h-9 rounded-lg border border-[#e8e0f5] px-3 text-sm"
-                />
-              </div>
-            ))}
-            <div className="flex gap-2 pt-2">
-              <button onClick={() => setEditingGoals(false)}
-                className="flex-1 h-9 rounded-lg border border-[#e8e0f5] text-sm text-[#4a3560] hover:bg-[#f3e8ff] transition-colors">
-                Cancelar
-              </button>
-              <button onClick={() => { saveGoals(draftGoals); setGoals(draftGoals); setEditingGoals(false); }}
-                className="flex-1 h-9 rounded-lg bg-[#6200b3] text-white text-sm font-medium hover:bg-[#4a0090] transition-colors">
-                Salvar
-              </button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* ── Audit Dialog ── */}
       <Dialog open={!!auditColabId} onOpenChange={(o) => { if (!o) setAuditColabId(null); }}>
