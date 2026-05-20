@@ -1018,7 +1018,7 @@ function AdminDashboard() {
               },
               {
                 label: "RPM Médio",
-                value: loading ? "—" : `$${avgRpm < 0.01 && avgRpm > 0 ? avgRpm.toFixed(4) : avgRpm.toFixed(2)}`,
+                value: loading ? "—" : (usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(4)}`),
                 sub: "por mil visualizações",
                 icon: Zap,
               },
