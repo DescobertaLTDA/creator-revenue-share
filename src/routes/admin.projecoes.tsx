@@ -65,11 +65,32 @@ export default function ProjecoesPage() {
   // ── Exchange rate
   const [brlRate, setBrlRate] = useState(5.0);
 
-  // ── Load pages
+  // ── Load pages + pick most-viewed as default
   useEffect(() => {
-    supabase.from("pages").select("id, nome").order("nome").then(({ data }) => {
-      if (data?.length) { setPages(data); setPageId(data[0].id); }
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const iso = thirtyDaysAgo.toISOString().split("T")[0];
+
+    Promise.all([
+      supabase.from("pages").select("id, nome").order("nome"),
+      (supabase as any).from("posts").select("page_id, views").gte("published_at", iso),
+    ]).then(([{ data: pagesData }, { data: postsData }]) => {
+      if (!pagesData?.length) return;
+      setPages(pagesData);
+
+      // Pick page with most views in last 30 days
+      let defaultId = pagesData[0].id;
+      if (postsData?.length) {
+        const viewsByPage: Record<string, number> = {};
+        for (const p of postsData) {
+          viewsByPage[p.page_id] = (viewsByPage[p.page_id] ?? 0) + (p.views ?? 0);
+        }
+        const topId = Object.entries(viewsByPage).sort((a, b) => b[1] - a[1])[0]?.[0];
+        if (topId && pagesData.find(p => p.id === topId)) defaultId = topId;
+      }
+      setPageId(defaultId);
     });
+
     fetch("https://open.er-api.com/v6/latest/USD")
       .then(r => r.json()).then(d => { if (d?.rates?.BRL) setBrlRate(d.rates.BRL); })
       .catch(() => {});
