@@ -1126,7 +1126,7 @@ function AdminDashboard() {
                         />
                         <Legend
                           formatter={(value) => {
-                            if (value === "__actual") {
+                            if (value === "Real Recebido") {
                               const totalActual = Array.from(dailyActualByDia.values()).reduce((s, v) => s + v, 0);
                               return `Real Recebido (${fmtMetricVal(totalActual)})`;
                             }
