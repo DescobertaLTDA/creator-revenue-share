@@ -130,6 +130,8 @@ export function MetasPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [draft, setDraft] = useState<Omit<Goal, "id" | "createdAt">>(emptyDraft);
+  // Raw text shown in the target input — kept separate so we can format on blur
+  const [targetText, setTargetText] = useState("");
 
   // Load goals from Supabase
   useEffect(() => {
@@ -210,9 +212,26 @@ export function MetasPage() {
   const completed = sorted.filter((g) => g.status === "completed");
   const expired = sorted.filter((g) => g.status === "expired");
 
-  const openCreate = () => { setDraft(emptyDraft()); setEditingGoal(null); setShowForm(true); };
+  // For receita: the user inputs BRL; we store USD. Convert on the boundary.
+  const brlToUsd = (brl: number) => (usdBrl && usdBrl > 0 ? brl / usdBrl : brl);
+  const usdToBrl = (usd: number) => (usdBrl && usdBrl > 0 ? usd * usdBrl : usd);
+
+  const fmtTargetDisplay = (d: typeof draft) =>
+    d.metric === "receita"
+      ? usdToBrl(d.target).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+      : String(d.target);
+
+  const openCreate = () => {
+    const d = emptyDraft();
+    setDraft(d);
+    setTargetText(fmtTargetDisplay(d));
+    setEditingGoal(null);
+    setShowForm(true);
+  };
   const openEdit = (g: Goal) => {
-    setDraft({ name: g.name, metric: g.metric, target: g.target, startDate: g.startDate, endDate: g.endDate });
+    const d = { name: g.name, metric: g.metric, target: g.target, startDate: g.startDate, endDate: g.endDate };
+    setDraft(d);
+    setTargetText(fmtTargetDisplay(d));
     setEditingGoal(g);
     setShowForm(true);
   };
@@ -324,7 +343,11 @@ export function MetasPage() {
                   return (
                     <button
                       key={mk}
-                      onClick={() => setDraft({ ...draft, metric: mk })}
+                      onClick={() => {
+                        const next = { ...draft, metric: mk };
+                        setDraft(next);
+                        setTargetText(fmtTargetDisplay(next));
+                      }}
                       className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
                         draft.metric === mk
                           ? "bg-[#6200b3] text-white border-[#6200b3]"
@@ -341,16 +364,46 @@ export function MetasPage() {
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-[#7c6f8e] uppercase tracking-wider">
-                Meta — {METRIC_CONFIG[draft.metric].label}
+                {draft.metric === "receita" ? "Meta — Receita (em R$)" : `Meta — ${METRIC_CONFIG[draft.metric].label}`}
               </label>
-              <input
-                type="number"
-                min="1"
-                step={METRIC_CONFIG[draft.metric].step}
-                value={draft.target}
-                onChange={(e) => setDraft({ ...draft, target: parseFloat(e.target.value) || 0 })}
-                className="w-full h-9 rounded-lg border border-[#e8e0f5] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6200b3]/30"
-              />
+              {draft.metric === "receita" ? (
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="R$ 0,00"
+                  value={targetText}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setTargetText(raw);
+                    // Parse: strip anything that isn't digit, comma or dot
+                    const num = parseFloat(raw.replace(/[^\d,]/g, "").replace(",", ".")) || 0;
+                    setDraft((d) => ({ ...d, target: brlToUsd(num) }));
+                  }}
+                  onFocus={(e) => {
+                    // Show bare number for easy editing
+                    const brl = usdToBrl(draft.target);
+                    setTargetText(brl > 0 ? brl.toFixed(2).replace(".", ",") : "");
+                    e.target.select();
+                  }}
+                  onBlur={() => {
+                    if (draft.target > 0) setTargetText(fmtTargetDisplay(draft));
+                  }}
+                  className="w-full h-9 rounded-lg border border-[#e8e0f5] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6200b3]/30"
+                />
+              ) : (
+                <input
+                  type="number"
+                  min="1"
+                  step={METRIC_CONFIG[draft.metric].step}
+                  value={draft.target}
+                  onChange={(e) => {
+                    const num = parseFloat(e.target.value) || 0;
+                    setDraft((d) => ({ ...d, target: num }));
+                    setTargetText(String(num));
+                  }}
+                  className="w-full h-9 rounded-lg border border-[#e8e0f5] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6200b3]/30"
+                />
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
