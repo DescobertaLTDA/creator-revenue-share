@@ -173,22 +173,32 @@ function ruleEffectiveDay(rule: SplitRule): string {
   return (rule.effective_from ?? "0000-01-01").slice(0, 10);
 }
 
-function computePageScores(stats: Omit<PageStat, "score">[]): PageStat[] {
-  if (stats.length === 0) return [];
-  const maxRPM = Math.max(...stats.map((p) => p.rpm), 0.001);
-  const maxEng = Math.max(...stats.map((p) => p.engagementRate), 0.0001);
-  const maxViews = Math.max(...stats.map((p) => p.views), 1);
-  const maxPosts = Math.max(...stats.map((p) => p.posts), 1);
+// Absolute thresholds: what a page must achieve to earn 100% on each dimension.
+// Calibrated so R$10,000/month revenue → score near 100.
+const SCORE_CAPS = {
+  revenueMonthlyUsd: 2_000,  // ≈ R$10k/month
+  rpm: 1.00,                  // $1.00 RPM
+  viewsMonthly: 3_000_000,   // 3M views/month
+  engagementRate: 0.03,       // 3% (reactions+comments+shares / views)
+  postsMonthly: 80,           // 80 posts/month
+};
 
+function computePageScores(stats: Omit<PageStat, "score">[], periodMonths = 1): PageStat[] {
   return stats.map((p) => {
-    const rpmScore = (p.rpm / maxRPM) * 100;
-    const engScore = (p.engagementRate / maxEng) * 100;
-    const viewsScore = (p.views / maxViews) * 100;
-    const consistencyScore = (p.posts / maxPosts) * 100;
-    const monetizationBonus = p.isMonetized ? 8 : 0;
-    const raw = rpmScore * 0.30 + engScore * 0.25 + viewsScore * 0.25 + consistencyScore * 0.20;
-    const score = Math.min(Math.round(raw * 0.92 + monetizationBonus), 100);
-    return { ...p, score };
+    const monthlyRevenue = p.revenue / periodMonths;
+    const monthlyViews = p.views / periodMonths;
+    const monthlyPosts = p.posts / periodMonths;
+
+    const revenueScore = Math.min(monthlyRevenue / SCORE_CAPS.revenueMonthlyUsd, 1) * 100;
+    const rpmScore     = Math.min(p.rpm            / SCORE_CAPS.rpm,               1) * 100;
+    const viewsScore   = Math.min(monthlyViews     / SCORE_CAPS.viewsMonthly,      1) * 100;
+    const engScore     = Math.min(p.engagementRate / SCORE_CAPS.engagementRate,    1) * 100;
+    const postScore    = Math.min(monthlyPosts      / SCORE_CAPS.postsMonthly,     1) * 100;
+
+    const raw = revenueScore * 0.35 + rpmScore * 0.25 + viewsScore * 0.20
+              + engScore * 0.12 + postScore * 0.08;
+
+    return { ...p, score: Math.min(Math.round(raw), 100) };
   });
 }
 
@@ -642,9 +652,13 @@ function AdminDashboard() {
     const last7 = chartData.slice(-7);
     const avgDaily = last7.length > 0 ? last7.reduce((s, d) => s + d.receita, 0) / last7.length : 0;
 
-    // Per-page scores
+    // Per-page scores (period normalisation applied in computePageScores)
+    const periodDays = filterFrom && filterTo
+      ? Math.max(1, (new Date(filterTo).getTime() - new Date(filterFrom).getTime()) / 86400000 + 1)
+      : 30;
+    const periodMonths = periodDays / 30;
     const pageStatsRaw = Array.from(pageAgg.values());
-    const pageStats = computePageScores(pageStatsRaw).sort((a, b) => b.score - a.score);
+    const pageStats = computePageScores(pageStatsRaw, periodMonths).sort((a, b) => b.score - a.score);
 
     // Average RPM
     const totalRevenue = geralUsd;
@@ -878,7 +892,10 @@ function AdminDashboard() {
       ps.rpm = ps.views > 0 ? (ps.revenue / ps.views) * 1000 : 0;
       ps.engagementRate = ps.views > 0 ? (ps.reactions + ps.comments + ps.shares) / ps.views : 0;
     }
-    const scored = computePageScores(Array.from(agg.values()));
+    const periodDays = filterFrom && filterTo
+      ? Math.max(1, (new Date(filterTo).getTime() - new Date(filterFrom).getTime()) / 86400000 + 1)
+      : 30;
+    const scored = computePageScores(Array.from(agg.values()), periodDays / 30);
     return new Map(scored.map((p) => [p.id, p.score]));
   }, [allPosts, filterFrom, filterTo, pages]);
 
@@ -1210,7 +1227,10 @@ function AdminDashboard() {
                           <MiniSparkline data={spark} />
                         </div>
                         {/* Score */}
-                        <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${scoreColor(ps.score)}`}>
+                        <span
+                          className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${scoreColor(ps.score)}`}
+                          title={`Score ${ps.score}/100\n100% = R$10k+/mês, RPM $1+, 3M views, 3% eng., 80 posts`}
+                        >
                           {ps.score}
                         </span>
                       </div>
