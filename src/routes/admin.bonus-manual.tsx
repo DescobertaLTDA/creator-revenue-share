@@ -213,15 +213,12 @@ function BonusManualPage() {
       updated_at: new Date().toISOString(),
       created_by: profile?.id ?? null,
     };
-    let error: any = null;
-    if (row.id) {
-      ({ error } = await supabase.from("daily_revenue_entries").update(payload).eq("id", row.id));
-    } else {
-      const { data, error: e } = await supabase
-        .from("daily_revenue_entries").insert(payload).select("id").single();
-      error = e;
-      if (!error && data) setRows((prev) => prev.map((r) => r.date === row.date ? { ...r, id: (data as any).id } : r));
-    }
+    const { data, error } = await (supabase as any)
+      .from("daily_revenue_entries")
+      .upsert(payload, { onConflict: "entry_date" })
+      .select("id")
+      .single();
+    if (!error && data) setRows((prev) => prev.map((r) => r.date === row.date ? { ...r, id: data.id } : r));
     if (error) {
       toast.error("Erro ao salvar", { description: error.message });
       setRows((prev) => prev.map((r) => r.date === row.date ? { ...r, saving: false } : r));
