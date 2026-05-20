@@ -613,6 +613,7 @@ function AdminDashboard() {
     const byDay: Record<string, DayData> = {};
     const colabAgg = new Map<string, ColabCard>();
     const pageAgg = new Map<string, Omit<PageStat, "score">>();
+    const pageRevPostCounts = new Map<string, number>();
     const colabMap = new Map(colabs.map((c) => [c.id, c]));
     const pageMap = new Map(pages.map((p) => [p.id, p.name]));
 
@@ -649,7 +650,7 @@ function AdminDashboard() {
       ps.comments += comments;
       ps.shares += shares;
       ps.revenue += val;
-      if (val > 0) ps.isMonetized = true;
+      if (val > 0) pageRevPostCounts.set(p.page_id, (pageRevPostCounts.get(p.page_id) ?? 0) + 1);
       const t = (p.post_type ?? "").toLowerCase();
       if (t.includes("video") || t === "reel") ps.videoCount += 1;
       else if (t.includes("foto") || t.includes("photo") || t.includes("image")) ps.imageCount += 1;
@@ -688,10 +689,11 @@ function AdminDashboard() {
       }
     }
 
-    // Finalize per-page RPM and engagement
-    for (const [, ps] of pageAgg) {
+    // Finalize per-page RPM, engagement, and monetization status (≥3 revenue posts)
+    for (const [id, ps] of pageAgg) {
       ps.rpm = ps.views > 0 ? (ps.revenue / ps.views) * 1000 : 0;
       ps.engagementRate = ps.views > 0 ? (ps.reactions + ps.comments + ps.shares) / ps.views : 0;
+      ps.isMonetized = (pageRevPostCounts.get(id) ?? 0) >= 3;
     }
 
     // Daily revenue corrections — only meaningful at the account level (all pages).
@@ -1031,6 +1033,7 @@ function AdminDashboard() {
   const globalPageScores = useMemo(() => {
     const pageMap = new Map(pages.map((p) => [p.id, p.name]));
     const agg = new Map<string, Omit<PageStat, "score">>();
+    const revCounts = new Map<string, number>();
     for (const p of allPosts) {
       if (filterFrom && p.published_at && p.published_at.slice(0, 10) < filterFrom) continue;
       if (filterTo && p.published_at && p.published_at.slice(0, 10) > filterTo) continue;
@@ -1050,14 +1053,15 @@ function AdminDashboard() {
       ps.comments += Number(p.comments ?? 0);
       ps.shares += Number(p.shares ?? 0);
       ps.revenue += val;
-      if (val > 0) ps.isMonetized = true;
+      if (val > 0) revCounts.set(p.page_id, (revCounts.get(p.page_id) ?? 0) + 1);
       const t = (p.post_type ?? "").toLowerCase();
       if (t.includes("video") || t === "reel") ps.videoCount += 1;
       else if (t.includes("foto") || t.includes("photo") || t.includes("image")) ps.imageCount += 1;
     }
-    for (const [, ps] of agg) {
+    for (const [id, ps] of agg) {
       ps.rpm = ps.views > 0 ? (ps.revenue / ps.views) * 1000 : 0;
       ps.engagementRate = ps.views > 0 ? (ps.reactions + ps.comments + ps.shares) / ps.views : 0;
+      ps.isMonetized = (revCounts.get(id) ?? 0) >= 3;
     }
     const periodDays = filterFrom && filterTo
       ? Math.max(1, (new Date(filterTo).getTime() - new Date(filterFrom).getTime()) / 86400000 + 1)
@@ -1072,11 +1076,15 @@ function AdminDashboard() {
     [pageStats, globalPageScores],
   );
 
-  // All-time monetized page IDs (ignores date filter — a page that ever earned is "monetized")
+  // A page is monetized only if ≥3 posts generated revenue (1-2 posts = likely system bug)
   const monetizedPageIds = useMemo(() => {
-    const ids = new Set<string>();
+    const counts = new Map<string, number>();
     for (const p of allPosts) {
-      if (getPostUsd(p) > 0) ids.add(p.page_id);
+      if (getPostUsd(p) > 0) counts.set(p.page_id, (counts.get(p.page_id) ?? 0) + 1);
+    }
+    const ids = new Set<string>();
+    for (const [id, count] of counts) {
+      if (count >= 3) ids.add(id);
     }
     return ids;
   }, [allPosts]);
