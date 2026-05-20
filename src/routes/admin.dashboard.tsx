@@ -667,7 +667,7 @@ function AdminDashboard() {
 
     return {
       kpis: {
-        totalMonth: byMonth[latestMonth] ?? 0,
+        totalMonth: geralUsd,
         totalGeral: geralUsd,
         totalPosts: filtered.length,
         totalViews: viewsSum,
@@ -931,7 +931,7 @@ function AdminDashboard() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {[
               {
-                label: "Receita do Mês",
+                label: "Receita do Período",
                 value: loading ? "—" : usdBrl ? formatBRL(totalMonth * usdBrl) : `$${totalMonth.toFixed(2)}`,
                 sub: usdBrl && !loading ? `$${totalMonth.toFixed(2)} USD` : null,
                 icon: DollarSign,
