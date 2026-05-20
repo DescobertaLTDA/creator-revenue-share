@@ -4,12 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   CheckCircle2, Flame, AlertCircle, Activity, Rocket, Target,
   ChevronDown, Search, BarChart2, Zap, Eye, FileText, TrendingUp,
-  LayoutGrid, User,
+  LayoutGrid, User, ArrowUp, Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin/monetizacao")({
-  head: () => ({ meta: [{ title: "Monetização — Gestão de Páginas" }] }),
+  head: () => ({ meta: [{ title: "Monetização — Splash Creators" }] }),
   component: MonetizacaoPage,
 });
 
@@ -142,8 +142,6 @@ function readinessScore(s: PageMonetStat, tpl: Template): number {
   const cadPct = tpl.postsPerActiveDay > 0 ? Math.min(s.postsPerActiveDay / tpl.postsPerActiveDay, 1) : 1;
   return Math.round(viewsPct * 40 + postsPct * 35 + engPct * 15 + cadPct * 10);
 }
-
-// ─── Dashboard Helpers ────────────────────────────────────────────────────────
 
 function estimateDaysNum(s: PageMonetStat, tpl: Template): number {
   if (s.isMonetized) return 0;
@@ -320,7 +318,6 @@ export default function MonetizacaoPage() {
     template ? [...warming].sort((a, b) => readinessScore(b, template) - readinessScore(a, template)) : warming,
     [warming, template]);
 
-  // Leaderboard: monetized first (day=0), then by estimated days asc
   const leaderboard = useMemo(() => {
     const allSorted = [...monetized, ...warmingSorted];
     return allSorted.map(s => ({
@@ -330,7 +327,6 @@ export default function MonetizacaoPage() {
     }));
   }, [monetized, warmingSorted, template]);
 
-  // Auto-select first warming page
   useEffect(() => {
     if (!selectedId) {
       if (warmingSorted.length > 0) setSelectedId(warmingSorted[0].id);
@@ -353,68 +349,85 @@ export default function MonetizacaoPage() {
     <div className="space-y-5 pb-12">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-[#1a0533]">Monetização</h1>
-        <p className="text-sm text-muted-foreground">Transforme consistência em receita.</p>
+        <h1 className="text-2xl font-bold tracking-tight" style={{ color: "#0D0B1F" }}>Monetização</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Transforme consistência em receita.</p>
       </div>
 
-      {/* Top bar: page selector + view toggle */}
-      <TopBar
-        pages={pages} stats={stats} template={template}
-        selectedId={selectedId} onSelect={setSelectedId}
-        view={view} onView={setView}
-      />
+      {/* Main layout */}
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_288px] gap-5 items-start">
+        {/* ── Left / Main content ── */}
+        <div className="space-y-5 min-w-0">
+          {/* Filter row */}
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+            <PageDropdown
+              pages={pages} stats={stats} selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
+            <ViewToggle view={view} onView={setView} />
+          </div>
 
-      {/* Content */}
-      {view === "individual" && selectedStat && template ? (
-        <IndividualDashboard
-          s={selectedStat} template={template} pagePosts={pagePosts}
-          leaderboard={leaderboard} allStats={stats} selectedId={selectedId}
-        />
-      ) : (
-        <OverviewGrid monetized={monetized} warmingSorted={warmingSorted} template={template} />
-      )}
+          {/* Content */}
+          {view === "individual" && selectedStat && template ? (
+            <IndividualDashboard
+              s={selectedStat} template={template} pagePosts={pagePosts}
+              allStats={stats}
+            />
+          ) : (
+            <OverviewGrid monetized={monetized} warmingSorted={warmingSorted} template={template} />
+          )}
+        </div>
+
+        {/* ── Right sidebar ── */}
+        {view === "individual" && selectedStat && template && (
+          <SidebarPanel
+            s={selectedStat} template={template} pagePosts={pagePosts}
+            leaderboard={leaderboard} allStats={stats} selectedId={selectedId}
+          />
+        )}
+      </div>
     </div>
   );
 }
 
-// ─── Top Bar ──────────────────────────────────────────────────────────────────
+// ─── Page Dropdown ────────────────────────────────────────────────────────────
 
-function TopBar({
-  pages, stats, template, selectedId, onSelect, view, onView,
-}: {
-  pages: PageRow[]; stats: PageMonetStat[]; template: Template | null;
-  selectedId: string | null; onSelect: (id: string) => void;
-  view: ViewMode; onView: (v: ViewMode) => void;
+function PageDropdown({ pages, stats, selectedId, onSelect }: {
+  pages: PageRow[]; stats: PageMonetStat[]; selectedId: string | null; onSelect: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const selectedStat = stats.find(s => s.id === selectedId);
+  const monetizedIds = new Set(stats.filter(s => s.isMonetized).map(s => s.id));
   const today = new Date().toISOString().slice(0, 10);
   const ageDays = selectedStat?.firstPostDate ? daysBetween(selectedStat.firstPostDate, today) : null;
 
   useEffect(() => {
     if (!open) return;
-    const handle = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
   }, [open]);
 
-  const monetizedIds = new Set(stats.filter(s => s.isMonetized).map(s => s.id));
   const filtered = pages.filter(p => p.nome.toLowerCase().includes(query.toLowerCase()));
   const mon = filtered.filter(p => monetizedIds.has(p.id));
   const notMon = filtered.filter(p => !monetizedIds.has(p.id));
 
   return (
-    <div className="flex items-center gap-4 flex-wrap">
-      {/* Page dropdown */}
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Página selecionada</p>
       <div className="relative" ref={ref}>
-        <button
-          onClick={() => setOpen(o => !o)}
-          className="flex items-center gap-2.5 bg-white border border-[#d8d0eb] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1a0533] hover:border-[#6200b3] transition-colors min-w-48 shadow-sm"
-        >
-          {selectedStat && <PageAvatar name={selectedStat.name} size={24} />}
-          <span className="flex-1 text-left truncate">{selectedStat?.name ?? "Selecionar página"}</span>
+        <button onClick={() => setOpen(o => !o)}
+          className="w-full flex items-center gap-2.5 bg-white border border-border rounded-xl px-3 py-2.5 text-sm hover:border-[#6D4AFF] transition-colors shadow-sm">
+          {selectedStat && <PageAvatar name={selectedStat.name} size={28} />}
+          <div className="flex-1 text-left min-w-0">
+            <div className="font-semibold truncate" style={{ color: "#0D0B1F" }}>{selectedStat?.name ?? "Selecionar"}</div>
+            {selectedStat && ageDays !== null && (
+              <div className="text-[11px] text-muted-foreground">
+                {selectedStat.posts} posts · ativa há {ageDays}d
+              </div>
+            )}
+          </div>
           {selectedStat && monetizedIds.has(selectedStat.id) && (
             <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
           )}
@@ -422,17 +435,12 @@ function TopBar({
         </button>
 
         {open && (
-          <div className="absolute top-full mt-2 left-0 w-72 bg-white border border-[#e8e0f5] rounded-2xl shadow-xl z-50 overflow-hidden">
-            <div className="p-2 border-b border-[#f3e8ff]">
-              <div className="flex items-center gap-2 bg-[#faf5ff] rounded-lg px-3 py-1.5">
+          <div className="absolute top-full mt-1.5 left-0 right-0 bg-white border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+            <div className="p-2 border-b border-border">
+              <div className="flex items-center gap-2 bg-muted rounded-lg px-2.5 py-1.5">
                 <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <input
-                  autoFocus
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
-                  placeholder="Buscar página..."
-                  className="flex-1 bg-transparent text-sm outline-none text-[#1a0533] placeholder:text-muted-foreground"
-                />
+                <input autoFocus value={query} onChange={e => setQuery(e.target.value)}
+                  placeholder="Buscar página..." className="flex-1 bg-transparent text-sm outline-none" />
               </div>
             </div>
             <div className="max-h-64 overflow-y-auto py-1">
@@ -455,43 +463,6 @@ function TopBar({
           </div>
         )}
       </div>
-
-      {/* Page info */}
-      {selectedStat && (
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <FileText className="h-3.5 w-3.5" />
-            {selectedStat.posts} posts
-          </span>
-          {ageDays !== null && (
-            <span className="flex items-center gap-1.5">
-              <Activity className="h-3.5 w-3.5" />
-              Ativa há {ageDays} dias
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Spacer */}
-      <div className="flex-1" />
-
-      {/* View toggle */}
-      <div className="flex items-center bg-[#f3e8ff] rounded-xl p-1 gap-1">
-        <button
-          onClick={() => onView("individual")}
-          className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all", view === "individual" ? "bg-[#6200b3] text-white shadow-sm" : "text-[#7c6f8e] hover:text-[#6200b3]")}
-        >
-          <User className="h-3.5 w-3.5" />
-          Página individual
-        </button>
-        <button
-          onClick={() => onView("geral")}
-          className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all", view === "geral" ? "bg-[#6200b3] text-white shadow-sm" : "text-[#7c6f8e] hover:text-[#6200b3]")}
-        >
-          <LayoutGrid className="h-3.5 w-3.5" />
-          Visão geral
-        </button>
-      </div>
     </div>
   );
 }
@@ -502,122 +473,166 @@ function PageOption({ page, stats, selectedId, onSelect }: {
   const stat = stats.find(s => s.id === page.id);
   const isSelected = selectedId === page.id;
   return (
-    <button
-      onClick={() => onSelect(page.id)}
-      className={cn("w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#faf5ff] transition-colors", isSelected && "bg-[#f3e8ff]")}
-    >
+    <button onClick={() => onSelect(page.id)}
+      className={cn("w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted transition-colors", isSelected && "bg-[#EDE9FF]")}>
       <PageAvatar name={page.nome} size={28} />
       <div className="flex-1 text-left min-w-0">
-        <div className="font-medium text-[#1a0533] truncate">{page.nome}</div>
+        <div className="font-medium truncate" style={{ color: "#0D0B1F" }}>{page.nome}</div>
         {stat && <div className="text-[11px] text-muted-foreground">{stat.posts} posts</div>}
       </div>
-      {isSelected && <CheckCircle2 className="h-4 w-4 text-[#6200b3] shrink-0" />}
+      {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-[#6D4AFF] shrink-0" />}
     </button>
+  );
+}
+
+// ─── View Toggle ──────────────────────────────────────────────────────────────
+
+function ViewToggle({ view, onView }: { view: ViewMode; onView: (v: ViewMode) => void }) {
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Visualização</p>
+      <div className="flex items-center bg-[#EDE9FF] rounded-xl p-1 gap-1 h-[42px]">
+        <button onClick={() => onView("individual")}
+          className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
+            view === "individual" ? "bg-[#6D4AFF] text-white shadow-sm" : "text-muted-foreground hover:text-[#6D4AFF]")}>
+          <User className="h-3.5 w-3.5" />
+          Página
+        </button>
+        <button onClick={() => onView("geral")}
+          className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
+            view === "geral" ? "bg-[#6D4AFF] text-white shadow-sm" : "text-muted-foreground hover:text-[#6D4AFF]")}>
+          <LayoutGrid className="h-3.5 w-3.5" />
+          Geral
+        </button>
+      </div>
+    </div>
   );
 }
 
 // ─── Individual Dashboard ─────────────────────────────────────────────────────
 
-function IndividualDashboard({ s, template, pagePosts, leaderboard, allStats, selectedId }: {
+function IndividualDashboard({ s, template, pagePosts, allStats }: {
   s: PageMonetStat; template: Template; pagePosts: RawPost[];
-  leaderboard: { stat: PageMonetStat; score: number; days: number }[];
-  allStats: PageMonetStat[]; selectedId: string | null;
+  allStats: PageMonetStat[];
 }) {
   const score = s.isMonetized ? 100 : readinessScore(s, template);
   const days = estimateDaysNum(s, template);
   const milestones = useMemo(() => computeMilestones(s, template), [s, template]);
   const dayData = useMemo(() => computeDayOfWeek(pagePosts), [pagePosts]);
   const fmtData = useMemo(() => computeFormats(pagePosts), [pagePosts]);
-  const nextGoal = useMemo(() => computeNextGoal(s, template), [s, template]);
-  const weeklyFocus = useMemo(() => computeWeeklyFocus(s, template, pagePosts), [s, template, pagePosts]);
   const percentile = useMemo(() => computePercentile(s, allStats, template), [s, allStats, template]);
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">
-        Mostrando dados apenas da página selecionada.
-      </p>
+      {/* Hero: Previsão */}
+      <PrevisaoCard s={s} score={score} days={days} milestones={milestones} />
 
-      {/* Main grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Left 2 cols */}
-        <div className="lg:col-span-2 space-y-4">
-          <PrevisaoCard s={s} score={score} days={days} milestones={milestones} />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <BestDayCard dayData={dayData} />
-            <BestFormatCard fmtData={fmtData} />
-          </div>
-        </div>
+      {/* Stats row */}
+      <StatsStrip s={s} template={template} />
 
-        {/* Right col */}
-        <div className="space-y-4">
-          {nextGoal && <NextGoalCard goal={nextGoal} />}
-          <PagesLeaderboard leaderboard={leaderboard} selectedId={selectedId} />
-        </div>
+      {/* Charts row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <BestDayCard dayData={dayData} />
+        <BestFormatCard fmtData={fmtData} />
       </div>
 
-      {/* Bottom motivational card */}
-      <MotivationalCard percentile={percentile} weeklyFocus={weeklyFocus} />
+      {/* Motivational bottom */}
+      <MotivationalBanner percentile={percentile} />
     </div>
   );
 }
 
-// ─── Previsão Card ────────────────────────────────────────────────────────────
+// ─── Sidebar Panel ────────────────────────────────────────────────────────────
+
+function SidebarPanel({ s, template, pagePosts, leaderboard, allStats, selectedId }: {
+  s: PageMonetStat; template: Template; pagePosts: RawPost[];
+  leaderboard: { stat: PageMonetStat; score: number; days: number }[];
+  allStats: PageMonetStat[]; selectedId: string | null;
+}) {
+  const nextGoal = useMemo(() => computeNextGoal(s, template), [s, template]);
+  const weeklyFocus = useMemo(() => computeWeeklyFocus(s, template, pagePosts), [s, template, pagePosts]);
+
+  return (
+    <div className="space-y-4 xl:sticky xl:top-6">
+      {nextGoal && <NextGoalCard goal={nextGoal} />}
+      <WeeklyFocusCard weeklyFocus={weeklyFocus} />
+      <PagesLeaderboard leaderboard={leaderboard} selectedId={selectedId} />
+    </div>
+  );
+}
+
+// ─── Previsão Card (hero) ─────────────────────────────────────────────────────
 
 function PrevisaoCard({ s, score, days, milestones }: {
   s: PageMonetStat; score: number; days: number; milestones: Milestone[];
 }) {
-  const estimateText = s.isMonetized ? "Monetizada! 🎉"
+  const estimateText = s.isMonetized ? "Monetizada!"
     : days === 9999 ? "Calculando..."
-    : days <= 0 ? "Pronto para monetizar! 🚀"
-    : `${days} dias 🚀`;
+    : days <= 0 ? "Pronto para monetizar!"
+    : `${days} dias`;
 
   const subText = s.isMonetized ? `Monetizou em ${s.daysToMonetize} dias`
     : days === 9999 ? "Poste mais para calcular"
-    : "Se você continuar nesse ritmo!";
+    : "Se você continuar nesse ritmo";
+
+  const isGood = s.isMonetized || days <= 30;
 
   return (
-    <div className="bg-white border border-[#e8e0f5] rounded-2xl shadow-sm p-5">
-      <p className="text-[11px] font-bold uppercase tracking-wider text-[#6200b3] mb-4">
-        Previsão de Monetização
-      </p>
-      <div className="flex items-start gap-6">
+    <div className="relative overflow-hidden rounded-2xl p-6 text-white"
+      style={{ background: s.isMonetized
+        ? "linear-gradient(135deg, #16a34a 0%, #15803d 100%)"
+        : "linear-gradient(135deg, #6D4AFF 0%, #4A25D4 55%, #3318A8 100%)" }}>
+      <div className="absolute -top-12 -right-12 h-48 w-48 rounded-full opacity-10"
+        style={{ background: "radial-gradient(circle, #fff 0%, transparent 70%)" }} />
+      <div className="absolute -bottom-8 right-32 h-32 w-32 rounded-full opacity-8"
+        style={{ background: "radial-gradient(circle, #fff 0%, transparent 70%)" }} />
+
+      <div className="relative flex flex-col sm:flex-row sm:items-center gap-6">
         {/* Left: text */}
-        <div className="flex-1 min-w-0 flex flex-col justify-between gap-4">
+        <div className="flex-1 space-y-3">
           <div>
-            <p className="text-sm text-[#7c6f8e] font-medium">
-              {s.isMonetized ? `${s.name} está` : `${s.name} monetiza em`}
+            <p className="text-xs font-bold uppercase tracking-widest text-white/60">
+              {s.isMonetized ? "Status da página" : "Previsão de monetização"}
             </p>
-            <p className={cn("font-extrabold mt-1 leading-tight",
-              estimateText.length > 12 ? "text-3xl" : "text-4xl",
-              s.isMonetized ? "text-green-600" : days <= 30 ? "text-amber-600" : "text-[#6200b3]"
-            )}>
-              {estimateText}
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">{subText}</p>
+            <p className="text-white/80 text-sm mt-0.5">{s.name}</p>
           </div>
-          {/* Ring on mobile */}
-          <div className="sm:hidden flex justify-center mt-2">
-            <RingProgress pct={score} size={90} />
+          <div>
+            <div className={cn("font-black tracking-tight leading-none", estimateText.length > 15 ? "text-3xl" : "text-4xl")}>
+              {estimateText}
+            </div>
+            <p className="text-sm text-white/70 mt-2">{subText}</p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-white/15 text-white/80">
+              {score}% concluído
+            </span>
+            {!s.isMonetized && s.currentStreak > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-white/15 text-white/80">
+                🔥 {s.currentStreak} dias seguidos
+              </span>
+            )}
+            {isGood && !s.isMonetized && (
+              <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-white/15 text-white/80">
+                🚀 No caminho certo
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Right: ring + checklist */}
-        <div className="shrink-0 flex flex-col items-center gap-4 hidden sm:flex">
-          <RingProgress pct={score} size={100} />
+        {/* Right: ring + milestones */}
+        <div className="shrink-0 flex flex-col items-center gap-4">
+          <RingProgress pct={score} size={96} />
           <div className="space-y-1.5 w-52">
             {milestones.map((m, i) => (
               <div key={i} className="flex items-start gap-2">
                 <MilestoneIcon status={m.status} />
                 <div className="flex-1 min-w-0">
-                  <span className={cn("text-xs", m.status === "done" ? "text-[#1a0533]" : "text-muted-foreground")}>
-                    {m.label}
-                  </span>
+                  <span className="text-xs text-white/80">{m.label}</span>
                 </div>
-                <span className={cn("text-[11px] shrink-0",
-                  m.status === "done" ? "text-green-600 font-medium"
-                  : m.status === "progress" ? "text-amber-600 font-medium"
-                  : "text-muted-foreground"
+                <span className={cn("text-[11px] shrink-0 font-medium",
+                  m.status === "done" ? "text-green-300"
+                  : m.status === "progress" ? "text-amber-300"
+                  : "text-white/40"
                 )}>
                   {m.detail}
                 </span>
@@ -626,29 +641,14 @@ function PrevisaoCard({ s, score, days, milestones }: {
           </div>
         </div>
       </div>
-
-      {/* Milestones on mobile */}
-      <div className="sm:hidden mt-4 space-y-1.5 border-t border-[#f3e8ff] pt-4">
-        {milestones.map((m, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <MilestoneIcon status={m.status} />
-            <span className="flex-1 text-xs text-muted-foreground truncate">{m.label}</span>
-            <span className={cn("text-[11px] shrink-0",
-              m.status === "done" ? "text-green-600 font-medium"
-              : m.status === "progress" ? "text-amber-600 font-medium"
-              : "text-muted-foreground"
-            )}>{m.detail}</span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
 
 function MilestoneIcon({ status }: { status: "done" | "progress" | "pending" }) {
-  if (status === "done") return <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0 mt-0.5" />;
-  if (status === "progress") return <div className="h-3.5 w-3.5 rounded-full border-2 border-amber-500 bg-amber-100 shrink-0 mt-0.5" />;
-  return <div className="h-3.5 w-3.5 rounded-full border-2 border-[#d8d0eb] bg-[#f3e8ff] shrink-0 mt-0.5" />;
+  if (status === "done") return <CheckCircle2 className="h-3.5 w-3.5 text-green-300 shrink-0 mt-0.5" />;
+  if (status === "progress") return <div className="h-3.5 w-3.5 rounded-full border-2 border-amber-300 bg-amber-300/20 shrink-0 mt-0.5" />;
+  return <div className="h-3.5 w-3.5 rounded-full border-2 border-white/30 shrink-0 mt-0.5" />;
 }
 
 // ─── Ring Progress ────────────────────────────────────────────────────────────
@@ -658,19 +658,49 @@ function RingProgress({ pct, size = 100 }: { pct: number; size?: number }) {
   const r = (size - sw) / 2;
   const circ = 2 * Math.PI * r;
   const dash = (Math.min(pct, 100) / 100) * circ;
-  const color = pct >= 75 ? "#16a34a" : pct >= 50 ? "#f59e0b" : pct >= 25 ? "#f97316" : "#7c3aed";
-  const cx = size / 2, cy = size / 2;
+  const color = pct >= 75 ? "#4ade80" : pct >= 50 ? "#fbbf24" : pct >= 25 ? "#fb923c" : "#c4b5fd";
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f3e8ff" strokeWidth={sw} />
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={sw}
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={sw} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={sw}
           strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-        <span className="font-extrabold leading-none" style={{ color, fontSize: size * 0.2 }}>{pct}%</span>
-        <span className="text-muted-foreground leading-none" style={{ fontSize: size * 0.09 }}>concluído</span>
+        <span className="font-extrabold leading-none text-white" style={{ fontSize: size * 0.22 }}>{pct}%</span>
+        <span className="text-white/50 leading-none" style={{ fontSize: size * 0.09 }}>pronto</span>
       </div>
+    </div>
+  );
+}
+
+// ─── Stats Strip ──────────────────────────────────────────────────────────────
+
+function StatsStrip({ s, template }: { s: PageMonetStat; template: Template }) {
+  const metrics = [
+    { label: "Posts", value: fmt(s.posts), target: fmt(Math.round(template.posts)), pct: Math.min((s.posts / template.posts) * 100, 100), color: "#6D4AFF" },
+    { label: "Views", value: fmt(s.views), target: fmt(Math.round(template.views)), pct: Math.min((s.views / template.views) * 100, 100), color: "#0ea5e9" },
+    { label: "Dias ativos", value: fmt(s.activeDays), target: fmt(Math.round(template.activeDays)), pct: Math.min((s.activeDays / template.activeDays) * 100, 100), color: "#10b981" },
+    { label: "Streak máx.", value: `${s.longestStreak}d`, target: `${Math.round(template.longestStreak)}d`, pct: Math.min((s.longestStreak / template.longestStreak) * 100, 100), color: "#f59e0b" },
+  ];
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {metrics.map(({ label, value, target, pct, color }) => (
+        <div key={label} className="bg-white border border-border rounded-xl p-3.5 shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] text-muted-foreground font-medium">{label}</span>
+            <span className="text-[10px] text-muted-foreground">/ {target}</span>
+          </div>
+          <div className="text-lg font-bold mb-2" style={{ color: "#0D0B1F" }}>{value}</div>
+          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+            <div className="h-1.5 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+          </div>
+          <div className="flex items-center gap-1 mt-1.5">
+            <ArrowUp className="h-3 w-3 shrink-0" style={{ color }} />
+            <span className="text-[11px] font-semibold" style={{ color }}>{Math.round(pct)}%</span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -683,20 +713,22 @@ function BestDayCard({ dayData }: { dayData: { day: number; name: string; avg: n
   const hasData = maxAvg > 1;
 
   return (
-    <div className="bg-white border border-[#e8e0f5] rounded-2xl shadow-sm p-5 flex flex-col gap-4">
+    <div className="bg-white border border-border rounded-2xl shadow-sm p-5 flex flex-col gap-4">
       <div className="flex items-center gap-2">
-        <div className="h-8 w-8 rounded-xl bg-[#f3e8ff] flex items-center justify-center shrink-0">
-          <BarChart2 className="h-4 w-4 text-[#6200b3]" />
+        <div className="h-8 w-8 rounded-xl bg-[#EDE9FF] flex items-center justify-center shrink-0">
+          <BarChart2 className="h-4 w-4 text-[#6D4AFF]" />
         </div>
-        <p className="text-[11px] font-bold uppercase tracking-wider text-[#6200b3]">Melhor Dia</p>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-[#6D4AFF]">Melhor Dia</p>
+          <p className="text-xs text-muted-foreground">Pico de engajamento</p>
+        </div>
       </div>
 
       {hasData ? (
         <>
           <div>
-            <p className="text-2xl font-extrabold text-[#1a0533]">{bestDay.name}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Seu pico de engajamento</p>
-            <p className="text-xs text-muted-foreground">Poste nesse dia para alcançar mais pessoas!</p>
+            <p className="text-2xl font-extrabold" style={{ color: "#0D0B1F" }}>{bestDay.name}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Poste nesse dia para alcançar mais pessoas</p>
           </div>
           <div className="flex items-end gap-1 h-14">
             {dayData.map(d => {
@@ -706,7 +738,7 @@ function BestDayCard({ dayData }: { dayData: { day: number; name: string; avg: n
                 <div key={d.day} className="flex-1 flex flex-col items-center gap-1">
                   <div className="w-full rounded-sm" style={{
                     height: `${h}%`,
-                    backgroundColor: isB ? "#6200b3" : "#e8e0f5",
+                    backgroundColor: isB ? "#6D4AFF" : "#EDE9FF",
                     minHeight: "4px",
                   }} />
                   <span className="text-[9px] text-muted-foreground">{d.name}</span>
@@ -737,18 +769,21 @@ function BestFormatCard({ fmtData }: { fmtData: { format: string; avg: number; c
   const Icon = best ? (formatIcons[best.format] ?? BarChart2) : BarChart2;
 
   return (
-    <div className="bg-white border border-[#e8e0f5] rounded-2xl shadow-sm p-5 flex flex-col gap-4">
+    <div className="bg-white border border-border rounded-2xl shadow-sm p-5 flex flex-col gap-4">
       <div className="flex items-center gap-2">
-        <div className="h-8 w-8 rounded-xl bg-[#f3e8ff] flex items-center justify-center shrink-0">
-          <Zap className="h-4 w-4 text-[#6200b3]" />
+        <div className="h-8 w-8 rounded-xl bg-[#EDE9FF] flex items-center justify-center shrink-0">
+          <Zap className="h-4 w-4 text-[#6D4AFF]" />
         </div>
-        <p className="text-[11px] font-bold uppercase tracking-wider text-[#6200b3]">Melhor Formato</p>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-[#6D4AFF]">Melhor Formato</p>
+          <p className="text-xs text-muted-foreground">Por média de views</p>
+        </div>
       </div>
 
       {best ? (
         <>
           <div>
-            <p className="text-2xl font-extrabold text-[#1a0533]">{best.format}</p>
+            <p className="text-2xl font-extrabold" style={{ color: "#0D0B1F" }}>{best.format}</p>
             {improvement > 0 ? (
               <p className="text-xs text-muted-foreground mt-0.5">
                 {improvement}% acima da média — <strong>{best.count} publicações</strong>
@@ -756,7 +791,6 @@ function BestFormatCard({ fmtData }: { fmtData: { format: string; avg: number; c
             ) : (
               <p className="text-xs text-muted-foreground mt-0.5">{best.count} publicações</p>
             )}
-            <p className="text-xs text-muted-foreground mt-1">Média de {fmt(best.avg)} views por post</p>
           </div>
           <div className="space-y-2">
             {fmtData.slice(0, 4).map(f => {
@@ -766,10 +800,10 @@ function BestFormatCard({ fmtData }: { fmtData: { format: string; avg: number; c
                 <div key={f.format} className="flex items-center gap-2">
                   <FIcon className="h-3 w-3 text-muted-foreground shrink-0" />
                   <span className="text-[11px] text-muted-foreground w-14 shrink-0">{f.format}</span>
-                  <div className="flex-1 h-1.5 bg-[#f3e8ff] rounded-full">
-                    <div className="h-1.5 rounded-full bg-[#6200b3]" style={{ width: `${pct}%` }} />
+                  <div className="flex-1 h-1.5 bg-[#EDE9FF] rounded-full">
+                    <div className="h-1.5 rounded-full bg-[#6D4AFF]" style={{ width: `${pct}%` }} />
                   </div>
-                  <span className="text-[11px] font-medium text-[#1a0533] w-10 text-right shrink-0">{fmt(f.avg)}</span>
+                  <span className="text-[11px] font-medium w-10 text-right shrink-0" style={{ color: "#0D0B1F" }}>{fmt(f.avg)}</span>
                 </div>
               );
             })}
@@ -785,6 +819,31 @@ function BestFormatCard({ fmtData }: { fmtData: { format: string; avg: number; c
   );
 }
 
+// ─── Motivational Banner ──────────────────────────────────────────────────────
+
+function MotivationalBanner({ percentile }: { percentile: number }) {
+  return (
+    <div className="bg-gradient-to-r from-[#6D4AFF]/8 via-[#8B6FFF]/5 to-[#6D4AFF]/8 border border-border rounded-2xl p-5 flex items-center gap-4">
+      <div className="h-12 w-12 rounded-2xl flex items-center justify-center shrink-0"
+        style={{ background: "linear-gradient(135deg, #6D4AFF, #8B6FFF)" }}>
+        <Rocket className="h-6 w-6 text-white" />
+      </div>
+      <div className="flex-1">
+        <p className="text-sm font-bold" style={{ color: "#0D0B1F" }}>
+          Você está acima de {percentile}% das suas páginas!
+        </p>
+        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+          Continue postando com consistência — a monetização vem com tempo e ritmo.
+        </p>
+      </div>
+      <div className="shrink-0 text-right">
+        <div className="text-2xl font-black" style={{ color: "#6D4AFF" }}>{percentile}%</div>
+        <div className="text-[10px] text-muted-foreground">percentil</div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Next Goal Card ───────────────────────────────────────────────────────────
 
 function NextGoalCard({ goal }: { goal: { label: string; current: number; target: number; unit: string } }) {
@@ -792,27 +851,64 @@ function NextGoalCard({ goal }: { goal: { label: string; current: number; target
   const remaining = goal.target - goal.current;
 
   return (
-    <div className="bg-white border border-[#e8e0f5] rounded-2xl shadow-sm p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <div className="h-8 w-8 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
-          <Target className="h-4 w-4 text-orange-500" />
+    <div className="bg-white border border-border rounded-2xl shadow-sm p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="h-7 w-7 rounded-lg bg-orange-50 flex items-center justify-center shrink-0">
+          <Target className="h-3.5 w-3.5 text-orange-500" />
         </div>
         <p className="text-[11px] font-bold uppercase tracking-wider text-orange-500">Próxima Meta</p>
       </div>
-      <p className="text-2xl font-extrabold text-[#1a0533]">
+      <p className="text-xl font-extrabold" style={{ color: "#0D0B1F" }}>
         Faltam {fmt(remaining)} {goal.unit === "views" ? "views" : "posts"}
       </p>
-      <p className="text-xs text-muted-foreground mt-1 mb-4">
+      <p className="text-[11px] text-muted-foreground mt-0.5 mb-3">
         para atingir a meta de {goal.label}.
       </p>
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <div className="flex justify-between text-[11px] text-muted-foreground">
           <span>{fmt(goal.current)} / {fmt(goal.target)}</span>
           <span>{Math.round(pct)}%</span>
         </div>
-        <div className="h-2 bg-[#f3e8ff] rounded-full overflow-hidden">
-          <div className="h-2 rounded-full bg-orange-400" style={{ width: `${pct}%` }} />
+        <div className="h-2 bg-muted rounded-full overflow-hidden">
+          <div className="h-2 rounded-full bg-orange-400 transition-all" style={{ width: `${pct}%` }} />
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Weekly Focus Card ────────────────────────────────────────────────────────
+
+function WeeklyFocusCard({ weeklyFocus }: { weeklyFocus: { action: string; done: boolean }[] }) {
+  const done = weeklyFocus.filter(f => f.done).length;
+  const focusPct = Math.round((done / weeklyFocus.length) * 100);
+
+  return (
+    <div className="bg-white border border-border rounded-2xl shadow-sm p-4">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-[#6D4AFF]">Foco da Semana</p>
+        <div className="relative shrink-0" style={{ width: 40, height: 40 }}>
+          <svg width="40" height="40" style={{ transform: "rotate(-90deg)" }}>
+            <circle cx="20" cy="20" r="16" fill="none" stroke="#EDE9FF" strokeWidth="5" />
+            <circle cx="20" cy="20" r="16" fill="none" stroke="#6D4AFF" strokeWidth="5"
+              strokeDasharray={`${(focusPct / 100) * 2 * Math.PI * 16} ${2 * Math.PI * 16}`}
+              strokeLinecap="round" />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-[10px] font-bold" style={{ color: "#6D4AFF" }}>{focusPct}%</span>
+          </div>
+        </div>
+      </div>
+      <div className="space-y-2.5">
+        {weeklyFocus.map((f, i) => (
+          <div key={i} className="flex items-center gap-2.5">
+            {f.done
+              ? <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+              : <div className="h-4 w-4 rounded-full border-2 border-border shrink-0" />
+            }
+            <span className={cn("text-xs leading-snug", f.done ? "text-foreground" : "text-muted-foreground")}>{f.action}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -824,108 +920,46 @@ function PagesLeaderboard({ leaderboard, selectedId }: {
   leaderboard: { stat: PageMonetStat; score: number; days: number }[];
   selectedId: string | null;
 }) {
-  const visible = leaderboard.slice(0, 5);
+  const visible = leaderboard.slice(0, 6);
 
   return (
-    <div className="bg-white border border-[#e8e0f5] rounded-2xl shadow-sm p-5 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-[#1a0533]">Suas páginas</p>
-        {leaderboard.length > 5 && (
-          <span className="text-xs text-[#6200b3] font-medium">Ver todas</span>
-        )}
+    <div className="bg-white border border-border rounded-2xl shadow-sm p-4">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-[#6D4AFF]">Ranking de páginas</p>
+        <span className="text-[10px] text-muted-foreground">{leaderboard.length} páginas</span>
       </div>
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {visible.map((item, i) => {
           const isSelected = item.stat.id === selectedId;
           const daysText = item.stat.isMonetized ? "Monetizada ✅"
             : item.days === 9999 ? "Calculando..."
             : item.days <= 0 ? "Pronto!"
-            : `Monetiza em ${item.days} dias`;
+            : `~${item.days} dias`;
+          const barColor = item.score >= 75 ? "#16a34a" : item.score >= 50 ? "#f59e0b" : "#6D4AFF";
           return (
-            <div key={item.stat.id} className={cn("flex items-center gap-2.5 p-2 rounded-xl transition-colors", isSelected && "bg-[#f3e8ff]")}>
-              <span className="text-xs font-bold text-muted-foreground w-4 shrink-0">{i + 1}</span>
-              <PageAvatar name={item.stat.name} size={28} />
+            <div key={item.stat.id}
+              className={cn("flex items-center gap-2.5 p-2 rounded-xl transition-colors", isSelected && "bg-[#EDE9FF]")}>
+              <span className="text-xs font-bold text-muted-foreground w-4 shrink-0 text-center">{i + 1}</span>
+              <PageAvatar name={item.stat.name} size={26} />
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-[#1a0533] truncate">{item.stat.name}</p>
-                <p className={cn("text-[11px]", item.stat.isMonetized ? "text-green-600" : "text-muted-foreground")}>{daysText}</p>
-                <div className="mt-1 h-1 bg-[#f3e8ff] rounded-full overflow-hidden">
-                  <div className="h-1 rounded-full" style={{
-                    width: `${item.score}%`,
-                    backgroundColor: item.score >= 75 ? "#16a34a" : item.score >= 50 ? "#f59e0b" : "#6200b3",
-                  }} />
+                <p className="text-xs font-semibold truncate" style={{ color: "#0D0B1F" }}>{item.stat.name}</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="flex-1 h-1 bg-[#EDE9FF] rounded-full overflow-hidden">
+                    <div className="h-1 rounded-full" style={{ width: `${item.score}%`, backgroundColor: barColor }} />
+                  </div>
+                  <span className={cn("text-[10px]", item.stat.isMonetized ? "text-green-600" : "text-muted-foreground")}>{daysText}</span>
                 </div>
               </div>
-              <span className="text-[11px] font-bold text-[#6200b3] shrink-0">{item.score}%</span>
+              <span className="text-[11px] font-bold shrink-0" style={{ color: barColor }}>{item.score}%</span>
             </div>
           );
         })}
       </div>
-      {leaderboard.length > 5 && (
-        <button className="w-full text-xs text-[#6200b3] font-medium border border-[#d8d0eb] rounded-xl py-2 hover:bg-[#faf5ff] transition-colors">
+      {leaderboard.length > 6 && (
+        <button className="w-full mt-3 text-xs text-[#6D4AFF] font-medium border border-border rounded-xl py-2 hover:bg-muted transition-colors">
           Ver todas as {leaderboard.length} páginas
         </button>
       )}
-    </div>
-  );
-}
-
-// ─── Motivational Card ────────────────────────────────────────────────────────
-
-function MotivationalCard({ percentile, weeklyFocus }: {
-  percentile: number; weeklyFocus: { action: string; done: boolean }[];
-}) {
-  const done = weeklyFocus.filter(f => f.done).length;
-  const focusPct = Math.round((done / weeklyFocus.length) * 100);
-
-  return (
-    <div className="bg-gradient-to-r from-[#6200b3]/8 via-[#8b00ff]/5 to-[#6200b3]/8 border border-[#d8d0eb] rounded-2xl shadow-sm p-5">
-      <div className="flex flex-col sm:flex-row items-start gap-6">
-        {/* Left: motivational */}
-        <div className="flex items-start gap-4 flex-1">
-          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-[#6200b3] to-[#9b30ff] flex items-center justify-center shrink-0">
-            <Rocket className="h-7 w-7 text-white" />
-          </div>
-          <div>
-            <p className="text-base font-bold text-[#1a0533]">
-              Você está acima de {percentile}% das suas páginas!
-            </p>
-            <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-              Seu desempenho está ótimo. Continue postando com consistência — a monetização vem com tempo e ritmo.
-            </p>
-          </div>
-        </div>
-
-        {/* Right: weekly focus */}
-        <div className="shrink-0 flex items-center gap-5 bg-white/60 rounded-xl p-4 border border-[#e8e0f5]">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-[#6200b3] mb-3">Foco da Semana</p>
-            <div className="space-y-2">
-              {weeklyFocus.map((f, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  {f.done
-                    ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                    : <div className="h-3.5 w-3.5 rounded-full border-2 border-[#d8d0eb] shrink-0" />
-                  }
-                  <span className={cn("text-xs", f.done ? "text-[#1a0533]" : "text-muted-foreground")}>{f.action}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          {/* Focus donut */}
-          <div className="relative shrink-0" style={{ width: 64, height: 64 }}>
-            <svg width="64" height="64" style={{ transform: "rotate(-90deg)" }}>
-              <circle cx="32" cy="32" r="26" fill="none" stroke="#f3e8ff" strokeWidth="7" />
-              <circle cx="32" cy="32" r="26" fill="none" stroke="#6200b3" strokeWidth="7"
-                strokeDasharray={`${(focusPct / 100) * 2 * Math.PI * 26} ${2 * Math.PI * 26}`}
-                strokeLinecap="round" />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-sm font-bold text-[#6200b3]">{focusPct}%</span>
-              <span className="text-[9px] text-muted-foreground leading-tight text-center">das ações{"\n"}concluídas</span>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -939,14 +973,15 @@ function OverviewGrid({ monetized, warmingSorted, template }: {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-[#1a0533]">
+        <p className="text-sm font-semibold" style={{ color: "#0D0B1F" }}>
           Todas as páginas <span className="text-muted-foreground font-normal">({all.length})</span>
-        </h2>
+        </p>
         <span className="text-xs text-muted-foreground">Ordenadas por progresso</span>
       </div>
       {all.map(s => {
         const score = s.isMonetized ? 100 : (template ? readinessScore(s, template) : 0);
         const days = template ? estimateDaysNum(s, template) : 9999;
+
         if (s.isMonetized) {
           return (
             <div key={s.id} className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl shadow-sm p-4 flex items-center gap-4">
@@ -954,25 +989,30 @@ function OverviewGrid({ monetized, warmingSorted, template }: {
                 <CheckCircle2 className="h-5 w-5 text-green-600" />
               </div>
               <div className="flex-1">
-                <div className="font-semibold text-[#1a0533]">{s.name}</div>
+                <div className="font-semibold" style={{ color: "#0D0B1F" }}>{s.name}</div>
                 <div className="text-sm font-semibold text-green-700 mt-0.5">
                   Monetizada{s.daysToMonetize ? ` em ${s.daysToMonetize} dias` : ""} ✨
                 </div>
               </div>
+              <div className="shrink-0">
+                <OverviewRing pct={100} />
+              </div>
             </div>
           );
         }
+
         const viewsPct = template ? Math.min((s.views / template.views) * 100, 100) : 0;
         const postsPct = template ? Math.min((s.posts / template.posts) * 100, 100) : 0;
         const daysText = days === 9999 ? "Calculando..." : days <= 0 ? "Pronto!" : `~${days} dias para monetizar`;
         const dotColor = !s.isActive ? "#f43f5e" : days <= 30 ? "#f59e0b" : days <= 90 ? "#a855f7" : "#94a3b8";
+
         return (
-          <div key={s.id} className="bg-white border border-[#e8e0f5] rounded-2xl shadow-sm p-4">
+          <div key={s.id} className="bg-white border border-border rounded-2xl shadow-sm p-4">
             <div className="flex items-start gap-4">
               <div className="flex-1 min-w-0 space-y-3">
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
-                  <span className="font-semibold text-[#1a0533] text-sm">{s.name}</span>
+                  <span className="font-semibold text-sm" style={{ color: "#0D0B1F" }}>{s.name}</span>
                   {!s.isActive && s.daysSinceLastPost !== null && (
                     <span className="text-xs text-red-400 flex items-center gap-0.5">
                       <AlertCircle className="h-3 w-3" />{s.daysSinceLastPost}d sem postar
@@ -985,7 +1025,7 @@ function OverviewGrid({ monetized, warmingSorted, template }: {
                   )}
                 </div>
                 <div className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold"
-                  style={{ backgroundColor: days <= 30 ? "#fef9c3" : "#faf5ff", color: days <= 30 ? "#a16207" : "#6200b3" }}>
+                  style={{ backgroundColor: days <= 30 ? "#fef9c3" : "#EDE9FF", color: days <= 30 ? "#a16207" : "#6D4AFF" }}>
                   {daysText}
                 </div>
                 <div className="space-y-2">
@@ -995,13 +1035,13 @@ function OverviewGrid({ monetized, warmingSorted, template }: {
                   ].map(b => (
                     <div key={b.label} className="flex items-center gap-2">
                       <span className="text-[11px] text-muted-foreground w-10 shrink-0">{b.label}</span>
-                      <div className="flex-1 h-1.5 bg-[#f3e8ff] rounded-full overflow-hidden">
+                      <div className="flex-1 h-1.5 bg-[#EDE9FF] rounded-full overflow-hidden">
                         <div className="h-1.5 rounded-full" style={{
                           width: `${b.pct}%`,
-                          backgroundColor: b.pct >= 75 ? "#16a34a" : b.pct >= 40 ? "#f59e0b" : "#6200b3",
+                          backgroundColor: b.pct >= 75 ? "#16a34a" : b.pct >= 40 ? "#f59e0b" : "#6D4AFF",
                         }} />
                       </div>
-                      <span className="text-[11px] font-medium text-[#1a0533] w-10 text-right shrink-0">{fmt(b.cur)}</span>
+                      <span className="text-[11px] font-medium w-10 text-right shrink-0" style={{ color: "#0D0B1F" }}>{fmt(b.cur)}</span>
                       <span className="text-[11px] text-muted-foreground shrink-0">/</span>
                       <span className="text-[11px] text-muted-foreground w-10 shrink-0">{fmt(b.tgt)}</span>
                     </div>
@@ -1009,7 +1049,7 @@ function OverviewGrid({ monetized, warmingSorted, template }: {
                 </div>
               </div>
               <div className="shrink-0 self-center">
-                <RingProgress pct={score} size={72} />
+                <OverviewRing pct={score} />
               </div>
             </div>
           </div>
@@ -1019,17 +1059,35 @@ function OverviewGrid({ monetized, warmingSorted, template }: {
   );
 }
 
+function OverviewRing({ pct }: { pct: number }) {
+  const size = 64, sw = 6, r = (size - sw) / 2;
+  const circ = 2 * Math.PI * r;
+  const dash = (Math.min(pct, 100) / 100) * circ;
+  const color = pct >= 75 ? "#16a34a" : pct >= 50 ? "#f59e0b" : "#6D4AFF";
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#EDE9FF" strokeWidth={sw} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={sw}
+          strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-xs font-bold" style={{ color }}>{pct}%</span>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page Avatar ──────────────────────────────────────────────────────────────
 
-const AVATAR_COLORS = ["#6200b3", "#0ea5e9", "#16a34a", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4"];
+const AVATAR_COLORS = ["#6D4AFF", "#0ea5e9", "#16a34a", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4"];
 
 function PageAvatar({ name, size = 32 }: { name: string; size?: number }) {
   const color = AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
-  const initials = name.slice(0, 2).toUpperCase();
   return (
     <div className="rounded-full flex items-center justify-center text-white font-bold shrink-0"
       style={{ width: size, height: size, backgroundColor: color, fontSize: size * 0.35 }}>
-      {initials}
+      {name.slice(0, 2).toUpperCase()}
     </div>
   );
 }
