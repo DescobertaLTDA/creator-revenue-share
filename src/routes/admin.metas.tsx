@@ -123,6 +123,7 @@ export function MetasPage() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loadingGoals, setLoadingGoals] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [allPosts, setAllPosts] = useState<RawPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [usdBrl, setUsdBrl] = useState<number | null>(null);
@@ -219,14 +220,16 @@ export function MetasPage() {
   const saveForm = async () => {
     if (!draft.name.trim() || draft.target <= 0) return;
     setSaving(true);
+    setSaveError(null);
     const payload = toDbPayload(draft);
-    if (editingGoal) {
-      await (supabase as any).from("goals").update(payload).eq("id", editingGoal.id);
-    } else {
-      await (supabase as any).from("goals").insert(payload);
-    }
-    // Real-time listener will update state; close form optimistically
+    const { error } = editingGoal
+      ? await (supabase as any).from("goals").update(payload).eq("id", editingGoal.id)
+      : await (supabase as any).from("goals").insert(payload);
     setSaving(false);
+    if (error) {
+      setSaveError("Erro ao salvar: " + error.message);
+      return;
+    }
     setShowForm(false);
   };
 
@@ -372,6 +375,9 @@ export function MetasPage() {
               </div>
             </div>
 
+            {saveError && (
+              <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{saveError}</p>
+            )}
             <div className="flex gap-2 pt-1">
               <button
                 onClick={() => setShowForm(false)}

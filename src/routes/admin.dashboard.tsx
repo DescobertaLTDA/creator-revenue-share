@@ -302,15 +302,16 @@ function GoalBar({ label, current, target, formatVal }: {
 
 function AdminDashboard() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [allPosts, setAllPosts] = useState<RawPost[]>([]);
-  const [postAuthors, setPostAuthors] = useState<PostAuthorRow[]>([]);
-  const [splitRules, setSplitRules] = useState<SplitRule[]>([]);
-  const [pages, setPages] = useState<PageOption[]>([]);
-  const [colabs, setColabs] = useState<ColabOption[]>([]);
+  // Initialise directly from cache so there is zero loading flash on re-navigation
+  const [loading, setLoading] = useState(() => !(_dashCache && Date.now() - _dashCache.ts < CACHE_TTL));
+  const [allPosts, setAllPosts] = useState<RawPost[]>(() => _dashCache?.posts ?? []);
+  const [postAuthors, setPostAuthors] = useState<PostAuthorRow[]>(() => _dashCache?.postAuthors ?? []);
+  const [splitRules, setSplitRules] = useState<SplitRule[]>(() => _dashCache?.splitRules ?? []);
+  const [pages, setPages] = useState<PageOption[]>(() => _dashCache?.pages ?? []);
+  const [colabs, setColabs] = useState<ColabOption[]>(() => _dashCache?.colabs ?? []);
   const [manualBonuses, setManualBonuses] = useState<ManualBonusRow[]>([]);
   const [dailyEntries, setDailyEntries] = useState<DailyEntry[]>([]);
-  const [recentImports, setRecentImports] = useState<RecentImport[]>([]);
+  const [recentImports, setRecentImports] = useState<RecentImport[]>(() => _dashCache?.imports ?? []);
   const [usdBrl, setUsdBrl] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "charts">("overview");
   const [chartMetric, setChartMetric] = useState<"receita" | "views" | "curtidas" | "comentarios" | "compartilhamentos">("receita");
@@ -382,9 +383,8 @@ function AdminDashboard() {
 
     const now = Date.now();
     if (_dashCache && now - _dashCache.ts < CACHE_TTL) {
-      // Serve cached data immediately — no spinner
-      applyCache(_dashCache);
-      // Silently refresh in background
+      // State already populated from cache via lazy useState initialisers.
+      // Silently refresh in background so data stays fresh.
       doLoad(true);
     } else {
       doLoad(false);
