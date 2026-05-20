@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip,
+  LineChart, Line, Legend,
 } from "recharts";
 
 const DashboardCharts = lazy(() =>
@@ -730,7 +731,43 @@ function AdminDashboard() {
     return { colab, card, posts, typeBreakdown };
   }, [auditColabId, allPosts, postToCollabs, rulesByPage, colabs, collabCards, filterPage, filterFrom, filterTo]);
 
-  // Projection chart data: last 30 days real + next 28 projected
+  // Paleta de cores para múltiplas páginas
+  const PAGE_COLORS = [
+    "#6200b3", "#b43e8f", "#ea7af4", "#e11d48", "#d97706",
+    "#16a34a", "#0284c7", "#7c3aed", "#db2777", "#059669",
+  ];
+
+  // Chart por página individual (quando filterPage === "all")
+  const multiPageChartData = useMemo(() => {
+    if (filterPage !== "all") return null;
+    const byPageDay = new Map<string, Map<string, number>>();
+    for (const p of allPosts) {
+      if (!p.published_at) continue;
+      const day = p.published_at.slice(0, 10);
+      if (filterFrom && day < filterFrom) continue;
+      if (filterTo && day > filterTo) continue;
+      const val = getPostUsd(p);
+      if (!byPageDay.has(p.page_id)) byPageDay.set(p.page_id, new Map());
+      const dm = byPageDay.get(p.page_id)!;
+      dm.set(day, (dm.get(day) ?? 0) + val);
+    }
+    const allDays = new Set<string>();
+    for (const [, dm] of byPageDay) for (const day of dm.keys()) allDays.add(day);
+    const sortedDays = Array.from(allDays).sort();
+    const pageIds = Array.from(byPageDay.keys());
+    const pageNameById = new Map(pages.map((p) => [p.id, p.name]));
+    const data = sortedDays.map((day) => {
+      const [, mo, d] = day.split("-");
+      const entry: Record<string, any> = { dia: `${d}/${mo}` };
+      for (const pid of pageIds) {
+        entry[pid] = parseFloat(((byPageDay.get(pid)?.get(day) ?? 0)).toFixed(4));
+      }
+      return entry;
+    });
+    return { data, pageIds, pageNameById };
+  }, [allPosts, filterFrom, filterTo, filterPage, pages]);
+
+  // Projection chart data: last 30 days real + next 28 projected (página única)
   const projectionChartData = useMemo(() => {
     const hist = chartData.slice(-30).map((d) => ({ dia: d.dia, real: d.receita, proj: null as number | null }));
     const last = chartData[chartData.length - 1];
@@ -741,10 +778,7 @@ function AdminDashboard() {
       const [, mo, dy] = d.toISOString().slice(0, 10).split("-");
       return { dia: `${dy}/${mo}`, real: null as number | null, proj: projections.today };
     });
-    // Add today's estimate connecting point
-    if (last) {
-      hist[hist.length - 1] = { ...hist[hist.length - 1], proj: projections.today };
-    }
+    if (last) hist[hist.length - 1] = { ...hist[hist.length - 1], proj: projections.today };
     return [...hist, ...futuro];
   }, [chartData, projections]);
 
@@ -871,38 +905,53 @@ function AdminDashboard() {
             ))}
           </div>
 
-          {/* ── Projeção de Ganhos ── */}
+          {/* ── Gráfico de Receita ── */}
           <div className="bg-white border border-[#e8e0f5] rounded-2xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-sm font-semibold">Projeção de Ganhos</h2>
-                <p className="text-xs text-[#9d8fb0] mt-0.5">Baseado na média diária dos últimos 7 dias</p>
+                <h2 className="text-sm font-semibold">
+                  {filterPage === "all" ? "Receita por Página" : "Receita + Projeção"}
+                </h2>
+                <p className="text-xs text-[#9d8fb0] mt-0.5">
+                  {filterPage === "all"
+                    ? "Uma linha por página no período selecionado"
+                    : "Histórico real e projeção dos próximos 28 dias"}
+                </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 mb-5">
-              {[
-                { label: "Estimativa hoje", value: projections.today, accent: false },
-                { label: "Próximos 7 dias", value: projections.days7, accent: false },
-                { label: "Próximos 28 dias", value: projections.days28, accent: true },
-              ].map(({ label, value, accent }, i) => (
-                <div key={i} className={`rounded-2xl p-4 ${accent ? "bg-gradient-to-br from-[#6200b3] to-[#3b0086] text-white shadow-md" : "bg-[#f8f5ff] border border-[#e8e0f5]"}`}>
-                  <p className={`text-xs font-medium mb-1 ${accent ? "text-purple-200" : "text-[#7c6f8e]"}`}>{label}</p>
-                  <p className={`text-xl font-bold tabular-nums tracking-tight ${accent ? "text-white" : "text-[#1a0533]"}`}>
-                    {usdBrl ? formatBRL(value * usdBrl) : `$${value.toFixed(2)}`}
-                  </p>
-                  {usdBrl && (
-                    <p className={`text-xs mt-0.5 tabular-nums ${accent ? "text-purple-300" : "text-[#9d8fb0]"}`}>
-                      ${value.toFixed(2)} USD
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {projectionChartData.length > 0 && (
-              <div className="h-40">
-                <ResponsiveContainer width="100%" height="100%">
+            <div className="h-52">
+              <ResponsiveContainer width="100%" height="100%">
+                {filterPage === "all" && multiPageChartData && multiPageChartData.data.length > 0 ? (
+                  <LineChart data={multiPageChartData.data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9d8fb0" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
+                    <YAxis hide />
+                    <Tooltip
+                      formatter={(v: any, name: string) => {
+                        const pageName = multiPageChartData.pageNameById.get(name) ?? name.slice(0, 12);
+                        const val = usdBrl ? formatBRL(Number(v) * usdBrl) : `$${Number(v).toFixed(4)}`;
+                        return [val, pageName];
+                      }}
+                      labelStyle={{ color: "#1a0533", fontSize: 11 }}
+                      contentStyle={{ border: "1px solid #e8e0f5", borderRadius: 10, fontSize: 11 }}
+                    />
+                    <Legend
+                      formatter={(value) => multiPageChartData.pageNameById.get(value) ?? value.slice(0, 16)}
+                      wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+                    />
+                    {multiPageChartData.pageIds.map((pid, i) => (
+                      <Line
+                        key={pid}
+                        type="monotone"
+                        dataKey={pid}
+                        stroke={PAGE_COLORS[i % PAGE_COLORS.length]}
+                        strokeWidth={2}
+                        dot={false}
+                        connectNulls
+                      />
+                    ))}
+                  </LineChart>
+                ) : (
                   <AreaChart data={projectionChartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="gradReal" x1="0" y1="0" x2="0" y2="1">
@@ -917,16 +966,16 @@ function AdminDashboard() {
                     <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9d8fb0" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
                     <YAxis hide />
                     <Tooltip
-                      formatter={(v: any) => v !== null ? (usdBrl ? formatBRL(Number(v) * usdBrl) : `$${Number(v).toFixed(2)}`) : "—"}
+                      formatter={(v: any) => v !== null ? (usdBrl ? formatBRL(Number(v) * usdBrl) : `$${Number(v).toFixed(4)}`) : "—"}
                       labelStyle={{ color: "#1a0533", fontSize: 11 }}
                       contentStyle={{ border: "1px solid #e8e0f5", borderRadius: 10, fontSize: 11 }}
                     />
                     <Area type="monotone" dataKey="real" stroke="#6200b3" strokeWidth={2} fill="url(#gradReal)" dot={false} connectNulls={false} name="Real" />
                     <Area type="monotone" dataKey="proj" stroke="#ea7af4" strokeWidth={1.5} strokeDasharray="4 3" fill="url(#gradProj)" dot={false} connectNulls={false} name="Projeção" />
                   </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            )}
+                )}
+              </ResponsiveContainer>
+            </div>
           </div>
 
           {/* ── Pages + Import ── */}
