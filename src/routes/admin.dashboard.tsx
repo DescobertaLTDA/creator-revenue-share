@@ -79,6 +79,7 @@ interface ManualBonusRow {
 interface DailyEntry {
   entry_date: string;
   actual_revenue_usd: number | null;
+  page_id: string | null;
 }
 
 interface PageOption { id: string; name: string }
@@ -501,7 +502,7 @@ function AdminDashboard() {
       const to = filterTo || new Date().toISOString().slice(0, 10);
       const { data } = await (supabase as any)
         .from("daily_revenue_entries")
-        .select("entry_date, actual_revenue_usd")
+        .select("entry_date, actual_revenue_usd, page_id")
         .gte("entry_date", from)
         .lte("entry_date", to);
       setDailyEntries((data ?? []) as DailyEntry[]);
@@ -696,28 +697,31 @@ function AdminDashboard() {
       ps.isMonetized = (pageRevPostCounts.get(id) ?? 0) >= 3;
     }
 
-    // Daily revenue corrections — only meaningful at the account level (all pages).
-    // daily_revenue_entries stores total account revenue, not per-page, so when a
-    // specific page is selected the correction would be nonsensical.
+    // Daily revenue corrections — use actual_revenue_usd from daily_revenue_entries.
+    // Entries are now per-page (page_id). When a specific page is selected, only
+    // apply corrections for that page. When "all", sum across all pages per day.
     let totalDailyBonus = 0;
-    if (filterPage === "all") {
-      const filteredDaily = dailyEntries.filter(
-        (e) => e.actual_revenue_usd !== null &&
-          (!filterFrom || e.entry_date >= filterFrom) &&
-          (!filterTo || e.entry_date <= filterTo)
-      );
-      for (const entry of filteredDaily) {
-        const actual = Number(entry.actual_revenue_usd);
-        const postsRevForDay = byDay[entry.entry_date]?.receita ?? 0;
+    {
+      // Group entries by date, summing only entries that match the page filter
+      const actualByDate = new Map<string, number>();
+      for (const e of dailyEntries) {
+        if (e.actual_revenue_usd === null) continue;
+        if (filterFrom && e.entry_date < filterFrom) continue;
+        if (filterTo && e.entry_date > filterTo) continue;
+        if (filterPage !== "all" && e.page_id !== filterPage) continue;
+        actualByDate.set(e.entry_date, (actualByDate.get(e.entry_date) ?? 0) + Number(e.actual_revenue_usd));
+      }
+      for (const [date, actual] of actualByDate) {
+        const postsRevForDay = byDay[date]?.receita ?? 0;
         const correction = actual - postsRevForDay;
         totalDailyBonus += correction;
-        const bonusMonth = entry.entry_date.slice(0, 7);
+        const bonusMonth = date.slice(0, 7);
         byMonth[bonusMonth] = (byMonth[bonusMonth] ?? 0) + correction;
-        if (byDay[entry.entry_date]) {
-          byDay[entry.entry_date].receita += correction;
+        if (byDay[date]) {
+          byDay[date].receita += correction;
         } else if (actual > 0) {
-          const [, mo, d] = entry.entry_date.split("-");
-          byDay[entry.entry_date] = { dia: `${d}/${mo}`, posts: 0, views: 0, alcance: 0, reacoes: 0, receita: actual };
+          const [, mo, d] = date.split("-");
+          byDay[date] = { dia: `${d}/${mo}`, posts: 0, views: 0, alcance: 0, reacoes: 0, receita: actual };
         }
       }
       geralUsd += totalDailyBonus;
