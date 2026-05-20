@@ -398,9 +398,6 @@ function BonusManualPage() {
                     <th className="text-left px-4 py-3 font-medium w-24">Dia</th>
                     <th className="text-right px-4 py-3 font-medium">Posts (USD)</th>
                     <th className="text-right px-4 py-3 font-medium">Real recebido (USD)</th>
-                    <th className="text-right px-4 py-3 font-medium">Bônus / Diferença</th>
-                    <th className="text-left px-4 py-3 font-medium w-28">Rateio</th>
-                    <th className="text-left px-4 py-3 font-medium">Observação</th>
                     <th className="w-8 px-4 py-3" />
                   </tr>
                 </thead>
@@ -428,48 +425,6 @@ function BonusManualPage() {
                             className="w-28 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
                           />
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums font-medium">
-                          {bonus == null ? (
-                            <span className="text-muted-foreground/30">—</span>
-                          ) : bonus === 0 ? (
-                            <span className="inline-flex items-center gap-1 text-muted-foreground"><Minus className="h-3 w-3" />$0.00</span>
-                          ) : bonus > 0 ? (
-                            <span className="inline-flex items-center gap-1 text-[#16a34a]"><TrendingUp className="h-3 w-3" />+${bonus.toFixed(2)}</span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-destructive"><TrendingDown className="h-3 w-3" />${bonus.toFixed(2)}</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <select
-                            disabled={isFuture}
-                            value={row.distribution_mode}
-                            onChange={(e) => {
-                              updateRow(row.date, "distribution_mode", e.target.value);
-                              setTimeout(() => {
-                                setRows((prev) => {
-                                  const updated = prev.find((r) => r.date === row.date);
-                                  if (updated) saveRow({ ...updated, distribution_mode: e.target.value, dirty: true });
-                                  return prev;
-                                });
-                              }, 0);
-                            }}
-                            className="h-7 w-full rounded border border-input bg-background px-1.5 text-xs disabled:opacity-30"
-                          >
-                            <option value="hybrid">Misto</option>
-                            <option value="views">Views</option>
-                            <option value="revenue">Receita</option>
-                          </select>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <input
-                            type="text" disabled={isFuture}
-                            placeholder="ex: bônus Facebook, posts antigos…"
-                            value={row.note}
-                            onChange={(e) => updateRow(row.date, "note", e.target.value)}
-                            onBlur={() => handleFieldBlur(row)}
-                            className="h-7 w-full rounded border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
-                          />
-                        </td>
                         <td className="px-2 py-2.5 w-8">
                           {row.saving ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
                             : row.saved ? <Check className="h-3.5 w-3.5 text-[#16a34a]" />
@@ -488,7 +443,7 @@ function BonusManualPage() {
                     <td className={`px-4 py-3 text-right tabular-nums ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
                       {totalBonus >= 0 ? "+" : ""}${totalBonus.toFixed(2)}
                     </td>
-                    <td colSpan={3} />
+                    <td />
                   </tr>
                 </tfoot>
               </table>
