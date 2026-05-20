@@ -1,8 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { formatBRL } from "@/lib/format";
-import { TrendingUp, Clock, FileText, Eye, CheckCircle2, Flame, BarChart2 } from "lucide-react";
+import {
+  TrendingUp, Clock, FileText, Eye, CheckCircle2, Flame,
+  Heart, MessageCircle, Share2, Zap, Activity, CalendarDays,
+  AlertCircle, ArrowRight,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin/monetizacao")({
   head: () => ({ meta: [{ title: "Monetização — Gestão de Páginas" }] }),
@@ -26,30 +30,53 @@ interface RawPost {
 
 interface PageRow { id: string; nome: string }
 
+interface PostBucket {
+  views: number; reactions: number; comments: number; shares: number; videos: number; count: number;
+  dates: string[];
+}
+
 interface PageMonetStat {
   id: string;
   name: string;
   isMonetized: boolean;
   firstPostDate: string | null;
+  lastPostDate: string | null;
   firstPaymentDate: string | null;
   daysToMonetize: number | null;
-  postsBeforeMonetize: number;
-  viewsBeforeMonetize: number;
-  avgViewsPerPostBefore: number;
-  engRateBefore: number;
-  videoPctBefore: number;
-  // current (non-monetized pages)
-  currentPosts: number;
-  currentViews: number;
-  daysSinceFirst: number | null;
+  // pre-monetization (or all posts for warming pages)
+  posts: number;
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  videos: number;
+  activeDays: number;
+  longestStreak: number;
+  postsPerActiveDay: number;
+  avgViewsPerPost: number;
+  avgLikes: number;
+  avgComments: number;
+  avgShares: number;
+  engRate: number;
+  videoPct: number;
+  viewsPerActiveDay: number;
+  // warming-only
+  currentStreak: number;
+  daysSinceLastPost: number | null;
+  isActive: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const fmt = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M`
-  : n >= 1_000 ? `${(n / 1_000).toFixed(0)}k`
+  : n >= 1_000 ? `${Math.round(n / 1_000)}k`
   : String(Math.round(n));
+
+const fmtDate = (d: string) => {
+  const [y, m, day] = d.split("-");
+  return `${day}/${m}/${y.slice(2)}`;
+};
 
 const daysBetween = (a: string, b: string) =>
   Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000);
@@ -58,6 +85,46 @@ function getUsd(p: RawPost) {
   return Number(p.monetization_approx ?? 0) > 0
     ? Number(p.monetization_approx)
     : Number(p.estimated_usd ?? 0);
+}
+
+function calcStreaks(sortedDates: string[]): { longest: number; current: number } {
+  if (sortedDates.length === 0) return { longest: 0, current: 0 };
+  const uniqueDays = [...new Set(sortedDates.map((d) => d.slice(0, 10)))].sort();
+  let longest = 1, run = 1;
+  for (let i = 1; i < uniqueDays.length; i++) {
+    if (daysBetween(uniqueDays[i - 1], uniqueDays[i]) === 1) {
+      run++;
+      longest = Math.max(longest, run);
+    } else {
+      run = 1;
+    }
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const last = uniqueDays[uniqueDays.length - 1];
+  let current = 0;
+  if (daysBetween(last, today) <= 1) {
+    current = 1;
+    for (let i = uniqueDays.length - 2; i >= 0; i--) {
+      if (daysBetween(uniqueDays[i], uniqueDays[i + 1]) === 1) current++;
+      else break;
+    }
+  }
+  return { longest: Math.max(longest, 1), current };
+}
+
+function sumBucket(posts: RawPost[]): PostBucket {
+  let views = 0, reactions = 0, comments = 0, shares = 0, videos = 0;
+  const dates: string[] = [];
+  for (const p of posts) {
+    views += Number(p.views ?? 0);
+    reactions += Number(p.reactions ?? 0);
+    comments += Number(p.comments ?? 0);
+    shares += Number(p.shares ?? 0);
+    const t = (p.post_type ?? "").toLowerCase();
+    if (t.includes("video") || t === "reel") videos++;
+    if (p.published_at) dates.push(p.published_at);
+  }
+  return { views, reactions, comments, shares, videos, count: posts.length, dates };
 }
 
 function buildStats(pages: PageRow[], posts: RawPost[]): PageMonetStat[] {
@@ -71,75 +138,92 @@ function buildStats(pages: PageRow[], posts: RawPost[]): PageMonetStat[] {
   }
 
   return pages.map((page) => {
-    const pagePosts = (byPage.get(page.id) ?? []).sort(
+    const all = (byPage.get(page.id) ?? []).sort(
       (a, b) => (a.published_at ?? "").localeCompare(b.published_at ?? "")
     );
 
-    const firstPostDate = pagePosts[0]?.published_at?.slice(0, 10) ?? null;
-    const firstPayIdx = pagePosts.findIndex((p) => getUsd(p) > 0);
+    const firstPostDate = all[0]?.published_at?.slice(0, 10) ?? null;
+    const lastPostDate = all[all.length - 1]?.published_at?.slice(0, 10) ?? null;
+    const firstPayIdx = all.findIndex((p) => getUsd(p) > 0);
     const isMonetized = firstPayIdx >= 0;
     const firstPaymentDate = isMonetized
-      ? pagePosts[firstPayIdx].published_at?.slice(0, 10) ?? null
+      ? all[firstPayIdx].published_at?.slice(0, 10) ?? null
       : null;
-
-    const prePosts = isMonetized ? pagePosts.slice(0, firstPayIdx) : pagePosts;
-    const postsBeforeMonetize = prePosts.length;
-
-    let viewsBefore = 0, reactBefore = 0, commentsBefore = 0, sharesBefore = 0, videosBefore = 0;
-    for (const p of prePosts) {
-      const v = Number(p.views ?? 0);
-      viewsBefore += v;
-      reactBefore += Number(p.reactions ?? 0);
-      commentsBefore += Number(p.comments ?? 0);
-      sharesBefore += Number(p.shares ?? 0);
-      const t = (p.post_type ?? "").toLowerCase();
-      if (t.includes("video") || t === "reel") videosBefore += 1;
-    }
-
-    const avgViewsPerPostBefore = postsBeforeMonetize > 0 ? viewsBefore / postsBeforeMonetize : 0;
-    const engRateBefore = viewsBefore > 0 ? (reactBefore + commentsBefore + sharesBefore) / viewsBefore : 0;
-    const videoPctBefore = postsBeforeMonetize > 0 ? (videosBefore / postsBeforeMonetize) * 100 : 0;
-
     const daysToMonetize =
       isMonetized && firstPostDate && firstPaymentDate
         ? daysBetween(firstPostDate, firstPaymentDate)
         : null;
 
-    const daysSinceFirst = firstPostDate ? daysBetween(firstPostDate, today) : null;
+    // For monetized pages: analyze the pre-monetization window
+    // For warming pages: analyze all posts
+    const bucket = sumBucket(isMonetized ? all.slice(0, firstPayIdx) : all);
 
+    const activeDays = new Set(bucket.dates.map((d) => d.slice(0, 10))).size;
+    const { longest: longestStreak, current: currentStreak } = calcStreaks(bucket.dates);
+    const daysSinceLastPost = lastPostDate ? daysBetween(lastPostDate, today) : null;
+    const isActive = daysSinceLastPost !== null && daysSinceLastPost <= 7;
+
+    const n = bucket.count;
     return {
       id: page.id,
       name: page.nome,
       isMonetized,
       firstPostDate,
+      lastPostDate,
       firstPaymentDate,
       daysToMonetize,
-      postsBeforeMonetize,
-      viewsBeforeMonetize: viewsBefore,
-      avgViewsPerPostBefore,
-      engRateBefore,
-      videoPctBefore,
-      currentPosts: pagePosts.length,
-      currentViews: pagePosts.reduce((s, p) => s + Number(p.views ?? 0), 0),
-      daysSinceFirst,
+      posts: n,
+      views: bucket.views,
+      likes: bucket.reactions,
+      comments: bucket.comments,
+      shares: bucket.shares,
+      videos: bucket.videos,
+      activeDays,
+      longestStreak,
+      postsPerActiveDay: activeDays > 0 ? n / activeDays : 0,
+      avgViewsPerPost: n > 0 ? bucket.views / n : 0,
+      avgLikes: n > 0 ? bucket.reactions / n : 0,
+      avgComments: n > 0 ? bucket.comments / n : 0,
+      avgShares: n > 0 ? bucket.shares / n : 0,
+      engRate: bucket.views > 0 ? (bucket.reactions + bucket.comments + bucket.shares) / bucket.views : 0,
+      videoPct: n > 0 ? (bucket.videos / n) * 100 : 0,
+      viewsPerActiveDay: activeDays > 0 ? bucket.views / activeDays : 0,
+      currentStreak,
+      daysSinceLastPost,
+      isActive,
     };
   });
 }
 
+function readinessScore(s: PageMonetStat, tpl: Template): number {
+  const viewsPct = Math.min(s.views / tpl.views, 1);
+  const postsPct = Math.min(s.posts / tpl.posts, 1);
+  const engPct = tpl.engRate > 0 ? Math.min(s.engRate / tpl.engRate, 1) : 1;
+  const cadPct = tpl.postsPerActiveDay > 0 ? Math.min(s.postsPerActiveDay / tpl.postsPerActiveDay, 1) : 1;
+  return Math.round((viewsPct * 40 + postsPct * 35 + engPct * 15 + cadPct * 10) * 100);
+}
+
+interface Template {
+  days: number; posts: number; views: number;
+  avgViewsPerPost: number; engRate: number; videoPct: number;
+  activeDays: number; postsPerActiveDay: number; longestStreak: number;
+  avgLikes: number; avgComments: number; avgShares: number;
+  viewsPerActiveDay: number;
+  // ranges
+  minViews: number; maxViews: number;
+  minPosts: number; maxPosts: number;
+  minDays: number; maxDays: number;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
+
+type Tab = "template" | "aquecimento" | "monetizadas";
 
 export default function MonetizacaoPage() {
   const [pages, setPages] = useState<PageRow[]>([]);
   const [posts, setPosts] = useState<RawPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [usdBrl, setUsdBrl] = useState<number | null>(null);
-
-  useEffect(() => {
-    fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL")
-      .then((r) => r.json())
-      .then((d) => setUsdBrl(parseFloat(d.USDBRL.bid)))
-      .catch(() => null);
-  }, []);
+  const [tab, setTab] = useState<Tab>("aquecimento");
 
   useEffect(() => {
     const load = async () => {
@@ -170,206 +254,437 @@ export default function MonetizacaoPage() {
   }, []);
 
   const stats = useMemo(() => buildStats(pages, posts), [pages, posts]);
+  const monetized = useMemo(() => stats.filter((s) => s.isMonetized).sort((a, b) => (a.daysToMonetize ?? 999) - (b.daysToMonetize ?? 999)), [stats]);
+  const warming = useMemo(() => stats.filter((s) => !s.isMonetized && s.firstPostDate), [stats]);
 
-  const monetized = stats.filter((s) => s.isMonetized);
-  const warming = stats.filter((s) => !s.isMonetized && s.firstPostDate);
-
-  // Template averages from monetized pages
-  const template = useMemo(() => {
+  const template = useMemo((): Template | null => {
     if (monetized.length === 0) return null;
     const avg = (arr: number[]) => arr.reduce((s, v) => s + v, 0) / arr.length;
-    return {
+    const vals = {
       days: avg(monetized.map((m) => m.daysToMonetize ?? 0)),
-      posts: avg(monetized.map((m) => m.postsBeforeMonetize)),
-      views: avg(monetized.map((m) => m.viewsBeforeMonetize)),
-      avgViewsPerPost: avg(monetized.map((m) => m.avgViewsPerPostBefore)),
-      engRate: avg(monetized.map((m) => m.engRateBefore)),
-      videoPct: avg(monetized.map((m) => m.videoPctBefore)),
+      posts: avg(monetized.map((m) => m.posts)),
+      views: avg(monetized.map((m) => m.views)),
+      avgViewsPerPost: avg(monetized.map((m) => m.avgViewsPerPost)),
+      engRate: avg(monetized.map((m) => m.engRate)),
+      videoPct: avg(monetized.map((m) => m.videoPct)),
+      activeDays: avg(monetized.map((m) => m.activeDays)),
+      postsPerActiveDay: avg(monetized.map((m) => m.postsPerActiveDay)),
+      longestStreak: avg(monetized.map((m) => m.longestStreak)),
+      avgLikes: avg(monetized.map((m) => m.avgLikes)),
+      avgComments: avg(monetized.map((m) => m.avgComments)),
+      avgShares: avg(monetized.map((m) => m.avgShares)),
+      viewsPerActiveDay: avg(monetized.map((m) => m.viewsPerActiveDay)),
+      minViews: Math.min(...monetized.map((m) => m.views)),
+      maxViews: Math.max(...monetized.map((m) => m.views)),
+      minPosts: Math.min(...monetized.map((m) => m.posts)),
+      maxPosts: Math.max(...monetized.map((m) => m.posts)),
+      minDays: Math.min(...monetized.map((m) => m.daysToMonetize ?? 0)),
+      maxDays: Math.max(...monetized.map((m) => m.daysToMonetize ?? 0)),
     };
+    return vals;
   }, [monetized]);
+
+  const warmingSorted = useMemo(() => {
+    if (!template) return warming;
+    return [...warming].sort((a, b) => readinessScore(b, template) - readinessScore(a, template));
+  }, [warming, template]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
+        <Activity className="h-5 w-5 mr-2 animate-pulse" />
         Carregando dados...
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 pb-10">
-      <div>
+    <div className="space-y-6 pb-12">
+      {/* ── Header ── */}
+      <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold text-[#1a0533]">Monetização</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Entenda o padrão das páginas que já monetizaram e acompanhe as que estão em aquecimento.
+        <p className="text-sm text-muted-foreground">
+          Padrão das páginas que já monetizaram · acompanhamento das que estão em aquecimento
         </p>
       </div>
 
-      {/* ── Template cards ── */}
-      {template && (
-        <div>
-          <h2 className="text-sm font-semibold text-[#6200b3] uppercase tracking-wider mb-3">
-            Padrão das páginas monetizadas ({monetized.length} páginas)
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {[
-              { icon: Clock, label: "Dias até monetizar", value: `${Math.round(template.days)} dias` },
-              { icon: FileText, label: "Posts antes", value: `${Math.round(template.posts)} posts` },
-              { icon: Eye, label: "Views acumuladas", value: fmt(template.views) },
-              { icon: Eye, label: "Views/post médio", value: fmt(template.avgViewsPerPost) },
-              { icon: TrendingUp, label: "Engajamento médio", value: `${(template.engRate * 100).toFixed(2)}%` },
-              { icon: BarChart2, label: "% Vídeo/Reel", value: `${Math.round(template.videoPct)}%` },
-            ].map(({ icon: Icon, label, value }) => (
-              <div key={label} className="bg-white border border-[#e8e0f5] rounded-2xl p-4 shadow-sm">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="h-7 w-7 rounded-lg bg-[#f3e8ff] flex items-center justify-center">
-                    <Icon className="h-3.5 w-3.5 text-[#6200b3]" />
-                  </div>
-                </div>
-                <p className="text-lg font-bold text-[#1a0533]">{value}</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">{label}</p>
-              </div>
-            ))}
+      {/* ── Summary strip ── */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: "Monetizadas", value: monetized.length, color: "text-green-600", bg: "bg-green-50" },
+          { label: "Em aquecimento", value: warming.filter((s) => s.isActive).length, color: "text-amber-600", bg: "bg-amber-50" },
+          { label: "Inativas", value: warming.filter((s) => !s.isActive).length, color: "text-red-500", bg: "bg-red-50" },
+        ].map((c) => (
+          <div key={c.label} className={cn("rounded-2xl border border-border p-4 bg-white shadow-sm flex flex-col gap-1")}>
+            <span className={cn("text-2xl font-bold", c.color)}>{c.value}</span>
+            <span className="text-xs text-muted-foreground">{c.label}</span>
           </div>
-        </div>
+        ))}
+      </div>
+
+      {/* ── Tab bar ── */}
+      <div className="flex gap-1 bg-[#f5f0ff] p-1 rounded-xl w-fit">
+        {([
+          { id: "template", label: `Padrão (${monetized.length})` },
+          { id: "aquecimento", label: `Em Aquecimento (${warming.length})` },
+          { id: "monetizadas", label: `Monetizadas (${monetized.length})` },
+        ] as { id: Tab; label: string }[]).map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={cn(
+              "px-4 py-2 text-sm font-medium rounded-lg transition-all",
+              tab === t.id
+                ? "bg-white text-[#6200b3] shadow-sm"
+                : "text-[#7c6f8e] hover:text-[#6200b3]"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Tab: Template ── */}
+      {tab === "template" && template && (
+        <TemplateTab monetized={monetized} template={template} />
       )}
 
-      {/* ── Warming pages ── */}
-      {warming.length > 0 && template && (
-        <div>
-          <h2 className="text-sm font-semibold text-[#6200b3] uppercase tracking-wider mb-3">
-            Em aquecimento ({warming.length} páginas)
-          </h2>
-          <div className="space-y-3">
-            {warming
-              .sort((a, b) => (b.currentViews) - (a.currentViews))
-              .map((s) => {
-                const postsPct = Math.min((s.currentPosts / template.posts) * 100, 100);
-                const viewsPct = Math.min((s.currentViews / template.views) * 100, 100);
-                const daysPct = s.daysSinceFirst ? Math.min((s.daysSinceFirst / template.days) * 100, 100) : 0;
-                const overallPct = Math.round((postsPct + viewsPct + daysPct) / 3);
-                const color = overallPct >= 75 ? "#16a34a" : overallPct >= 40 ? "#f59e0b" : "#6200b3";
-                return (
-                  <div key={s.id} className="bg-white border border-[#e8e0f5] rounded-2xl p-5 shadow-sm">
-                    <div className="flex items-center justify-between mb-3 gap-4 flex-wrap">
-                      <div className="flex items-center gap-2">
-                        <Flame className="h-4 w-4 text-[#f59e0b]" />
-                        <span className="font-semibold text-[#1a0533]">{s.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold" style={{ color }}>{overallPct}% do padrão</span>
-                      </div>
-                    </div>
-                    <div className="w-full h-2 bg-[#f3e8ff] rounded-full mb-4">
-                      <div
-                        className="h-2 rounded-full transition-all"
-                        style={{ width: `${overallPct}%`, backgroundColor: color }}
-                      />
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 text-center">
-                      <MetricVsTemplate
-                        label="Posts"
-                        current={s.currentPosts}
-                        target={Math.round(template.posts)}
-                        format={(v) => String(v)}
-                        pct={postsPct}
-                      />
-                      <MetricVsTemplate
-                        label="Views"
-                        current={s.currentViews}
-                        target={Math.round(template.views)}
-                        format={fmt}
-                        pct={viewsPct}
-                      />
-                      <MetricVsTemplate
-                        label="Dias ativos"
-                        current={s.daysSinceFirst ?? 0}
-                        target={Math.round(template.days)}
-                        format={(v) => `${v}d`}
-                        pct={daysPct}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        </div>
+      {/* ── Tab: Aquecimento ── */}
+      {tab === "aquecimento" && template && (
+        <AquecimentoTab pages={warmingSorted} template={template} />
       )}
 
-      {/* ── Monetized pages detail ── */}
-      {monetized.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-[#6200b3] uppercase tracking-wider mb-3">
-            Páginas monetizadas — jornada até o 1º pagamento
-          </h2>
-          <div className="bg-white border border-[#e8e0f5] rounded-2xl shadow-sm overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[#f3e8ff] bg-[#faf5ff]">
-                  {["Página", "1º post", "1º pagamento", "Dias", "Posts antes", "Views antes", "Views/post", "Engaj.", "% Vídeo"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[#7c6f8e]">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {monetized
-                  .sort((a, b) => (a.daysToMonetize ?? 999) - (b.daysToMonetize ?? 999))
-                  .map((s, i) => (
-                    <tr key={s.id} className={i % 2 === 0 ? "bg-white" : "bg-[#faf5ff]"}>
-                      <td className="px-4 py-3 font-medium text-[#1a0533] flex items-center gap-2">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                        {s.name}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{s.firstPostDate ? fmtDate(s.firstPostDate) : "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{s.firstPaymentDate ? fmtDate(s.firstPaymentDate) : "—"}</td>
-                      <td className="px-4 py-3 font-semibold text-[#6200b3]">{s.daysToMonetize ?? "—"}</td>
-                      <td className="px-4 py-3">{s.postsBeforeMonetize}</td>
-                      <td className="px-4 py-3">{fmt(s.viewsBeforeMonetize)}</td>
-                      <td className="px-4 py-3">{fmt(s.avgViewsPerPostBefore)}</td>
-                      <td className="px-4 py-3">{(s.engRateBefore * 100).toFixed(2)}%</td>
-                      <td className="px-4 py-3">{Math.round(s.videoPctBefore)}%</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {stats.length === 0 && (
-        <div className="flex flex-col items-center justify-center h-64 text-muted-foreground text-sm gap-2">
-          <TrendingUp className="h-8 w-8 opacity-30" />
-          <p>Nenhuma página encontrada.</p>
-        </div>
+      {/* ── Tab: Monetizadas ── */}
+      {tab === "monetizadas" && (
+        <MonetizadasTab pages={monetized} />
       )}
     </div>
   );
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Template Tab ─────────────────────────────────────────────────────────────
 
-function MetricVsTemplate({
-  label, current, target, format, pct,
-}: {
-  label: string;
-  current: number;
-  target: number;
-  format: (v: number) => string;
-  pct: number;
-}) {
-  const color = pct >= 75 ? "#16a34a" : pct >= 40 ? "#f59e0b" : "#6200b3";
+function TemplateTab({ monetized, template }: { monetized: PageMonetStat[]; template: Template }) {
+  const metrics = [
+    {
+      icon: Clock, label: "Dias até monetizar",
+      avg: `${Math.round(template.days)}d`,
+      range: `${template.minDays}d – ${template.maxDays}d`,
+      detail: "Desde o 1º post até o 1º pagamento",
+    },
+    {
+      icon: FileText, label: "Posts publicados",
+      avg: `${Math.round(template.posts)}`,
+      range: `${template.minPosts} – ${template.maxPosts}`,
+      detail: "Posts antes do 1º pagamento",
+    },
+    {
+      icon: Eye, label: "Views acumuladas",
+      avg: fmt(template.views),
+      range: `${fmt(template.minViews)} – ${fmt(template.maxViews)}`,
+      detail: "Views totais antes da monetização",
+    },
+    {
+      icon: Eye, label: "Views / post",
+      avg: fmt(template.avgViewsPerPost),
+      range: null,
+      detail: "Média de views por publicação",
+    },
+    {
+      icon: CalendarDays, label: "Dias ativos",
+      avg: `${Math.round(template.activeDays)}d`,
+      range: null,
+      detail: "Dias com pelo menos 1 post",
+    },
+    {
+      icon: Zap, label: "Posts / dia ativo",
+      avg: template.postsPerActiveDay.toFixed(1),
+      range: null,
+      detail: "Cadência real de publicação",
+    },
+    {
+      icon: Zap, label: "Maior sequência",
+      avg: `${Math.round(template.longestStreak)}d`,
+      range: null,
+      detail: "Maior streak de dias consecutivos",
+    },
+    {
+      icon: TrendingUp, label: "Engajamento",
+      avg: `${(template.engRate * 100).toFixed(2)}%`,
+      range: null,
+      detail: "(Likes + Comentários + Shares) / Views",
+    },
+    {
+      icon: Heart, label: "Likes / post",
+      avg: fmt(template.avgLikes),
+      range: null,
+      detail: "Média de reações por post",
+    },
+    {
+      icon: MessageCircle, label: "Comentários / post",
+      avg: fmt(template.avgComments),
+      range: null,
+      detail: "Média de comentários por post",
+    },
+    {
+      icon: Share2, label: "Shares / post",
+      avg: fmt(template.avgShares),
+      range: null,
+      detail: "Média de compartilhamentos por post",
+    },
+    {
+      icon: Eye, label: "Views / dia ativo",
+      avg: fmt(template.viewsPerActiveDay),
+      range: null,
+      detail: "Views totais por dia de publicação",
+    },
+  ];
+
   return (
-    <div className="bg-[#faf5ff] rounded-xl p-3">
-      <p className="text-[11px] text-muted-foreground mb-1">{label}</p>
-      <p className="font-bold text-[#1a0533] text-sm">{format(current)}</p>
-      <p className="text-[10px] mt-0.5" style={{ color }}>
-        meta: {format(target)} ({Math.round(pct)}%)
-      </p>
+    <div className="space-y-6">
+      <div>
+        <p className="text-sm text-muted-foreground mb-4">
+          Médias calculadas com base nas <strong>{monetized.length} páginas monetizadas</strong>, considerando apenas os posts publicados <em>antes</em> do primeiro pagamento recebido.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {metrics.map(({ icon: Icon, label, avg, range, detail }) => (
+            <div key={label} className="bg-white border border-[#e8e0f5] rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="h-8 w-8 rounded-xl bg-[#f3e8ff] flex items-center justify-center shrink-0">
+                  <Icon className="h-4 w-4 text-[#6200b3]" />
+                </div>
+                <span className="text-xs text-muted-foreground leading-tight">{label}</span>
+              </div>
+              <p className="text-2xl font-bold text-[#1a0533]">{avg}</p>
+              {range && (
+                <p className="text-[11px] text-[#6200b3] font-medium mt-1">range: {range}</p>
+              )}
+              <p className="text-[11px] text-muted-foreground mt-1">{detail}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Per-page breakdown */}
+      <div>
+        <h3 className="text-sm font-semibold text-[#1a0533] mb-3">Detalhes por página</h3>
+        <div className="bg-white border border-[#e8e0f5] rounded-2xl overflow-hidden shadow-sm">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#f3e8ff] bg-[#faf5ff]">
+                {["Página", "Dias", "Posts", "Dias ativos", "Posts/dia", "Streak max", "Views", "Views/dia", "Engaj."].map((h) => (
+                  <th key={h} className="px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[#7c6f8e] whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {monetized.map((s, i) => (
+                <tr key={s.id} className={i % 2 === 0 ? "bg-white" : "bg-[#faf5ff]"}>
+                  <td className="px-3 py-3 font-medium text-[#1a0533] flex items-center gap-2">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                    {s.name}
+                  </td>
+                  <td className="px-3 py-3 font-semibold text-[#6200b3]">{s.daysToMonetize ?? "—"}</td>
+                  <td className="px-3 py-3">{s.posts}</td>
+                  <td className="px-3 py-3">{s.activeDays}</td>
+                  <td className="px-3 py-3">{s.postsPerActiveDay.toFixed(1)}</td>
+                  <td className="px-3 py-3">{s.longestStreak}</td>
+                  <td className="px-3 py-3">{fmt(s.views)}</td>
+                  <td className="px-3 py-3">{fmt(s.viewsPerActiveDay)}</td>
+                  <td className="px-3 py-3">{(s.engRate * 100).toFixed(2)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
 
-function fmtDate(d: string) {
-  const [y, m, day] = d.split("-");
-  return `${day}/${m}/${y.slice(2)}`;
+// ─── Aquecimento Tab ──────────────────────────────────────────────────────────
+
+function AquecimentoTab({ pages, template }: { pages: PageMonetStat[]; template: Template }) {
+  if (pages.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-40 text-muted-foreground text-sm gap-2">
+        <Flame className="h-5 w-5 opacity-30" />
+        Nenhuma página em aquecimento.
+      </div>
+    );
+  }
+
+  const active = pages.filter((p) => p.isActive);
+  const inactive = pages.filter((p) => !p.isActive);
+
+  return (
+    <div className="space-y-6">
+      {active.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-green-700">
+            Ativas — postando nos últimos 7 dias ({active.length})
+          </h3>
+          {active.map((s) => (
+            <WarmingCard key={s.id} s={s} template={template} />
+          ))}
+        </div>
+      )}
+      {inactive.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-red-500">
+            Inativas — sem posts nos últimos 7 dias ({inactive.length})
+          </h3>
+          {inactive.map((s) => (
+            <WarmingCard key={s.id} s={s} template={template} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WarmingCard({ s, template }: { s: PageMonetStat; template: Template }) {
+  const score = readinessScore(s, template);
+  const scoreColor = score >= 75 ? "#16a34a" : score >= 40 ? "#f59e0b" : "#6200b3";
+  const scoreLabel = score >= 75 ? "Quase lá" : score >= 40 ? "Em progresso" : "Início";
+
+  const viewsPct = Math.min((s.views / template.views) * 100, 100);
+  const postsPct = Math.min((s.posts / template.posts) * 100, 100);
+  const engPct = template.engRate > 0 ? Math.min((s.engRate / template.engRate) * 100, 100) : 0;
+  const cadPct = template.postsPerActiveDay > 0 ? Math.min((s.postsPerActiveDay / template.postsPerActiveDay) * 100, 100) : 0;
+
+  return (
+    <div className="bg-white border border-[#e8e0f5] rounded-2xl shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[#f3e8ff]">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={cn(
+            "h-2 w-2 rounded-full shrink-0",
+            s.isActive ? "bg-green-500" : "bg-red-400"
+          )} />
+          <span className="font-semibold text-[#1a0533] truncate">{s.name}</span>
+          {!s.isActive && s.daysSinceLastPost !== null && (
+            <span className="text-xs text-red-400 shrink-0 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              {s.daysSinceLastPost}d sem postar
+            </span>
+          )}
+          {s.currentStreak > 0 && (
+            <span className="text-xs text-amber-600 shrink-0 flex items-center gap-1">
+              <Flame className="h-3 w-3" />
+              {s.currentStreak}d seguidos
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ color: scoreColor, backgroundColor: `${scoreColor}18` }}>
+            {scoreLabel}
+          </span>
+          <span className="text-lg font-bold" style={{ color: scoreColor }}>{score}%</span>
+        </div>
+      </div>
+
+      {/* Progress bars */}
+      <div className="px-5 pt-3 pb-2 space-y-2">
+        {[
+          { label: "Views", pct: viewsPct, current: fmt(s.views), target: fmt(template.views) },
+          { label: "Posts", pct: postsPct, current: String(s.posts), target: String(Math.round(template.posts)) },
+          { label: "Engajamento", pct: engPct, current: `${(s.engRate * 100).toFixed(2)}%`, target: `${(template.engRate * 100).toFixed(2)}%` },
+          { label: "Cadência", pct: cadPct, current: `${s.postsPerActiveDay.toFixed(1)}/dia`, target: `${template.postsPerActiveDay.toFixed(1)}/dia` },
+        ].map(({ label, pct, current, target }) => {
+          const c = pct >= 75 ? "#16a34a" : pct >= 40 ? "#f59e0b" : "#6200b3";
+          return (
+            <div key={label} className="flex items-center gap-3">
+              <span className="text-[11px] text-muted-foreground w-24 shrink-0">{label}</span>
+              <div className="flex-1 h-1.5 bg-[#f3e8ff] rounded-full">
+                <div className="h-1.5 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: c }} />
+              </div>
+              <span className="text-[11px] font-medium text-[#1a0533] w-16 text-right shrink-0">{current}</span>
+              <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+              <span className="text-[11px] text-muted-foreground w-16 shrink-0">{target}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Metrics grid */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 px-5 pb-4 pt-2">
+        <MiniMetric icon={CalendarDays} label="Dias ativos" value={`${s.activeDays}d`} sub={`de ${s.firstPostDate ? Math.max(daysBetween(s.firstPostDate, new Date().toISOString().slice(0,10)), 1) : "?"}d totais`} />
+        <MiniMetric icon={Zap} label="Posts/dia" value={s.postsPerActiveDay.toFixed(1)} sub={`meta: ${template.postsPerActiveDay.toFixed(1)}`} />
+        <MiniMetric icon={Flame} label="Maior streak" value={`${s.longestStreak}d`} sub={`meta: ${Math.round(template.longestStreak)}d`} />
+        <MiniMetric icon={Heart} label="Likes/post" value={fmt(s.avgLikes)} sub={`meta: ${fmt(template.avgLikes)}`} />
+        <MiniMetric icon={MessageCircle} label="Coment./post" value={fmt(s.avgComments)} sub={`meta: ${fmt(template.avgComments)}`} />
+        <MiniMetric icon={Share2} label="Shares/post" value={fmt(s.avgShares)} sub={`meta: ${fmt(template.avgShares)}`} />
+      </div>
+    </div>
+  );
+}
+
+function MiniMetric({ icon: Icon, label, value, sub }: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string; value: string; sub: string;
+}) {
+  return (
+    <div className="bg-[#faf5ff] rounded-xl p-2.5 flex flex-col gap-0.5">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Icon className="h-3 w-3 text-[#6200b3]" />
+        <span className="text-[10px] text-muted-foreground">{label}</span>
+      </div>
+      <p className="font-bold text-[#1a0533] text-sm">{value}</p>
+      <p className="text-[10px] text-muted-foreground">{sub}</p>
+    </div>
+  );
+}
+
+// ─── Monetizadas Tab ──────────────────────────────────────────────────────────
+
+function MonetizadasTab({ pages }: { pages: PageMonetStat[] }) {
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Métricas calculadas apenas com os posts publicados <em>antes</em> do primeiro pagamento recebido.
+      </p>
+      <div className="bg-white border border-[#e8e0f5] rounded-2xl shadow-sm overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[#f3e8ff] bg-[#faf5ff]">
+              {[
+                "Página", "1º post", "1º pgto", "Dias", "Posts",
+                "Dias ativos", "Posts/dia", "Streak", "Views", "Views/dia",
+                "Likes/p", "Coment./p", "Shares/p", "Engaj.", "% Vídeo",
+              ].map((h) => (
+                <th key={h} className="px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[#7c6f8e] whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {pages.map((s, i) => (
+              <tr key={s.id} className={i % 2 === 0 ? "bg-white hover:bg-[#faf5ff]" : "bg-[#faf5ff] hover:bg-[#f3e8ff]"}>
+                <td className="px-3 py-3 font-medium text-[#1a0533]">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                    <span className="whitespace-nowrap">{s.name}</span>
+                  </div>
+                </td>
+                <td className="px-3 py-3 text-muted-foreground whitespace-nowrap">{s.firstPostDate ? fmtDate(s.firstPostDate) : "—"}</td>
+                <td className="px-3 py-3 text-muted-foreground whitespace-nowrap">{s.firstPaymentDate ? fmtDate(s.firstPaymentDate) : "—"}</td>
+                <td className="px-3 py-3 font-bold text-[#6200b3]">{s.daysToMonetize ?? "—"}</td>
+                <td className="px-3 py-3">{s.posts}</td>
+                <td className="px-3 py-3">{s.activeDays}</td>
+                <td className="px-3 py-3">{s.postsPerActiveDay.toFixed(1)}</td>
+                <td className="px-3 py-3">{s.longestStreak}</td>
+                <td className="px-3 py-3">{fmt(s.views)}</td>
+                <td className="px-3 py-3">{fmt(s.viewsPerActiveDay)}</td>
+                <td className="px-3 py-3">{fmt(s.avgLikes)}</td>
+                <td className="px-3 py-3">{fmt(s.avgComments)}</td>
+                <td className="px-3 py-3">{fmt(s.avgShares)}</td>
+                <td className="px-3 py-3">{(s.engRate * 100).toFixed(2)}%</td>
+                <td className="px-3 py-3">{Math.round(s.videoPct)}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
