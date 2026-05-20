@@ -241,13 +241,16 @@ export function MetasPage() {
     setSaving(true);
     setSaveError(null);
     const payload = toDbPayload(draft);
-    const { error } = editingGoal
-      ? await (supabase as any).from("goals").update(payload).eq("id", editingGoal.id)
-      : await (supabase as any).from("goals").insert(payload);
-    setSaving(false);
-    if (error) {
-      setSaveError("Erro ao salvar: " + error.message);
-      return;
+    if (editingGoal) {
+      const { error } = await (supabase as any).from("goals").update(payload).eq("id", editingGoal.id);
+      setSaving(false);
+      if (error) { setSaveError("Erro ao salvar: " + error.message); return; }
+      setGoals(prev => prev.map(g => g.id === editingGoal.id ? { ...g, ...draft } : g));
+    } else {
+      const { data: newRow, error } = await (supabase as any).from("goals").insert(payload).select().single();
+      setSaving(false);
+      if (error) { setSaveError("Erro ao salvar: " + error.message); return; }
+      if (newRow) setGoals(prev => [mapGoal(newRow), ...prev]);
     }
     setShowForm(false);
   };
