@@ -122,6 +122,20 @@ interface PageStat {
 
 const SEM_COLAB_ID = "__sem_colaborador__";
 
+// ─── Module-level cache (survives route navigation) ───────────────────────────
+
+interface DashCache {
+  posts: RawPost[];
+  postAuthors: PostAuthorRow[];
+  pages: PageOption[];
+  colabs: ColabOption[];
+  splitRules: SplitRule[];
+  imports: RecentImport[];
+  ts: number;
+}
+let _dashCache: DashCache | null = null;
+const CACHE_TTL = 3 * 60 * 1000; // 3 minutes
+
 // ─── Utils ───────────────────────────────────────────────────────────────────
 
 const fmt = (n: number) =>
@@ -322,7 +336,17 @@ function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    const load = async () => {
+    const applyCache = (cache: DashCache) => {
+      setAllPosts(cache.posts);
+      setPostAuthors(cache.postAuthors);
+      setPages(cache.pages);
+      setColabs(cache.colabs);
+      setSplitRules(cache.splitRules);
+      setRecentImports(cache.imports);
+      setLoading(false);
+    };
+
+    const doLoad = async (background: boolean) => {
       const [posts, pas, { data: pagesData }, { data: colabsData }, { data: rulesData }, { data: imports }] =
         await Promise.all([
           fetchAllRows<RawPost>(() =>
@@ -342,15 +366,29 @@ function AdminDashboard() {
             .limit(5),
         ]);
 
-      setAllPosts(posts);
-      setPostAuthors(pas);
-      setSplitRules((rulesData as SplitRule[]) ?? []);
-      setPages((pagesData ?? []).map((p: any) => ({ id: p.id, name: p.nome })));
-      setColabs((colabsData ?? []).map((c: any) => ({ id: c.id, nome: c.nome, hashtag: c.hashtag })));
-      setRecentImports((imports ?? []) as RecentImport[]);
-      setLoading(false);
+      const fresh: DashCache = {
+        posts,
+        postAuthors: pas,
+        pages: (pagesData ?? []).map((p: any) => ({ id: p.id, name: p.nome })),
+        colabs: (colabsData ?? []).map((c: any) => ({ id: c.id, nome: c.nome, hashtag: c.hashtag })),
+        splitRules: (rulesData as SplitRule[]) ?? [],
+        imports: (imports ?? []) as RecentImport[],
+        ts: Date.now(),
+      };
+      _dashCache = fresh;
+      applyCache(fresh);
+      if (!background) setLoading(false);
     };
-    load();
+
+    const now = Date.now();
+    if (_dashCache && now - _dashCache.ts < CACHE_TTL) {
+      // Serve cached data immediately — no spinner
+      applyCache(_dashCache);
+      // Silently refresh in background
+      doLoad(true);
+    } else {
+      doLoad(false);
+    }
   }, []);
 
   // Fetch daily revenue entries whenever the date filter changes

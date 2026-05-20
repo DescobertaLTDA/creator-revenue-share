@@ -38,20 +38,28 @@ interface RawPost {
   shares: number | null;
 }
 
-// ─── Persistence ─────────────────────────────────────────────────────────────
+// ─── DB mapping ──────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = "page_goals_v2";
-
-function loadGoals(): Goal[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as Goal[];
-  } catch { /* ignore */ }
-  return [];
+function mapGoal(row: any): Goal {
+  return {
+    id: row.id,
+    name: row.name,
+    metric: row.metric as MetricKey,
+    target: Number(row.target),
+    startDate: row.start_date,
+    endDate: row.end_date,
+    createdAt: row.created_at,
+  };
 }
 
-function saveGoals(goals: Goal[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
+function toDbPayload(draft: Omit<Goal, "id" | "createdAt">) {
+  return {
+    name: draft.name,
+    metric: draft.metric,
+    target: draft.target,
+    start_date: draft.startDate,
+    end_date: draft.endDate,
+  };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -96,8 +104,6 @@ function fmtDate(iso: string): string {
   return `${d}/${m}`;
 }
 
-// ─── Empty form ───────────────────────────────────────────────────────────────
-
 function emptyDraft(): Omit<Goal, "id" | "createdAt"> {
   const today = new Date().toISOString().slice(0, 10);
   const end = new Date();
@@ -114,7 +120,9 @@ function emptyDraft(): Omit<Goal, "id" | "createdAt"> {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export function MetasPage() {
-  const [goals, setGoals] = useState<Goal[]>(loadGoals);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [loadingGoals, setLoadingGoals] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [allPosts, setAllPosts] = useState<RawPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [usdBrl, setUsdBrl] = useState<number | null>(null);
@@ -122,7 +130,26 @@ export function MetasPage() {
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [draft, setDraft] = useState<Omit<Goal, "id" | "createdAt">>(emptyDraft);
 
-  // Fetch all posts (for progress calculation)
+  // Load goals from Supabase
+  useEffect(() => {
+    const fetchGoals = async () => {
+      const { data, error } = await (supabase as any)
+        .from("goals")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (!error && data) setGoals((data as any[]).map(mapGoal));
+      setLoadingGoals(false);
+    };
+    fetchGoals();
+
+    // Real-time sync across devices
+    const channel = supabase.channel("goals-sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "goals" }, fetchGoals)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  // Fetch posts for progress calculation
   useEffect(() => {
     const fetchPosts = async () => {
       const PAGE = 1000;
@@ -169,12 +196,10 @@ export function MetasPage() {
       const pct = Math.min((current / Math.max(goal.target, 0.0001)) * 100, 100);
       const status = goalStatus(pct, goal.endDate);
       const days = daysLeft(goal.endDate);
-
       return { ...goal, current, pct, status, daysLeft: days };
     });
   }, [goals, allPosts]);
 
-  // Sort: active first, then completed, then expired
   const sorted = useMemo(() => {
     const order = { active: 0, completed: 1, expired: 2 };
     return [...goalProgress].sort((a, b) => order[a.status] - order[b.status] || new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
@@ -184,33 +209,30 @@ export function MetasPage() {
   const completed = sorted.filter((g) => g.status === "completed");
   const expired = sorted.filter((g) => g.status === "expired");
 
-  // Form handlers
-  const openCreate = () => {
-    setDraft(emptyDraft());
-    setEditingGoal(null);
-    setShowForm(true);
-  };
-
+  const openCreate = () => { setDraft(emptyDraft()); setEditingGoal(null); setShowForm(true); };
   const openEdit = (g: Goal) => {
     setDraft({ name: g.name, metric: g.metric, target: g.target, startDate: g.startDate, endDate: g.endDate });
     setEditingGoal(g);
     setShowForm(true);
   };
 
-  const saveForm = () => {
+  const saveForm = async () => {
     if (!draft.name.trim() || draft.target <= 0) return;
-    const updated = editingGoal
-      ? goals.map((g) => g.id === editingGoal.id ? { ...g, ...draft } : g)
-      : [...goals, { id: crypto.randomUUID(), createdAt: new Date().toISOString(), ...draft }];
-    setGoals(updated);
-    saveGoals(updated);
+    setSaving(true);
+    const payload = toDbPayload(draft);
+    if (editingGoal) {
+      await (supabase as any).from("goals").update(payload).eq("id", editingGoal.id);
+    } else {
+      await (supabase as any).from("goals").insert(payload);
+    }
+    // Real-time listener will update state; close form optimistically
+    setSaving(false);
     setShowForm(false);
   };
 
-  const deleteGoal = (id: string) => {
-    const updated = goals.filter((g) => g.id !== id);
-    setGoals(updated);
-    saveGoals(updated);
+  const deleteGoal = async (id: string) => {
+    setGoals((prev) => prev.filter((g) => g.id !== id));
+    await (supabase as any).from("goals").delete().eq("id", id);
   };
 
   return (
@@ -230,8 +252,17 @@ export function MetasPage() {
         </button>
       </div>
 
+      {/* Loading skeleton */}
+      {loadingGoals && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white border border-[#e8e0f5] rounded-2xl p-5 h-40 animate-pulse" />
+          ))}
+        </div>
+      )}
+
       {/* Empty state */}
-      {goals.length === 0 && (
+      {!loadingGoals && goals.length === 0 && (
         <div className="bg-white border border-[#e8e0f5] rounded-2xl p-16 text-center shadow-sm">
           <div className="h-12 w-12 rounded-2xl bg-[#f3e8ff] flex items-center justify-center mx-auto mb-4">
             <Target className="h-6 w-6 text-[#6200b3]" />
@@ -244,25 +275,24 @@ export function MetasPage() {
         </div>
       )}
 
-      {/* Active goals */}
-      {active.length > 0 && (
-        <Section title="Ativas" count={active.length}>
-          {active.map((g) => <GoalCard key={g.id} g={g} usdBrl={usdBrl} onEdit={() => openEdit(g)} onDelete={() => deleteGoal(g.id)} loading={loadingPosts} />)}
-        </Section>
-      )}
-
-      {/* Completed */}
-      {completed.length > 0 && (
-        <Section title="Concluídas" count={completed.length} muted>
-          {completed.map((g) => <GoalCard key={g.id} g={g} usdBrl={usdBrl} onEdit={() => openEdit(g)} onDelete={() => deleteGoal(g.id)} loading={loadingPosts} />)}
-        </Section>
-      )}
-
-      {/* Expired */}
-      {expired.length > 0 && (
-        <Section title="Expiradas" count={expired.length} muted>
-          {expired.map((g) => <GoalCard key={g.id} g={g} usdBrl={usdBrl} onEdit={() => openEdit(g)} onDelete={() => deleteGoal(g.id)} loading={loadingPosts} />)}
-        </Section>
+      {!loadingGoals && (
+        <>
+          {active.length > 0 && (
+            <Section title="Ativas" count={active.length}>
+              {active.map((g) => <GoalCard key={g.id} g={g} usdBrl={usdBrl} onEdit={() => openEdit(g)} onDelete={() => deleteGoal(g.id)} loading={loadingPosts} />)}
+            </Section>
+          )}
+          {completed.length > 0 && (
+            <Section title="Concluídas" count={completed.length} muted>
+              {completed.map((g) => <GoalCard key={g.id} g={g} usdBrl={usdBrl} onEdit={() => openEdit(g)} onDelete={() => deleteGoal(g.id)} loading={loadingPosts} />)}
+            </Section>
+          )}
+          {expired.length > 0 && (
+            <Section title="Expiradas" count={expired.length} muted>
+              {expired.map((g) => <GoalCard key={g.id} g={g} usdBrl={usdBrl} onEdit={() => openEdit(g)} onDelete={() => deleteGoal(g.id)} loading={loadingPosts} />)}
+            </Section>
+          )}
+        </>
       )}
 
       {/* Form Dialog */}
@@ -272,7 +302,6 @@ export function MetasPage() {
             <DialogTitle>{editingGoal ? "Editar Meta" : "Nova Meta"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-1">
-            {/* Name */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-[#7c6f8e] uppercase tracking-wider">Nome da meta</label>
               <input
@@ -284,7 +313,6 @@ export function MetasPage() {
               />
             </div>
 
-            {/* Metric */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-[#7c6f8e] uppercase tracking-wider">Métrica</label>
               <div className="grid grid-cols-2 gap-2">
@@ -308,7 +336,6 @@ export function MetasPage() {
               </div>
             </div>
 
-            {/* Target */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-[#7c6f8e] uppercase tracking-wider">
                 Meta — {METRIC_CONFIG[draft.metric].label}
@@ -323,7 +350,6 @@ export function MetasPage() {
               />
             </div>
 
-            {/* Dates */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-[#7c6f8e] uppercase tracking-wider">Início</label>
@@ -346,7 +372,6 @@ export function MetasPage() {
               </div>
             </div>
 
-            {/* Actions */}
             <div className="flex gap-2 pt-1">
               <button
                 onClick={() => setShowForm(false)}
@@ -356,10 +381,10 @@ export function MetasPage() {
               </button>
               <button
                 onClick={saveForm}
-                disabled={!draft.name.trim() || draft.target <= 0}
+                disabled={!draft.name.trim() || draft.target <= 0 || saving}
                 className="flex-1 h-9 rounded-xl bg-[#6200b3] text-white text-sm font-medium hover:bg-[#4a0090] transition-colors disabled:opacity-40"
               >
-                {editingGoal ? "Salvar" : "Criar meta"}
+                {saving ? "Salvando…" : editingGoal ? "Salvar" : "Criar meta"}
               </button>
             </div>
           </div>
@@ -414,7 +439,6 @@ function GoalCard({ g, usdBrl, onEdit, onDelete, loading }: {
 
   return (
     <div className={`bg-white border rounded-2xl p-5 shadow-sm flex flex-col gap-4 ${isCompleted ? "border-emerald-200" : isExpired ? "border-red-100" : "border-[#e8e0f5]"}`}>
-      {/* Top row */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${isCompleted ? "bg-emerald-50" : "bg-[#f3e8ff]"}`}>
@@ -435,7 +459,6 @@ function GoalCard({ g, usdBrl, onEdit, onDelete, loading }: {
         </div>
       </div>
 
-      {/* Progress */}
       <div className="space-y-2">
         <div className="flex items-end justify-between gap-2">
           <div>
@@ -455,7 +478,6 @@ function GoalCard({ g, usdBrl, onEdit, onDelete, loading }: {
           </div>
         </div>
 
-        {/* Bar */}
         <div className="h-2 bg-[#f3e8ff] rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${barColor}`}
@@ -463,7 +485,6 @@ function GoalCard({ g, usdBrl, onEdit, onDelete, loading }: {
           />
         </div>
 
-        {/* Status badge */}
         <div className="flex justify-between items-center">
           {statusBadge}
           {!isCompleted && !isExpired && g.metric === "receita" && usdBrl && g.current < g.target && (
