@@ -1126,7 +1126,10 @@ function AdminDashboard() {
                         />
                         <Legend
                           formatter={(value) => {
-                            if (value === "__actual") return "Real Recebido";
+                            if (value === "__actual") {
+                              const totalActual = Array.from(dailyActualByDia.values()).reduce((s, v) => s + v, 0);
+                              return `Real Recebido (${fmtMetricVal(totalActual)})`;
+                            }
                             const name = activeDataset.pageNameById.get(value) ?? value.slice(0, 16);
                             const total = activeDataset.pageTotal.get(value) ?? 0;
                             return `${name} (${fmtMetricVal(total)})`;
