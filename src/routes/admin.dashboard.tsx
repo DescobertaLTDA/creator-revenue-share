@@ -1090,7 +1090,7 @@ function AdminDashboard() {
                   <ResponsiveContainer width="100%" height="100%">
                     {filterPage === "all" && activeDataset && activeDataset.data.length > 0 ? (
                       <AreaChart
-                        data={chartMetric === "receita" && dailyActualByDia.size > 0
+                        data={chartMetric === "receita"
                           ? activeDataset.data.map((row) => ({ ...row, __actual: dailyActualByDia.get(row.dia) ?? null }))
                           : activeDataset.data}
                         margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
@@ -1115,6 +1115,7 @@ function AdminDashboard() {
                         />
                         <Legend
                           formatter={(value) => {
+                            if (value === "__actual") return "Real Recebido";
                             const name = activeDataset.pageNameById.get(value) ?? value.slice(0, 16);
                             const total = activeDataset.pageTotal.get(value) ?? 0;
                             return `${name} (${fmtMetricVal(total)})`;
@@ -1135,24 +1136,23 @@ function AdminDashboard() {
                             connectNulls
                           />
                         ))}
-                        {chartMetric === "receita" && dailyActualByDia.size > 0 && (
+                        {chartMetric === "receita" && (
                           <Line
                             type="monotone"
                             dataKey="__actual"
                             name="Real Recebido"
-                            stroke="#f59e0b"
-                            strokeWidth={2}
-                            strokeDasharray="5 3"
+                            stroke="#16a34a"
+                            strokeWidth={2.5}
+                            strokeDasharray="6 3"
                             dot={false}
                             connectNulls={false}
+                            legendType="plainline"
                           />
                         )}
                       </AreaChart>
                     ) : filterPage !== "all" && chartMetric === "receita" ? (
                       <AreaChart
-                        data={dailyActualByDia.size > 0
-                          ? projectionChartData.map((row) => ({ ...row, actual: dailyActualByDia.get(row.dia) ?? null }))
-                          : projectionChartData}
+                        data={projectionChartData.map((row) => ({ ...row, actual: dailyActualByDia.get(row.dia) ?? null }))}
                         margin={{ top: 4, right: 0, left: 0, bottom: 0 }}
                       >
                         <defs>
@@ -1174,9 +1174,7 @@ function AdminDashboard() {
                         />
                         <Area type="monotone" dataKey="real" stroke="#6200b3" strokeWidth={2} fill="url(#gradReal)" dot={false} connectNulls={false} name="CSV" />
                         <Area type="monotone" dataKey="proj" stroke="#ea7af4" strokeWidth={1.5} strokeDasharray="4 3" fill="url(#gradProj)" dot={false} connectNulls={false} name="Projeção" />
-                        {dailyActualByDia.size > 0 && (
-                          <Line type="monotone" dataKey="actual" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls={false} name="Real Recebido" />
-                        )}
+                        <Line type="monotone" dataKey="actual" stroke="#16a34a" strokeWidth={2.5} strokeDasharray="6 3" dot={false} connectNulls={false} name="Real Recebido" legendType="plainline" />
                       </AreaChart>
                     ) : singlePageMetricData && singlePageMetricData.length > 0 ? (
                       <AreaChart data={singlePageMetricData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
