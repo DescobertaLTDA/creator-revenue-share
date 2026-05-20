@@ -243,8 +243,12 @@ function ControlsPanel({
   avgViews: number; setAvgViews: (v: number) => void;
   rpm: number; setRpm: (v: number) => void;
 }) {
+  const dailyRev  = postsPerDay * (avgViews / 1_000) * rpm;
+  const weeklyRev = dailyRev * 7;
+  const monthlyRev = dailyRev * 30;
+
   return (
-    <div className="bg-white rounded-2xl border border-border p-5 space-y-4 lg:sticky lg:top-4">
+    <div className="bg-white rounded-2xl border border-border p-5 space-y-5 lg:sticky lg:top-4">
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Parâmetros</p>
 
       {/* 3-col input grid */}
@@ -272,6 +276,22 @@ function ControlsPanel({
         />
       </div>
 
+      {/* Quick estimates */}
+      <div className="border-t border-border pt-4 space-y-1.5">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Estimativa rápida</p>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: "Por dia",  value: dailyRev },
+            { label: "Por semana", value: weeklyRev },
+            { label: "Por mês",  value: monthlyRev },
+          ].map(({ label, value }) => (
+            <div key={label} className="bg-[#F9F8FF] rounded-xl p-3 text-center">
+              <p className="text-[10px] text-muted-foreground font-medium mb-1">{label}</p>
+              <p className="text-sm font-black text-foreground">{fmtUSD(value)}</p>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
