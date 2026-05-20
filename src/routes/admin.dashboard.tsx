@@ -553,28 +553,32 @@ function AdminDashboard() {
       ps.engagementRate = ps.views > 0 ? (ps.reactions + ps.comments + ps.shares) / ps.views : 0;
     }
 
-    // Daily revenue corrections
-    const filteredDaily = dailyEntries.filter(
-      (e) => e.actual_revenue_usd !== null &&
-        (!filterFrom || e.entry_date >= filterFrom) &&
-        (!filterTo || e.entry_date <= filterTo)
-    );
+    // Daily revenue corrections — only meaningful at the account level (all pages).
+    // daily_revenue_entries stores total account revenue, not per-page, so when a
+    // specific page is selected the correction would be nonsensical.
     let totalDailyBonus = 0;
-    for (const entry of filteredDaily) {
-      const actual = Number(entry.actual_revenue_usd);
-      const postsRevForDay = byDay[entry.entry_date]?.receita ?? 0;
-      const correction = actual - postsRevForDay;
-      totalDailyBonus += correction;
-      const bonusMonth = entry.entry_date.slice(0, 7);
-      byMonth[bonusMonth] = (byMonth[bonusMonth] ?? 0) + correction;
-      if (byDay[entry.entry_date]) {
-        byDay[entry.entry_date].receita += correction;
-      } else if (actual > 0) {
-        const [, mo, d] = entry.entry_date.split("-");
-        byDay[entry.entry_date] = { dia: `${d}/${mo}`, posts: 0, views: 0, alcance: 0, reacoes: 0, receita: actual };
+    if (filterPage === "all") {
+      const filteredDaily = dailyEntries.filter(
+        (e) => e.actual_revenue_usd !== null &&
+          (!filterFrom || e.entry_date >= filterFrom) &&
+          (!filterTo || e.entry_date <= filterTo)
+      );
+      for (const entry of filteredDaily) {
+        const actual = Number(entry.actual_revenue_usd);
+        const postsRevForDay = byDay[entry.entry_date]?.receita ?? 0;
+        const correction = actual - postsRevForDay;
+        totalDailyBonus += correction;
+        const bonusMonth = entry.entry_date.slice(0, 7);
+        byMonth[bonusMonth] = (byMonth[bonusMonth] ?? 0) + correction;
+        if (byDay[entry.entry_date]) {
+          byDay[entry.entry_date].receita += correction;
+        } else if (actual > 0) {
+          const [, mo, d] = entry.entry_date.split("-");
+          byDay[entry.entry_date] = { dia: `${d}/${mo}`, posts: 0, views: 0, alcance: 0, reacoes: 0, receita: actual };
+        }
       }
+      geralUsd += totalDailyBonus;
     }
-    geralUsd += totalDailyBonus;
 
     const filteredBonuses = manualBonuses.filter((bonus) => {
       if (!bonus.active) return false;
