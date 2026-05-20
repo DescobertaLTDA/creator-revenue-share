@@ -123,35 +123,22 @@ function BonusManualPage() {
   const [colabDist, setColabDist] = useState<ColabDist[]>([]);
   const [distLoading, setDistLoading] = useState(false);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  // BRL input map: stores what user typed (BRL string) per day to avoid conversion-while-typing issues
-  const [brlInputs, setBrlInputs] = useState<Record<string, string>>({});
-  const [usdBrl, setUsdBrl] = useState<number>(5.0);
-
-  useEffect(() => {
-    fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL")
-      .then((r) => r.json())
-      .then((d) => setUsdBrl(parseFloat(d.USDBRL.bid)))
-      .catch(() => {});
-  }, []);
 
   const buildRows = useCallback(
     (
       days: string[],
       postsByDay: Record<string, number>,
-      dbEntries: Record<string, { id: string; actual_revenue_usd: number | null; distribution_mode: string; note: string | null }>,
-      rate: number,
+      dbEntries: Record<string, { id: string; actual_revenue_usd: number | null; distribution_mode: string; note: string | null }>
     ): DayEntry[] => {
       return days.map((date) => {
         const d = new Date(date + "T00:00:00");
         const db = dbEntries[date];
-        // Store BRL in state: posts_revenue (USD from CSV) × rate, actual_revenue (USD from DB) × rate
-        const actualUsd = db?.actual_revenue_usd ?? null;
         return {
           date,
           label: `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`,
           weekday: WEEKDAYS_SHORT[d.getDay()],
-          posts_revenue: (postsByDay[date] ?? 0) * rate,
-          actual_revenue: actualUsd != null ? actualUsd * rate : null,
+          posts_revenue: postsByDay[date] ?? 0,
+          actual_revenue: db?.actual_revenue_usd ?? null,
           distribution_mode: db?.distribution_mode ?? "hybrid",
           note: db?.note ?? "",
           id: db?.id ?? null,
@@ -164,7 +151,7 @@ function BonusManualPage() {
     []
   );
 
-  const load = useCallback(async (ref: string, rate: number) => {
+  const load = useCallback(async (ref: string) => {
     setLoading(true);
     const days = daysInMonth(ref);
     const from = days[0];
@@ -193,8 +180,7 @@ function BonusManualPage() {
     const dbEntries: Record<string, any> = {};
     for (const e of (dbData ?? []) as any[]) dbEntries[e.entry_date] = e;
 
-    setBrlInputs({});
-    setRows(buildRows(days, postsByDay, dbEntries, rate));
+    setRows(buildRows(days, postsByDay, dbEntries));
     setLoading(false);
   }, [buildRows]);
 
@@ -207,9 +193,9 @@ function BonusManualPage() {
   }, []);
 
   useEffect(() => {
-    load(monthRef, usdBrl);
+    load(monthRef);
     loadDist(monthRef);
-  }, [monthRef, usdBrl, load, loadDist]);
+  }, [monthRef, load, loadDist]);
 
   const updateRow = (date: string, field: keyof DayEntry, value: unknown) => {
     setRows((prev) =>
@@ -219,11 +205,9 @@ function BonusManualPage() {
 
   const saveRow = async (row: DayEntry) => {
     setRows((prev) => prev.map((r) => r.date === row.date ? { ...r, saving: true } : r));
-    // State holds BRL; convert back to USD for storage
-    const actualUsd = row.actual_revenue != null ? row.actual_revenue / usdBrl : null;
     const payload = {
       entry_date: row.date,
-      actual_revenue_usd: actualUsd,
+      actual_revenue_usd: row.actual_revenue,
       distribution_mode: row.distribution_mode,
       note: row.note.trim() || null,
       updated_at: new Date().toISOString(),
@@ -248,10 +232,8 @@ function BonusManualPage() {
   };
 
   const handleActualChange = (row: DayEntry, raw: string) => {
-    // Keep raw BRL string for smooth typing; store BRL directly in row.actual_revenue
-    setBrlInputs((prev) => ({ ...prev, [row.date]: raw }));
-    const brl = raw === "" ? null : parseFloat(raw.replace(",", "."));
-    updateRow(row.date, "actual_revenue", Number.isFinite(brl) ? brl : null);
+    const val = raw === "" ? null : parseFloat(raw);
+    updateRow(row.date, "actual_revenue", Number.isFinite(val) ? val : null);
     clearTimeout(saveTimers.current[row.date]);
     saveTimers.current[row.date] = setTimeout(() => {
       setRows((prev) => {
@@ -307,19 +289,19 @@ function BonusManualPage() {
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Posts (R$)</p>
-          <p className="text-xl font-bold mt-1">R$ {totalPosts.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Posts (USD)</p>
+          <p className="text-xl font-bold mt-1">${totalPosts.toFixed(2)}</p>
           <p className="text-xs text-muted-foreground mt-0.5">calculado do CSV</p>
         </div>
         <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Real recebido (R$)</p>
-          <p className="text-xl font-bold mt-1">R$ {totalActual.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Real recebido (USD)</p>
+          <p className="text-xl font-bold mt-1">${totalActual.toFixed(2)}</p>
           <p className="text-xs text-muted-foreground mt-0.5">{filledDays} dias preenchidos</p>
         </div>
         <div className={`bg-card border rounded-lg p-4 ${totalBonus > 0 ? "border-[#16a34a]/30" : totalBonus < 0 ? "border-destructive/30" : "border-border"}`}>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Diferença (R$)</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Diferença (USD)</p>
           <p className={`text-xl font-bold mt-1 ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
-            {totalBonus >= 0 ? "+" : ""}R$ {totalBonus.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {totalBonus >= 0 ? "+" : ""}${totalBonus.toFixed(2)}
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">real − posts</p>
         </div>
@@ -365,18 +347,15 @@ function BonusManualPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Real recebido (R$)</p>
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-muted-foreground shrink-0">R$</span>
-                          <input
-                            type="number" min="0" step="0.01" disabled={isFuture}
-                            placeholder="0,00"
-                            value={brlInputs[row.date] ?? (row.actual_revenue != null ? row.actual_revenue.toFixed(2) : "")}
-                            onChange={(e) => handleActualChange(row, e.target.value)}
-                            onBlur={() => { setBrlInputs((p) => { const n = { ...p }; delete n[row.date]; return n; }); handleFieldBlur(row); }}
-                            className="flex-1 h-10 rounded-lg border border-input bg-background px-3 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-30"
-                          />
-                        </div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Real recebido (USD)</p>
+                        <input
+                          type="number" min="0" step="0.01" disabled={isFuture}
+                          placeholder="0.00"
+                          value={row.actual_revenue ?? ""}
+                          onChange={(e) => handleActualChange(row, e.target.value)}
+                          onBlur={() => handleFieldBlur(row)}
+                          className="w-full h-10 rounded-lg border border-input bg-background px-3 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-30"
+                        />
                       </div>
                       {bonus != null && (
                         <div className="shrink-0 text-right">
@@ -403,8 +382,8 @@ function BonusManualPage() {
               <div className="px-4 py-3 bg-muted/30 flex items-center justify-between font-semibold text-sm">
                 <span>Total</span>
                 <div className="text-right">
-                  <p>R$ {totalActual.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                  <p className="text-xs text-muted-foreground font-normal">posts: R$ {totalPosts.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p>${totalActual.toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground font-normal">posts: ${totalPosts.toFixed(2)}</p>
                 </div>
               </div>
             </div>
@@ -415,8 +394,8 @@ function BonusManualPage() {
                 <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                   <tr>
                     <th className="text-left px-4 py-3 font-medium w-24">Dia</th>
-                    <th className="text-right px-4 py-3 font-medium">Posts (R$)</th>
-                    <th className="text-right px-4 py-3 font-medium">Real recebido (R$)</th>
+                    <th className="text-right px-4 py-3 font-medium">Posts (USD)</th>
+                    <th className="text-right px-4 py-3 font-medium">Real recebido (USD)</th>
                     <th className="w-8 px-4 py-3" />
                   </tr>
                 </thead>
@@ -432,22 +411,17 @@ function BonusManualPage() {
                           <span className="text-[10px] text-muted-foreground ml-1.5">{row.weekday}</span>
                         </td>
                         <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
-                          {row.posts_revenue > 0
-                            ? `R$ ${row.posts_revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                            : <span className="text-muted-foreground/40">—</span>}
+                          {row.posts_revenue > 0 ? `$${row.posts_revenue.toFixed(2)}` : <span className="text-muted-foreground/40">—</span>}
                         </td>
                         <td className="px-4 py-2.5 text-right">
-                          <div className="inline-flex items-center gap-1">
-                            <span className="text-xs text-muted-foreground">R$</span>
-                            <input
-                              type="number" min="0" step="0.01" disabled={isFuture}
-                              placeholder="0,00"
-                              value={brlInputs[row.date] ?? (row.actual_revenue != null ? row.actual_revenue.toFixed(2) : "")}
-                              onChange={(e) => handleActualChange(row, e.target.value)}
-                              onBlur={() => { setBrlInputs((p) => { const n = { ...p }; delete n[row.date]; return n; }); handleFieldBlur(row); }}
-                              className="w-24 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
-                            />
-                          </div>
+                          <input
+                            type="number" min="0" step="0.01" disabled={isFuture}
+                            placeholder="0.00"
+                            value={row.actual_revenue ?? ""}
+                            onChange={(e) => handleActualChange(row, e.target.value)}
+                            onBlur={() => handleFieldBlur(row)}
+                            className="w-28 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
+                          />
                         </td>
                         <td className="px-2 py-2.5 w-8">
                           {row.saving ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
@@ -462,8 +436,8 @@ function BonusManualPage() {
                 <tfoot>
                   <tr className="border-t-2 border-border bg-muted/30 font-semibold text-sm">
                     <td className="px-4 py-3 text-muted-foreground">Total</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">R$ {totalPosts.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">R$ {totalActual.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">${totalPosts.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">${totalActual.toFixed(2)}</td>
                     <td />
                   </tr>
                 </tfoot>
