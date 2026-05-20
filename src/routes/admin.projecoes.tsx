@@ -65,7 +65,7 @@ export default function ProjecoesPage() {
   const [actualRevMonth, setActualRevMonth] = useState(0);
 
   // ── Simulator controls
-  const [postsPerWeek, setPostsPerWeek] = useState(5);
+  const [postsPerDay, setPostsPerDay]   = useState(1);
   const [avgViews, setAvgViews]         = useState(12_000);
   const [rhythm, setRhythm]             = useState<RhythmKey>("medium");
 
@@ -106,9 +106,9 @@ export default function ProjecoesPage() {
           ? (totalRev / totalViews) * 1000
           : 2.0;
 
-        // Avg posts per week in 30d window
+        // Avg posts per day in 30d window
         const postCount = data.length;
-        const estimatedPostsPerWeek = Math.max(1, Math.round((postCount / 30) * 7));
+        const estimatedPostsPerDay = Math.max(1, Math.round(postCount / 30));
 
         // Avg views per post
         const avgViewsCalc = postCount > 0
@@ -116,7 +116,7 @@ export default function ProjecoesPage() {
           : 10_000;
 
         setRpm(calcRpm);
-        setPostsPerWeek(clamp(estimatedPostsPerWeek, 1, 30));
+        setPostsPerDay(clamp(estimatedPostsPerDay, 1, 10));
         setAvgViews(clamp(avgViewsCalc, 1_000, 500_000));
 
         // Actual this-month revenue
@@ -132,7 +132,7 @@ export default function ProjecoesPage() {
   // ── Projection math
   const projection = useMemo(() => {
     const rhythmMult  = RHYTHMS.find(r => r.key === rhythm)?.mult ?? 1.0;
-    const dailyRev    = (postsPerWeek / 7) * (avgViews / 1_000) * rpm * rhythmMult;
+    const dailyRev    = postsPerDay * (avgViews / 1_000) * rpm * rhythmMult;
     const totalDays   = daysInCurrentMonth();
     const elapsed     = daysElapsedInMonth();
     const daysLeft    = totalDays - elapsed;
@@ -150,12 +150,12 @@ export default function ProjecoesPage() {
       }
     });
 
-    // Uplift: +1 post/week
-    const upliftDailyRev = ((postsPerWeek + 1) / 7) * (avgViews / 1_000) * rpm * rhythmMult;
+    // Uplift: +1 post/day
+    const upliftDailyRev = (postsPerDay + 1) * (avgViews / 1_000) * rpm * rhythmMult;
     const upliftExtra = (upliftDailyRev - dailyRev) * daysLeft * brlRate;
 
     return { dailyRev, projectedRev, totalRev, progress, chartData, daysLeft, upliftExtra };
-  }, [postsPerWeek, avgViews, rhythm, rpm, actualRevMonth, brlRate]);
+  }, [postsPerDay, avgViews, rhythm, rpm, actualRevMonth, brlRate]);
 
   return (
     <div className="space-y-4">
@@ -176,13 +176,14 @@ export default function ProjecoesPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-5 items-start">
           {/* ── Left: Controls ── */}
           <ControlsPanel
-            postsPerWeek={postsPerWeek}
-            setPostsPerWeek={setPostsPerWeek}
+            postsPerDay={postsPerDay}
+            setPostsPerDay={setPostsPerDay}
             avgViews={avgViews}
             setAvgViews={setAvgViews}
             rhythm={rhythm}
             setRhythm={setRhythm}
             rpm={rpm}
+            setRpm={setRpm}
           />
 
           {/* ── Right: Result + Chart ── */}
@@ -197,7 +198,7 @@ export default function ProjecoesPage() {
             />
             <SimpleChart chartData={projection.chartData} totalRev={projection.totalRev} />
             {projection.upliftExtra > 0 && (
-              <UpliftTip upliftExtra={projection.upliftExtra} onTry={() => setPostsPerWeek(p => Math.min(p + 1, 30))} />
+              <UpliftTip upliftExtra={projection.upliftExtra} onTry={() => setPostsPerDay(Math.min(postsPerDay + 1, 10))} />
             )}
           </div>
         </div>
@@ -253,23 +254,23 @@ function PageDropdown({ pages, value, onChange }: { pages: PageRow[]; value: str
 // ─── ControlsPanel ──────────────────────────────────────────────────────────────
 
 function ControlsPanel({
-  postsPerWeek, setPostsPerWeek,
+  postsPerDay, setPostsPerDay,
   avgViews, setAvgViews,
   rhythm, setRhythm,
-  rpm,
+  rpm, setRpm,
 }: {
-  postsPerWeek: number; setPostsPerWeek: (v: number) => void;
+  postsPerDay: number; setPostsPerDay: (v: number) => void;
   avgViews: number; setAvgViews: (v: number) => void;
   rhythm: RhythmKey; setRhythm: (v: RhythmKey) => void;
-  rpm: number;
+  rpm: number; setRpm: (v: number) => void;
 }) {
   const tip = useMemo(() => {
-    if (postsPerWeek <= 2) return "Postar com mais frequência pode aumentar seu alcance!";
-    if (postsPerWeek >= 14) return "Qualidade supera quantidade — mantenha o nível!";
+    if (postsPerDay === 0) return "Tente postar pelo menos 1 vez por dia!";
+    if (postsPerDay >= 5) return "Qualidade supera quantidade — mantenha o nível!";
     if (avgViews < 5_000) return "Conteúdo com boas thumbnails costuma ter mais views.";
     if (rhythm === "fast") return "Ritmo alto pode dar um salto — continue assim!";
     return "Você está indo bem. Simule um ritmo mais alto!";
-  }, [postsPerWeek, avgViews, rhythm]);
+  }, [postsPerDay, avgViews, rhythm]);
 
   return (
     <div className="bg-white rounded-2xl border border-border p-5 space-y-6 lg:sticky lg:top-6">
@@ -278,21 +279,21 @@ function ControlsPanel({
         <p className="text-sm text-muted-foreground mt-0.5">Mexa nos controles e veja o resultado ao lado</p>
       </div>
 
-      {/* Posts per week */}
+      {/* Posts per day */}
       <div className="space-y-3">
-        <label className="block text-sm font-semibold text-foreground">Posts por semana</label>
+        <label className="block text-sm font-semibold text-foreground">Posts por dia</label>
         <div className="flex items-center gap-4">
-          <StepButton onClick={() => setPostsPerWeek(Math.max(1, postsPerWeek - 1))}>−</StepButton>
+          <StepButton onClick={() => setPostsPerDay(Math.max(0, postsPerDay - 1))}>−</StepButton>
           <span className="flex-1 text-center text-3xl font-black text-[#6D4AFF]">
-            {postsPerWeek} <span className="text-base font-semibold text-muted-foreground">posts</span>
+            {postsPerDay} <span className="text-base font-semibold text-muted-foreground">posts</span>
           </span>
-          <StepButton onClick={() => setPostsPerWeek(Math.min(30, postsPerWeek + 1))}>+</StepButton>
+          <StepButton onClick={() => setPostsPerDay(Math.min(10, postsPerDay + 1))}>+</StepButton>
         </div>
         <input
           type="range"
-          min={1} max={30} step={1}
-          value={postsPerWeek}
-          onChange={e => setPostsPerWeek(Number(e.target.value))}
+          min={0} max={10} step={1}
+          value={postsPerDay}
+          onChange={e => setPostsPerDay(Number(e.target.value))}
           className="w-full accent-[#6D4AFF] h-2 rounded-full"
         />
         <p className="text-xs text-muted-foreground">Mais posts podem aumentar seu alcance</p>
@@ -315,9 +316,27 @@ function ControlsPanel({
           onChange={e => setAvgViews(Number(e.target.value))}
           className="w-full accent-[#6D4AFF] h-2 rounded-full"
         />
-        <p className="text-xs text-muted-foreground">
-          RPM estimado: <strong>${rpm.toFixed(2)}</strong> &nbsp;·&nbsp; Mais views geram mais receita
-        </p>
+        <p className="text-xs text-muted-foreground">Mais views geram mais receita</p>
+      </div>
+
+      {/* RPM */}
+      <div className="space-y-3">
+        <label className="block text-sm font-semibold text-foreground">RPM (receita por mil views)</label>
+        <div className="flex items-center gap-4">
+          <StepButton onClick={() => setRpm(Math.max(0.5, Math.round((rpm - 0.5) * 10) / 10))}>−</StepButton>
+          <span className="flex-1 text-center text-3xl font-black text-[#6D4AFF]">
+            ${rpm.toFixed(2)}
+          </span>
+          <StepButton onClick={() => setRpm(Math.min(20, Math.round((rpm + 0.5) * 10) / 10))}>+</StepButton>
+        </div>
+        <input
+          type="range"
+          min={0.5} max={20} step={0.5}
+          value={rpm}
+          onChange={e => setRpm(Number(e.target.value))}
+          className="w-full accent-[#6D4AFF] h-2 rounded-full"
+        />
+        <p className="text-xs text-muted-foreground">Estimado dos seus dados — ajuste se necessário</p>
       </div>
 
       {/* Rhythm */}
@@ -518,7 +537,7 @@ function UpliftTip({ upliftExtra, onTry }: { upliftExtra: number; onTry: () => v
         <span className="text-2xl mt-0.5">🚀</span>
         <div>
           <p className="text-sm font-bold text-[#92400E]">
-            +1 post/semana = +{fmtBRL(upliftExtra)} este mês
+            +1 post/dia = +{fmtBRL(upliftExtra)} este mês
           </p>
           <p className="text-xs text-[#B45309] mt-0.5">
             Pequenos ajustes fazem grande diferença no final do mês.
