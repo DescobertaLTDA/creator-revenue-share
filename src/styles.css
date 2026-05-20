@@ -54,29 +54,29 @@
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.75rem;
 
-  --background: #ffffff;
-  --foreground: #0a0a0a;
+  --background: #f8f7ff;
+  --foreground: #1a0533;
   --card: #ffffff;
-  --card-foreground: #0a0a0a;
+  --card-foreground: #1a0533;
   --popover: #ffffff;
-  --popover-foreground: #0a0a0a;
+  --popover-foreground: #1a0533;
 
-  --primary: #09090b;
-  --primary-foreground: #fafafa;
-  --primary-soft: #f4f4f5;
+  --primary: #6200b3;
+  --primary-foreground: #ffffff;
+  --primary-soft: #f3e8ff;
 
-  --secondary: #f4f4f5;
-  --secondary-foreground: #09090b;
+  --secondary: #f3e8ff;
+  --secondary-foreground: #6200b3;
 
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
+  --muted: #f3f0f8;
+  --muted-foreground: #7c6f8e;
 
-  --accent: #f4f4f5;
-  --accent-foreground: #09090b;
+  --accent: #ea7af4;
+  --accent-foreground: #ffffff;
 
-  --destructive: #dc2626;
+  --destructive: #e11d48;
   --destructive-foreground: #ffffff;
 
   --success: #16a34a;
@@ -85,26 +85,26 @@
   --warning: #d97706;
   --warning-foreground: #ffffff;
 
-  --border: #e4e4e7;
-  --input: #e4e4e7;
-  --ring: #09090b;
+  --border: #e8e0f5;
+  --input: #e8e0f5;
+  --ring: #6200b3;
 
-  /* Charts: fintech B&W */
-  --chart-1: #09090b;
-  --chart-2: #52525b;
-  --chart-3: #a1a1aa;
-  --chart-4: #d4d4d8;
-  --chart-5: #f4f4f5;
+  /* Charts: purple palette */
+  --chart-1: #6200b3;
+  --chart-2: #b43e8f;
+  --chart-3: #ea7af4;
+  --chart-4: #c4b5fd;
+  --chart-5: #f3e8ff;
 
-  /* Sidebar preta */
-  --sidebar: #09090b;
-  --sidebar-foreground: #fafafa;
-  --sidebar-primary: #ffffff;
-  --sidebar-primary-foreground: #09090b;
-  --sidebar-accent: #18181b;
-  --sidebar-accent-foreground: #fafafa;
-  --sidebar-border: #27272a;
-  --sidebar-ring: #ffffff;
+  /* Sidebar: Midnight Violet */
+  --sidebar: #290628;
+  --sidebar-foreground: #f3e8ff;
+  --sidebar-primary: #ea7af4;
+  --sidebar-primary-foreground: #290628;
+  --sidebar-accent: #3b0086;
+  --sidebar-accent-foreground: #f3e8ff;
+  --sidebar-border: #3d0a40;
+  --sidebar-ring: #ea7af4;
 }
 
 @layer base {

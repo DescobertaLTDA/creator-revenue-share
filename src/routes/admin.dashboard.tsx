@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useMemo, lazy, Suspense, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { StatusBadge } from "@/components/app/StatusBadge";
@@ -228,7 +228,7 @@ function saveGoals(g: Goals) {
 // ─── Sparkline component ──────────────────────────────────────────────────────
 
 function MiniSparkline({ data }: { data: number[] }) {
-  if (data.length < 2) return <span className="text-xs text-zinc-400">—</span>;
+  if (data.length < 2) return <span className="text-xs text-[#9d8fb0]">—</span>;
   const max = Math.max(...data, 1);
   const w = 48; const h = 20;
   const pts = data.map((v, i) => {
@@ -256,19 +256,19 @@ function GoalBar({ label, current, target, formatVal }: {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-sm">
-        <span className="text-zinc-600">{label}</span>
+        <span className="text-[#4a3560]">{label}</span>
         <span className="tabular-nums font-medium">
           {formatVal(current)}
-          <span className="text-zinc-400 font-normal"> / {formatVal(target)}</span>
+          <span className="text-[#9d8fb0] font-normal"> / {formatVal(target)}</span>
         </span>
       </div>
-      <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-[#f3e8ff] rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all ${ok ? "bg-emerald-500" : "bg-zinc-900"}`}
+          className={`h-full rounded-full transition-all ${ok ? "bg-emerald-500" : "bg-gradient-to-r from-[#6200b3] to-[#b43e8f]"}`}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <p className="text-xs text-zinc-400">{pct.toFixed(0)}% da meta</p>
+      <p className="text-xs text-[#9d8fb0]">{pct.toFixed(0)}% da meta</p>
     </div>
   );
 }
@@ -759,24 +759,24 @@ function AdminDashboard() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">
+          <p className="text-sm text-[#7c6f8e] mt-0.5">
             {activeMonthRef ? formatMonth(activeMonthRef) : "—"}
-            {usdBrl && <span className="ml-2 text-zinc-400">· USD 1 = {formatBRL(usdBrl)}</span>}
+            {usdBrl && <span className="ml-2 text-[#9d8fb0]">· USD 1 = {formatBRL(usdBrl)}</span>}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-zinc-200 overflow-hidden text-sm">
+          <div className="flex rounded-lg border border-[#e8e0f5] overflow-hidden text-sm">
             <button onClick={() => setActiveTab("overview")}
-              className={`px-3 py-1.5 font-medium transition-colors ${activeTab === "overview" ? "bg-zinc-900 text-white" : "text-zinc-500 hover:bg-zinc-50"}`}>
+              className={`px-3 py-1.5 font-medium transition-colors ${activeTab === "overview" ? "bg-[#6200b3] text-white" : "text-[#7c6f8e] hover:bg-[#f3e8ff]"}`}>
               Visão Geral
             </button>
             <button onClick={() => setActiveTab("charts")}
-              className={`px-3 py-1.5 font-medium transition-colors ${activeTab === "charts" ? "bg-zinc-900 text-white" : "text-zinc-500 hover:bg-zinc-50"}`}>
+              className={`px-3 py-1.5 font-medium transition-colors ${activeTab === "charts" ? "bg-[#6200b3] text-white" : "text-[#7c6f8e] hover:bg-[#f3e8ff]"}`}>
               Gráficos
             </button>
           </div>
           <button onClick={() => navigate({ to: "/admin/importacoes" })}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors">
+            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#6200b3] to-[#b43e8f] text-white text-sm font-medium rounded-xl hover:from-[#3b0086] hover:to-[#8f2d6f] transition-all shadow-sm hover:shadow-md">
             <Upload className="h-3.5 w-3.5" />
             Importar CSV
           </button>
@@ -784,38 +784,38 @@ function AdminDashboard() {
       </div>
 
       {/* ── Filtros ── */}
-      <div className="border border-zinc-200 rounded-xl px-4 py-3 bg-white">
+      <div className="border border-[#e8e0f5] rounded-xl px-4 py-3 bg-white">
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end">
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">Página</label>
+            <label className="text-[10px] font-medium uppercase tracking-wider text-[#9d8fb0]">Página</label>
             <select value={filterPage} onChange={(e) => setFilterPage(e.target.value)}
-              className="h-8 rounded-lg border border-zinc-200 bg-white px-2 text-sm w-full sm:min-w-[140px]">
+              className="h-8 rounded-lg border border-[#e8e0f5] bg-white px-2 text-sm w-full sm:min-w-[140px]">
               <option value="all">Todas as páginas</option>
               {pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">Colaborador</label>
+            <label className="text-[10px] font-medium uppercase tracking-wider text-[#9d8fb0]">Colaborador</label>
             <select value={filterColab} onChange={(e) => setFilterColab(e.target.value)}
-              className="h-8 rounded-lg border border-zinc-200 bg-white px-2 text-sm w-full sm:min-w-[160px]">
+              className="h-8 rounded-lg border border-[#e8e0f5] bg-white px-2 text-sm w-full sm:min-w-[160px]">
               <option value="all">Todos</option>
               <option value={SEM_COLAB_ID}>Sem colaborador</option>
               {colabs.map((c) => <option key={c.id} value={c.id}>{c.nome}{c.hashtag ? ` (#${c.hashtag})` : ""}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">De</label>
+            <label className="text-[10px] font-medium uppercase tracking-wider text-[#9d8fb0]">De</label>
             <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
-              className="h-8 rounded-lg border border-zinc-200 bg-white px-2 text-sm" />
+              className="h-8 rounded-lg border border-[#e8e0f5] bg-white px-2 text-sm" />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">Até</label>
+            <label className="text-[10px] font-medium uppercase tracking-wider text-[#9d8fb0]">Até</label>
             <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
-              className="h-8 rounded-lg border border-zinc-200 bg-white px-2 text-sm" />
+              className="h-8 rounded-lg border border-[#e8e0f5] bg-white px-2 text-sm" />
           </div>
           {(filterPage !== "all" || filterColab !== "all") && (
             <button onClick={() => { setFilterPage("all"); setFilterColab("all"); }}
-              className="h-8 px-3 rounded-lg text-xs text-zinc-500 border border-zinc-200 hover:bg-zinc-50 transition-colors">
+              className="h-8 px-3 rounded-lg text-xs text-[#7c6f8e] border border-[#e8e0f5] hover:bg-[#f3e8ff] transition-colors">
               Limpar
             </button>
           )}
@@ -823,7 +823,7 @@ function AdminDashboard() {
       </div>
 
       {activeTab === "charts" && !loading && chartData.length > 0 && (
-        <Suspense fallback={<div className="h-48 bg-zinc-100 rounded-xl animate-pulse" />}>
+        <Suspense fallback={<div className="h-48 bg-[#f3e8ff] rounded-xl animate-pulse" />}>
           <DashboardCharts data={chartData} />
         </Suspense>
       )}
@@ -858,25 +858,25 @@ function AdminDashboard() {
                 icon: TrendingUp,
               },
             ].map(({ label, value, sub, icon: Icon }) => (
-              <div key={label} className="bg-white border border-zinc-200 rounded-xl p-4">
+              <div key={label} className="bg-white border border-[#e8e0f5] rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider">{label}</p>
-                  <div className="h-7 w-7 rounded-lg bg-zinc-50 border border-zinc-100 flex items-center justify-center">
-                    <Icon className="h-3.5 w-3.5 text-zinc-500" />
+                  <p className="text-xs font-medium text-[#9d8fb0] uppercase tracking-wider">{label}</p>
+                  <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#f3e8ff] to-[#e8d5ff] flex items-center justify-center">
+                    <Icon className="h-4 w-4 text-[#6200b3]" />
                   </div>
                 </div>
-                <p className="text-2xl font-semibold tracking-tight tabular-nums">{value}</p>
-                {sub && <p className="text-xs text-zinc-400 mt-1">{sub}</p>}
+                <p className="text-2xl font-bold tracking-tight tabular-nums text-[#1a0533]">{value}</p>
+                {sub && <p className="text-xs text-[#9d8fb0] mt-1">{sub}</p>}
               </div>
             ))}
           </div>
 
           {/* ── Projeção de Ganhos ── */}
-          <div className="bg-white border border-zinc-200 rounded-xl p-5">
+          <div className="bg-white border border-[#e8e0f5] rounded-2xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-sm font-semibold">Projeção de Ganhos</h2>
-                <p className="text-xs text-zinc-400 mt-0.5">Baseado na média diária dos últimos 7 dias</p>
+                <p className="text-xs text-[#9d8fb0] mt-0.5">Baseado na média diária dos últimos 7 dias</p>
               </div>
             </div>
 
@@ -886,13 +886,13 @@ function AdminDashboard() {
                 { label: "Próximos 7 dias", value: projections.days7, accent: false },
                 { label: "Próximos 28 dias", value: projections.days28, accent: true },
               ].map(({ label, value, accent }, i) => (
-                <div key={i} className={`rounded-xl p-4 ${accent ? "bg-zinc-900 text-white" : "bg-zinc-50"}`}>
-                  <p className={`text-xs font-medium mb-1 ${accent ? "text-zinc-400" : "text-zinc-500"}`}>{label}</p>
-                  <p className={`text-xl font-semibold tabular-nums tracking-tight ${accent ? "text-white" : ""}`}>
+                <div key={i} className={`rounded-2xl p-4 ${accent ? "bg-gradient-to-br from-[#6200b3] to-[#3b0086] text-white shadow-md" : "bg-[#f8f5ff] border border-[#e8e0f5]"}`}>
+                  <p className={`text-xs font-medium mb-1 ${accent ? "text-purple-200" : "text-[#7c6f8e]"}`}>{label}</p>
+                  <p className={`text-xl font-bold tabular-nums tracking-tight ${accent ? "text-white" : "text-[#1a0533]"}`}>
                     {usdBrl ? formatBRL(value * usdBrl) : `$${value.toFixed(2)}`}
                   </p>
                   {usdBrl && (
-                    <p className={`text-xs mt-0.5 tabular-nums ${accent ? "text-zinc-400" : "text-zinc-400"}`}>
+                    <p className={`text-xs mt-0.5 tabular-nums ${accent ? "text-purple-300" : "text-[#9d8fb0]"}`}>
                       ${value.toFixed(2)} USD
                     </p>
                   )}
@@ -906,23 +906,23 @@ function AdminDashboard() {
                   <AreaChart data={projectionChartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="gradReal" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#09090b" stopOpacity={0.15} />
-                        <stop offset="95%" stopColor="#09090b" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#6200b3" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#6200b3" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="gradProj" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#a1a1aa" stopOpacity={0.15} />
-                        <stop offset="95%" stopColor="#a1a1aa" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#ea7af4" stopOpacity={0.15} />
+                        <stop offset="95%" stopColor="#ea7af4" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#a1a1aa" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
+                    <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9d8fb0" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
                     <YAxis hide />
                     <Tooltip
                       formatter={(v: any) => v !== null ? (usdBrl ? formatBRL(Number(v) * usdBrl) : `$${Number(v).toFixed(2)}`) : "—"}
-                      labelStyle={{ color: "#09090b", fontSize: 11 }}
-                      contentStyle={{ border: "1px solid #e4e4e7", borderRadius: 8, fontSize: 11 }}
+                      labelStyle={{ color: "#1a0533", fontSize: 11 }}
+                      contentStyle={{ border: "1px solid #e8e0f5", borderRadius: 10, fontSize: 11 }}
                     />
-                    <Area type="monotone" dataKey="real" stroke="#09090b" strokeWidth={2} fill="url(#gradReal)" dot={false} connectNulls={false} name="Real" />
-                    <Area type="monotone" dataKey="proj" stroke="#a1a1aa" strokeWidth={1.5} strokeDasharray="4 3" fill="url(#gradProj)" dot={false} connectNulls={false} name="Projeção" />
+                    <Area type="monotone" dataKey="real" stroke="#6200b3" strokeWidth={2} fill="url(#gradReal)" dot={false} connectNulls={false} name="Real" />
+                    <Area type="monotone" dataKey="proj" stroke="#ea7af4" strokeWidth={1.5} strokeDasharray="4 3" fill="url(#gradProj)" dot={false} connectNulls={false} name="Projeção" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -933,36 +933,36 @@ function AdminDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
             {/* Performance das Páginas */}
-            <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-zinc-100 flex items-center justify-between">
+            <div className="bg-white border border-[#e8e0f5] rounded-2xl overflow-hidden shadow-sm">
+              <div className="px-5 py-3.5 border-b border-[#f0ebfa] flex items-center justify-between">
                 <h2 className="text-sm font-semibold">Performance das Páginas</h2>
-                <Link to="/admin/posts" className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1 transition-colors">
+                <Link to="/admin/posts" className="text-xs text-[#9d8fb0] hover:text-[#3b0086] flex items-center gap-1 transition-colors">
                   Ver posts <ChevronRight className="h-3 w-3" />
                 </Link>
               </div>
 
               {loading ? (
                 <div className="p-5 space-y-3">
-                  {[1, 2, 3].map((i) => <div key={i} className="h-10 bg-zinc-50 rounded-lg animate-pulse" />)}
+                  {[1, 2, 3].map((i) => <div key={i} className="h-10 bg-[#f8f5ff] rounded-lg animate-pulse" />)}
                 </div>
               ) : pageStats.length === 0 ? (
                 <div className="p-5">
                   <EmptyState icon={TrendingUp} title="Nenhuma página" description="Importe um CSV para ver o desempenho." />
                 </div>
               ) : (
-                <div className="divide-y divide-zinc-50">
+                <div className="divide-y divide-[#f8f5ff]">
                   {visiblePages.map((ps) => {
                     const spark = sparklineByPage.get(ps.id) ?? [];
                     return (
-                      <div key={ps.id} className="px-5 py-3 flex items-center gap-3 hover:bg-zinc-50/50 transition-colors">
+                      <div key={ps.id} className="px-5 py-3 flex items-center gap-3 hover:bg-[#f3e8ff]/50 transition-colors">
                         {/* Avatar */}
-                        <div className="h-8 w-8 rounded-full bg-zinc-100 flex items-center justify-center shrink-0 text-xs font-semibold text-zinc-600">
+                        <div className="h-8 w-8 rounded-full bg-[#f3e8ff] flex items-center justify-center shrink-0 text-xs font-semibold text-[#4a3560]">
                           {ps.name.slice(0, 2).toUpperCase()}
                         </div>
                         {/* Info */}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{ps.name}</p>
-                          <p className="text-xs text-zinc-400">
+                          <p className="text-xs text-[#9d8fb0]">
                             RPM ${ps.rpm.toFixed(2)} · {ps.posts} posts
                             {ps.videoCount > 0 && ` · ${ps.videoCount}v`}
                             {ps.imageCount > 0 && ` · ${ps.imageCount}i`}
@@ -985,7 +985,7 @@ function AdminDashboard() {
                   })}
                   {pageStats.length > 5 && (
                     <button onClick={() => setShowAllPages(!showAllPages)}
-                      className="w-full px-5 py-2.5 text-xs text-zinc-400 hover:text-zinc-700 hover:bg-zinc-50 transition-colors text-center">
+                      className="w-full px-5 py-2.5 text-xs text-[#9d8fb0] hover:text-[#3b0086] hover:bg-[#f3e8ff] transition-colors text-center">
                       {showAllPages ? "Mostrar menos" : `Ver mais ${pageStats.length - 5} páginas`}
                     </button>
                   )}
@@ -994,10 +994,10 @@ function AdminDashboard() {
             </div>
 
             {/* Importar CSV */}
-            <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-zinc-100 flex items-center justify-between">
+            <div className="bg-white border border-[#e8e0f5] rounded-2xl overflow-hidden shadow-sm">
+              <div className="px-5 py-3.5 border-b border-[#f0ebfa] flex items-center justify-between">
                 <h2 className="text-sm font-semibold">Importar Dados</h2>
-                <Link to="/admin/importacoes" className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1 transition-colors">
+                <Link to="/admin/importacoes" className="text-xs text-[#9d8fb0] hover:text-[#3b0086] flex items-center gap-1 transition-colors">
                   Ver todas <ChevronRight className="h-3 w-3" />
                 </Link>
               </div>
@@ -1006,13 +1006,13 @@ function AdminDashboard() {
               <div className="p-5 space-y-4">
                 <button
                   onClick={() => navigate({ to: "/admin/importacoes" })}
-                  className="w-full border-2 border-dashed border-zinc-200 rounded-xl py-8 flex flex-col items-center gap-2 hover:border-zinc-400 hover:bg-zinc-50/50 transition-all group"
+                  className="w-full border-2 border-dashed border-[#e8e0f5] rounded-xl py-8 flex flex-col items-center gap-2 hover:border-zinc-400 hover:bg-[#f3e8ff]/50 transition-all group"
                 >
-                  <div className="h-10 w-10 rounded-xl bg-zinc-100 flex items-center justify-center group-hover:bg-zinc-200 transition-colors">
-                    <Upload className="h-5 w-5 text-zinc-500" />
+                  <div className="h-10 w-10 rounded-xl bg-[#f3e8ff] flex items-center justify-center group-hover:bg-zinc-200 transition-colors">
+                    <Upload className="h-5 w-5 text-[#7c6f8e]" />
                   </div>
-                  <p className="text-sm font-medium text-zinc-700">Arraste ou clique para importar</p>
-                  <p className="text-xs text-zinc-400">CSVs do Facebook Business Suite</p>
+                  <p className="text-sm font-medium text-[#3b0086]">Arraste ou clique para importar</p>
+                  <p className="text-xs text-[#9d8fb0]">CSVs do Facebook Business Suite</p>
                 </button>
 
                 {/* Recent imports */}
@@ -1020,20 +1020,20 @@ function AdminDashboard() {
                   <div className="space-y-1">
                     {recentImports.slice(0, 3).map((imp) => (
                       <Link key={imp.id} to="/admin/importacoes/$id" params={{ id: imp.id }}
-                        className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-zinc-50 transition-colors group">
+                        className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#f3e8ff] transition-colors group">
                         <div className="shrink-0">
                           {imp.status === "concluido" ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                             : imp.status === "processando" ? <Clock className="h-4 w-4 text-amber-500" />
-                            : <FileSpreadsheet className="h-4 w-4 text-zinc-400" />}
+                            : <FileSpreadsheet className="h-4 w-4 text-[#9d8fb0]" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-zinc-700 truncate">{imp.file_name}</p>
-                          <p className="text-[10px] text-zinc-400">
+                          <p className="text-xs font-medium text-[#3b0086] truncate">{imp.file_name}</p>
+                          <p className="text-[10px] text-[#9d8fb0]">
                             {imp.detected_pages_count != null ? `${imp.detected_pages_count} páginas · ` : ""}
                             {imp.valid_rows} posts · {formatDateTime(imp.created_at)}
                           </p>
                         </div>
-                        <ArrowRight className="h-3 w-3 text-zinc-300 group-hover:text-zinc-500 transition-colors shrink-0" />
+                        <ArrowRight className="h-3 w-3 text-[#c4b5d4] group-hover:text-[#7c6f8e] transition-colors shrink-0" />
                       </Link>
                     ))}
                   </div>
@@ -1043,19 +1043,19 @@ function AdminDashboard() {
           </div>
 
           {/* ── Metas do Mês ── */}
-          <div className="bg-white border border-zinc-200 rounded-xl p-5">
+          <div className="bg-white border border-[#e8e0f5] rounded-2xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Target className="h-4 w-4 text-zinc-400" />
+                <Target className="h-4 w-4 text-[#6200b3]" />
                 <h2 className="text-sm font-semibold">Metas do Mês</h2>
                 {activeMonthRef && (
-                  <span className="text-xs bg-zinc-100 text-zinc-500 px-2 py-0.5 rounded-full">
+                  <span className="text-xs bg-[#f3e8ff] text-[#7c6f8e] px-2 py-0.5 rounded-full">
                     {formatMonth(activeMonthRef)}
                   </span>
                 )}
               </div>
               <button onClick={() => { setDraftGoals(goals); setEditingGoals(true); }}
-                className="text-xs text-zinc-400 hover:text-zinc-700 transition-colors">
+                className="text-xs text-[#9d8fb0] hover:text-[#3b0086] transition-colors">
                 Editar metas
               </button>
             </div>
@@ -1084,16 +1084,16 @@ function AdminDashboard() {
 
           {/* ── Colaboradores ── */}
           {!loading && collabCards.filter((c) => c.id !== SEM_COLAB_ID && c.posts > 0).length > 0 && (
-            <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-zinc-100">
+            <div className="bg-white border border-[#e8e0f5] rounded-xl overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-[#f0ebfa]">
                 <h2 className="text-sm font-semibold">Colaboradores</h2>
               </div>
-              <div className="divide-y divide-zinc-50">
+              <div className="divide-y divide-[#f8f5ff]">
                 {collabCards.filter((c) => c.posts > 0).slice(0, 10).map((item) => (
-                  <div key={item.id} className="px-5 py-3 flex items-center justify-between gap-4 hover:bg-zinc-50/50 transition-colors">
+                  <div key={item.id} className="px-5 py-3 flex items-center justify-between gap-4 hover:bg-[#f3e8ff]/50 transition-colors">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium">{item.nome}</p>
-                      <p className="text-xs text-zinc-400">
+                      <p className="text-xs text-[#9d8fb0]">
                         {item.hashtag ? `#${item.hashtag} · ` : ""}{item.posts.toLocaleString("pt-BR")} posts · {fmt(item.views)} views
                       </p>
                     </div>
@@ -1102,14 +1102,14 @@ function AdminDashboard() {
                         {usdBrl ? (
                           <>
                             <p className="text-sm font-semibold tabular-nums">{formatBRL(item.receita * usdBrl)}</p>
-                            <p className="text-xs text-zinc-400 tabular-nums">${item.receita.toFixed(2)}</p>
+                            <p className="text-xs text-[#9d8fb0] tabular-nums">${item.receita.toFixed(2)}</p>
                           </>
                         ) : (
                           <p className="text-sm font-semibold tabular-nums">${item.receita.toFixed(2)}</p>
                         )}
                       </div>
                       <button onClick={() => setAuditColabId(item.id)}
-                        className="px-2.5 py-1.5 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-700 transition-colors">
+                        className="px-2.5 py-1.5 rounded-lg bg-[#6200b3] text-white text-xs font-medium hover:bg-[#4a0090] transition-colors">
                         Ver
                       </button>
                     </div>
@@ -1134,23 +1134,23 @@ function AdminDashboard() {
               { key: "rpm" as const, label: "RPM Médio (USD)", step: 0.5 },
             ].map(({ key, label, step }) => (
               <div key={key} className="space-y-1">
-                <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider">{label}</label>
+                <label className="text-xs font-medium text-[#7c6f8e] uppercase tracking-wider">{label}</label>
                 <input
                   type="number"
                   step={step}
                   value={draftGoals[key]}
                   onChange={(e) => setDraftGoals({ ...draftGoals, [key]: parseFloat(e.target.value) || 0 })}
-                  className="w-full h-9 rounded-lg border border-zinc-200 px-3 text-sm"
+                  className="w-full h-9 rounded-lg border border-[#e8e0f5] px-3 text-sm"
                 />
               </div>
             ))}
             <div className="flex gap-2 pt-2">
               <button onClick={() => setEditingGoals(false)}
-                className="flex-1 h-9 rounded-lg border border-zinc-200 text-sm text-zinc-600 hover:bg-zinc-50 transition-colors">
+                className="flex-1 h-9 rounded-lg border border-[#e8e0f5] text-sm text-[#4a3560] hover:bg-[#f3e8ff] transition-colors">
                 Cancelar
               </button>
               <button onClick={() => { saveGoals(draftGoals); setGoals(draftGoals); setEditingGoals(false); }}
-                className="flex-1 h-9 rounded-lg bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-700 transition-colors">
+                className="flex-1 h-9 rounded-lg bg-[#6200b3] text-white text-sm font-medium hover:bg-[#4a0090] transition-colors">
                 Salvar
               </button>
             </div>
@@ -1165,10 +1165,10 @@ function AdminDashboard() {
             <DialogTitle className="flex items-center gap-2">
               {auditData?.colab?.nome ?? "—"}
               {auditData?.colab?.hashtag && (
-                <span className="text-xs font-normal text-zinc-400 font-mono">#{auditData.colab.hashtag}</span>
+                <span className="text-xs font-normal text-[#9d8fb0] font-mono">#{auditData.colab.hashtag}</span>
               )}
             </DialogTitle>
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs text-[#9d8fb0]">
               {filterFrom && filterTo ? `${filterFrom} → ${filterTo}` : "Todos os períodos"} · {auditData?.posts.length ?? 0} posts
             </p>
           </DialogHeader>
@@ -1180,33 +1180,33 @@ function AdminDashboard() {
                   { label: "Views", value: fmt(auditData.posts.reduce((s, p) => s + Number(p.views ?? 0), 0)) },
                   { label: "Total (USD)", value: `$${(auditData.card?.receita ?? 0).toFixed(2)}` },
                 ].map(({ label, value }) => (
-                  <div key={label} className="border border-zinc-200 rounded-xl p-3 text-center">
-                    <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-medium">{label}</p>
+                  <div key={label} className="border border-[#e8e0f5] rounded-xl p-3 text-center">
+                    <p className="text-[10px] uppercase tracking-wider text-[#9d8fb0] font-medium">{label}</p>
                     <p className="text-lg font-semibold tabular-nums mt-0.5">{value}</p>
                   </div>
                 ))}
               </div>
               {Object.keys(auditData.typeBreakdown).length > 0 && (
-                <div className="border border-zinc-200 rounded-xl p-3">
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-medium mb-2">Por tipo</p>
+                <div className="border border-[#e8e0f5] rounded-xl p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-[#9d8fb0] font-medium mb-2">Por tipo</p>
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(auditData.typeBreakdown).map(([type, info]) => (
-                      <span key={type} className="inline-flex items-center gap-1.5 text-xs bg-zinc-50 rounded-lg px-2.5 py-1">
+                      <span key={type} className="inline-flex items-center gap-1.5 text-xs bg-[#f8f5ff] rounded-lg px-2.5 py-1">
                         <span className="font-medium capitalize">{type}</span>
-                        <span className="text-zinc-300">·</span>
+                        <span className="text-[#c4b5d4]">·</span>
                         <span>{info.count} posts</span>
-                        <span className="text-zinc-300">·</span>
+                        <span className="text-[#c4b5d4]">·</span>
                         <span>{fmt(info.views)} views</span>
-                        <span className="text-zinc-300">·</span>
+                        <span className="text-[#c4b5d4]">·</span>
                         <span className="font-semibold">${info.share.toFixed(2)}</span>
                       </span>
                     ))}
                   </div>
                 </div>
               )}
-              <div className="border border-zinc-200 rounded-xl overflow-hidden">
+              <div className="border border-[#e8e0f5] rounded-xl overflow-hidden">
                 <table className="w-full text-xs">
-                  <thead className="bg-zinc-50 text-[10px] uppercase text-zinc-400">
+                  <thead className="bg-[#f8f5ff] text-[10px] uppercase text-[#9d8fb0]">
                     <tr>
                       <th className="text-left px-3 py-2 font-medium">Data</th>
                       <th className="text-left px-3 py-2 font-medium">Título / Tipo</th>
@@ -1217,21 +1217,21 @@ function AdminDashboard() {
                       <th className="text-right px-3 py-2 font-medium">Sua parte</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-100">
+                  <tbody className="divide-y divide-[#f0ebfa]">
                     {auditData.posts.map((p) => (
-                      <tr key={p.id} className="hover:bg-zinc-50">
-                        <td className="px-3 py-2 text-zinc-400 whitespace-nowrap">{p.published_at ? p.published_at.slice(0, 10) : "—"}</td>
+                      <tr key={p.id} className="hover:bg-[#f3e8ff]">
+                        <td className="px-3 py-2 text-[#9d8fb0] whitespace-nowrap">{p.published_at ? p.published_at.slice(0, 10) : "—"}</td>
                         <td className="px-3 py-2 max-w-[200px]">
                           {p.permalink ? (
                             <a href={p.permalink} target="_blank" rel="noopener noreferrer"
-                              className="truncate block underline underline-offset-2 text-zinc-700 hover:text-zinc-400 transition-colors"
+                              className="truncate block underline underline-offset-2 text-[#3b0086] hover:text-[#9d8fb0] transition-colors"
                               onClick={(e) => e.stopPropagation()}>
                               {p.title ?? p.id.slice(0, 8)}
                             </a>
                           ) : (
                             <span className="truncate block">{p.title ?? p.id.slice(0, 8)}</span>
                           )}
-                          {p.post_type && <span className="text-[10px] text-zinc-400 capitalize">{p.post_type}</span>}
+                          {p.post_type && <span className="text-[10px] text-[#9d8fb0] capitalize">{p.post_type}</span>}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">{fmt(Number(p.views ?? 0))}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{Number(p.reactions ?? 0).toLocaleString("pt-BR")}</td>
@@ -1250,3 +1250,4 @@ function AdminDashboard() {
     </div>
   );
 }
+
