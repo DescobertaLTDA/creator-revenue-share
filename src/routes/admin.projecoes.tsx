@@ -334,15 +334,10 @@ function NumInput({ label, value, onChange, suffix, prefix, format, step = 1, de
             if (!isNaN(n)) onChange(n);
           }}
           readOnly={!focused}
-          className="w-full bg-transparent text-center text-lg font-bold text-foreground py-4 px-3 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none cursor-text"
+          className="w-full bg-transparent text-center text-lg font-bold text-foreground pt-4 pb-1 px-3 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none cursor-text"
         />
         {!focused && (
-          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6D4AFF]/40">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-            </svg>
-          </span>
+          <p className="text-center text-[10px] text-muted-foreground pb-2.5">clique para editar</p>
         )}
       </div>
     </div>
