@@ -159,12 +159,12 @@ export default function ProjecoesPage() {
   }, [postsPerDay, avgViews, rhythm, rpm, actualRevMonth, brlRate]);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* ── Header ── */}
-      <div className="flex items-center gap-3 justify-between">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-foreground">Simulador de Ganhos</h1>
-          <p className="text-xs text-muted-foreground">Ajuste os controles e veja quanto você pode ganhar</p>
+          <h1 className="text-2xl font-bold text-foreground">Simulador de Ganhos</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Ajuste os controles e veja quanto você pode ganhar</p>
         </div>
         <PageDropdown pages={pages} value={pageId} onChange={setPageId} />
       </div>
@@ -172,21 +172,19 @@ export default function ProjecoesPage() {
       {loading ? (
         <LoadingSkeleton />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-5 items-start">
-          {/* ── Left: Controls ── */}
-          <ControlsPanel
-            postsPerDay={postsPerDay}
-            setPostsPerDay={setPostsPerDay}
-            avgViews={avgViews}
-            setAvgViews={setAvgViews}
-            rhythm={rhythm}
-            setRhythm={setRhythm}
-            rpm={rpm}
-            setRpm={setRpm}
-          />
-
-          {/* ── Right: Result + Chart ── */}
-          <div className="space-y-3">
+        <div className="space-y-4">
+          {/* ── Top row: Controls + Hero ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-4 items-stretch">
+            <ControlsPanel
+              postsPerDay={postsPerDay}
+              setPostsPerDay={setPostsPerDay}
+              avgViews={avgViews}
+              setAvgViews={setAvgViews}
+              rhythm={rhythm}
+              setRhythm={setRhythm}
+              rpm={rpm}
+              setRpm={setRpm}
+            />
             <HeroCard
               totalRev={projection.totalRev}
               projectedRev={projection.projectedRev}
@@ -195,8 +193,10 @@ export default function ProjecoesPage() {
               progress={projection.progress}
               daysLeft={projection.daysLeft}
             />
-            <SimpleChart chartData={projection.chartData} totalRev={projection.totalRev} />
           </div>
+
+          {/* ── Full-width chart ── */}
+          <SimpleChart chartData={projection.chartData} totalRev={projection.totalRev} />
         </div>
       )}
     </div>
@@ -383,7 +383,7 @@ function StepButton({ children, onClick }: { children: React.ReactNode; onClick:
   return (
     <button
       onClick={onClick}
-      className="h-8 w-8 rounded-lg bg-[#F3F0FF] text-[#6D4AFF] text-lg font-bold flex items-center justify-center hover:bg-[#6D4AFF]/20 transition-colors shrink-0"
+      className="h-9 w-9 rounded-xl bg-[#EDE9FF] text-[#6D4AFF] text-xl font-bold flex items-center justify-center hover:bg-[#6D4AFF] hover:text-white transition-all shrink-0 shadow-sm"
     >
       {children}
     </button>
@@ -402,27 +402,39 @@ function HeroCard({
   const pct = Math.min(100, Math.round(progress * 100));
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: "linear-gradient(135deg, #6D4AFF 0%, #9B71FF 100%)" }}>
-      <div className="p-4 text-white">
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <p className="text-white/70 text-xs font-medium">Projeção do mês</p>
-            <p className="text-3xl font-black tracking-tight mt-0.5">{fmtUSD(totalRev)}</p>
-            <p className="text-white/80 text-base font-semibold">{fmtBRL(totalBRL)}</p>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full">
-              {pct}% do mês
-            </span>
-            <span className="text-white/70 text-xs">{daysLeft} dias restantes</span>
-          </div>
+    <div
+      className="rounded-2xl overflow-hidden flex flex-col justify-between min-h-[280px]"
+      style={{ background: "linear-gradient(135deg, #5B35E8 0%, #8B5CF6 60%, #A78BFA 100%)" }}
+    >
+      <div className="p-6 flex-1 flex flex-col justify-between">
+        {/* Top label + badge */}
+        <div className="flex items-start justify-between mb-4">
+          <p className="text-white/70 text-sm font-medium tracking-wide uppercase text-[11px]">Projeção do mês</p>
+          <span className="bg-white/15 backdrop-blur-sm text-white text-xs font-bold px-3 py-1 rounded-full border border-white/20">
+            {pct}% do mês
+          </span>
         </div>
-        <div className="h-2 bg-white/20 rounded-full overflow-hidden mb-1">
-          <div className="h-full bg-white rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+
+        {/* Big numbers */}
+        <div className="mb-6">
+          <p className="text-5xl font-black tracking-tight text-white leading-none mb-2">
+            {fmtUSD(totalRev)}
+          </p>
+          <p className="text-white/75 text-2xl font-bold">{fmtBRL(totalBRL)}</p>
         </div>
-        <div className="flex justify-between text-[11px] text-white/60">
-          <span>Realizado: {fmtUSD(actualRevMonth)}</span>
-          <span>Projetado: +{fmtUSD(projectedRev)}</span>
+
+        {/* Progress bar */}
+        <div>
+          <div className="h-2.5 bg-white/20 rounded-full overflow-hidden mb-2">
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${pct}%`, background: "linear-gradient(90deg, #fff 0%, rgba(255,255,255,0.85) 100%)" }}
+            />
+          </div>
+          <div className="flex justify-between text-xs text-white/55">
+            <span>Realizado: <span className="text-white/80 font-semibold">{fmtUSD(actualRevMonth)}</span></span>
+            <span>{daysLeft} dias restantes · Projetado: <span className="text-white/80 font-semibold">+{fmtUSD(projectedRev)}</span></span>
+          </div>
         </div>
       </div>
     </div>
@@ -435,7 +447,7 @@ interface ChartPoint { day: number; value: number; projected: boolean }
 
 function SimpleChart({ chartData, totalRev }: { chartData: ChartPoint[]; totalRev: number }) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const W = 600, H = 220, PAD = { top: 16, right: 16, bottom: 24, left: 40 };
+  const W = 900, H = 260, PAD = { top: 20, right: 20, bottom: 28, left: 48 };
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
 
@@ -463,7 +475,7 @@ function SimpleChart({ chartData, totalRev }: { chartData: ChartPoint[]; totalRe
     return <path d={areaPath} fill={color} opacity={0.15} />;
   }
 
-  const yLabels = [0, 0.5, 1].map(f => ({ v: maxVal * f, y: y(maxVal * f) }));
+  const yLabels = [0, 0.25, 0.5, 0.75, 1].map(f => ({ v: maxVal * f, y: y(maxVal * f) }));
 
   return (
     <div className="bg-white rounded-2xl border border-border p-5">
@@ -483,7 +495,7 @@ function SimpleChart({ chartData, totalRev }: { chartData: ChartPoint[]; totalRe
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
         className="w-full"
-        style={{ height: 200 }}
+        style={{ height: 240 }}
       >
         {/* Y grid + labels */}
         {yLabels.map(({ v, y: yy }) => (
