@@ -395,14 +395,14 @@ export function MetasPage() {
                 />
               ) : (
                 <input
-                  type="number"
-                  min="1"
-                  step={METRIC_CONFIG[draft.metric].step}
-                  value={draft.target}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={targetText}
                   onChange={(e) => {
-                    const num = parseFloat(e.target.value) || 0;
-                    setDraft((d) => ({ ...d, target: num }));
-                    setTargetText(String(num));
+                    const raw = e.target.value.replace(/\D/g, "");
+                    setTargetText(raw);
+                    setDraft((d) => ({ ...d, target: parseInt(raw, 10) || 0 }));
                   }}
                   className="w-full h-9 rounded-lg border border-[#e8e0f5] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6200b3]/30"
                 />
