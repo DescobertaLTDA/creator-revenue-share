@@ -38,6 +38,7 @@ interface DayEntry {
   saved: boolean;
   updater_nome: string | null;
   updater_avatar: string | null;
+  last_edited_field: "views" | "followers" | "revenue" | null;
   // snapshot of DB values at load time — used as before_json in audit log
   _db_views: number | null;
   _db_followers: number | null;
@@ -66,6 +67,26 @@ interface ColabDist {
 const WEEKDAYS_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function getLastChangedField(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>
+): "views" | "followers" | "revenue" | null {
+  if (before.actual_views !== after.actual_views) return "views";
+  if (before.actual_followers !== after.actual_followers) return "followers";
+  if (before.actual_revenue_usd !== after.actual_revenue_usd) return "revenue";
+  return null;
+}
+
+function UpdaterAvatar({ nome, avatar }: { nome: string; avatar: string | null }) {
+  return avatar ? (
+    <img src={avatar} alt={nome} title={`Editado por ${nome}`} className="h-5 w-5 rounded-full object-cover shrink-0" />
+  ) : (
+    <div title={`Editado por ${nome}`} className="h-5 w-5 rounded-full bg-muted border border-border flex items-center justify-center shrink-0 text-[9px] font-bold text-muted-foreground">
+      {nome[0].toUpperCase()}
+    </div>
+  );
+}
 
 function prevMonth(ref: string) {
   const [y, m] = ref.split("-").map(Number);
@@ -300,7 +321,8 @@ function BonusManualPage() {
       postsByDay: Record<string, number>,
       viewsByDay: Record<string, number>,
       dbEntries: Record<string, any>,
-      updaterMap: Map<string, { nome: string; avatar: string | null }>
+      updaterMap: Map<string, { nome: string; avatar: string | null }>,
+      lastEditedFieldMap: Map<string, "views" | "followers" | "revenue" | null>
     ): DayEntry[] => {
       return days.map((date) => {
         const d = new Date(date + "T00:00:00");
@@ -323,6 +345,7 @@ function BonusManualPage() {
           saved: false,
           updater_nome: updater?.nome ?? null,
           updater_avatar: updater?.avatar ?? null,
+          last_edited_field: lastEditedFieldMap.get(date) ?? null,
           _db_views: db?.actual_views ?? null,
           _db_followers: db?.actual_followers ?? null,
           _db_revenue: db?.actual_revenue_usd ?? null,
@@ -339,7 +362,7 @@ function BonusManualPage() {
     const from = days[0];
     const to = days[days.length - 1];
 
-    const [{ data: postsData }, { data: dbData }] = await Promise.all([
+    const [{ data: postsData }, { data: dbData }, { data: auditData }] = await Promise.all([
       supabase
         .from("posts")
         .select("published_at, monetization_approx, views")
@@ -352,6 +375,12 @@ function BonusManualPage() {
         .eq("page_id", pageId)
         .gte("entry_date", from)
         .lte("entry_date", to),
+      (supabase as any)
+        .from("audit_logs")
+        .select("entity_id, before_json, after_json")
+        .eq("action", "update_daily_revenue")
+        .like("entity_id", `${ref}-%:${pageId}`)
+        .order("created_at", { ascending: false }),
     ]);
 
     const postsByDay: Record<string, number> = {};
@@ -370,6 +399,15 @@ function BonusManualPage() {
       if (e.updated_by) updaterIds.add(e.updated_by);
     }
 
+    // Build map of which field was last edited per date (most recent audit entry wins)
+    const lastEditedFieldMap = new Map<string, "views" | "followers" | "revenue" | null>();
+    for (const audit of (auditData ?? []) as any[]) {
+      const date = audit.entity_id.split(":")[0];
+      if (!lastEditedFieldMap.has(date)) {
+        lastEditedFieldMap.set(date, getLastChangedField(audit.before_json ?? {}, audit.after_json ?? {}));
+      }
+    }
+
     const updaterMap = new Map<string, { nome: string; avatar: string | null }>();
     if (updaterIds.size > 0) {
       const { data: profileRows } = await supabase
@@ -381,7 +419,7 @@ function BonusManualPage() {
       }
     }
 
-    setRows(buildRows(days, postsByDay, viewsByDay, dbEntries, updaterMap));
+    setRows(buildRows(days, postsByDay, viewsByDay, dbEntries, updaterMap, lastEditedFieldMap));
     setLoading(false);
   }, [buildRows]);
 
@@ -435,9 +473,9 @@ function BonusManualPage() {
     loadAuditLogs(monthRef, selectedPageId);
   }, [monthRef, selectedPageId, load, loadDist, loadAuditLogs]);
 
-  const updateRow = (date: string, field: keyof DayEntry, value: unknown) => {
+  const updateRow = (date: string, updates: Partial<DayEntry>) => {
     setRows((prev) =>
-      prev.map((r) => r.date === date ? { ...r, [field]: value, dirty: true, saved: false } : r)
+      prev.map((r) => r.date === date ? { ...r, ...updates, dirty: true, saved: false } : r)
     );
   };
 
@@ -506,7 +544,7 @@ function BonusManualPage() {
 
   const handleActualChange = (row: DayEntry, raw: string) => {
     const val = raw === "" ? null : parseFloat(raw);
-    updateRow(row.date, "actual_revenue", Number.isFinite(val) ? val : null);
+    updateRow(row.date, { actual_revenue: Number.isFinite(val) ? val : null, last_edited_field: "revenue" });
     clearTimeout(saveTimers.current[row.date]);
     saveTimers.current[row.date] = setTimeout(() => {
       setRows((prev) => {
@@ -520,7 +558,7 @@ function BonusManualPage() {
   const handleViewsChange = (row: DayEntry, raw: string) => {
     const digits = raw.replace(/\D/g, "");
     const val = digits === "" ? null : parseInt(digits, 10);
-    updateRow(row.date, "actual_views", val);
+    updateRow(row.date, { actual_views: val, last_edited_field: "views" });
     clearTimeout(saveTimers.current[row.date + "_views"]);
     saveTimers.current[row.date + "_views"] = setTimeout(() => {
       setRows((prev) => {
@@ -534,7 +572,7 @@ function BonusManualPage() {
   const handleFollowersChange = (row: DayEntry, raw: string) => {
     const digits = raw.replace(/\D/g, "");
     const val = digits === "" ? null : parseInt(digits, 10);
-    updateRow(row.date, "actual_followers", val);
+    updateRow(row.date, { actual_followers: val, last_edited_field: "followers" });
     clearTimeout(saveTimers.current[row.date + "_followers"]);
     saveTimers.current[row.date + "_followers"] = setTimeout(() => {
       setRows((prev) => {
@@ -732,7 +770,12 @@ function BonusManualPage() {
                         {/* Inputs grid: 2 cols on mobile */}
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <p className="text-[10px] uppercase tracking-wider text-[#F44708] font-semibold mb-1">Views manuais</p>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <p className="text-[10px] uppercase tracking-wider text-[#F44708] font-semibold">Views manuais</p>
+                              {row.updater_nome && row.last_edited_field === "views" && (
+                                <UpdaterAvatar nome={row.updater_nome} avatar={row.updater_avatar} />
+                              )}
+                            </div>
                             <input
                               type="text" inputMode="numeric" disabled={isFuture || !canWrite}
                               data-views-input={row.date}
@@ -748,7 +791,12 @@ function BonusManualPage() {
                             />
                           </div>
                           <div>
-                            <p className="text-[10px] uppercase tracking-wider text-emerald-600 font-semibold mb-1">Seguidores</p>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <p className="text-[10px] uppercase tracking-wider text-emerald-600 font-semibold">Seguidores</p>
+                              {row.updater_nome && row.last_edited_field === "followers" && (
+                                <UpdaterAvatar nome={row.updater_nome} avatar={row.updater_avatar} />
+                              )}
+                            </div>
                             <input
                               type="text" inputMode="numeric" disabled={isFuture || !canWrite}
                               data-followers-input={row.date}
@@ -764,7 +812,12 @@ function BonusManualPage() {
                             />
                           </div>
                           <div className="col-span-2">
-                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Real recebido (USD)</p>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Real recebido (USD)</p>
+                              {row.updater_nome && row.last_edited_field === "revenue" && (
+                                <UpdaterAvatar nome={row.updater_nome} avatar={row.updater_avatar} />
+                              )}
+                            </div>
                             <input
                               type="number" min="0" step="0.01" disabled={isFuture || !canWrite}
                               placeholder="0.00"
@@ -790,7 +843,7 @@ function BonusManualPage() {
                             type="text" disabled={isFuture || !canWrite}
                             placeholder="Observação (opcional)"
                             value={row.note}
-                            onChange={(e) => updateRow(row.date, "note", e.target.value)}
+                            onChange={(e) => updateRow(row.date, { note: e.target.value })}
                             onBlur={() => handleFieldBlur(row)}
                             className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
                           />
@@ -849,44 +902,48 @@ function BonusManualPage() {
                                   onKeyDown={(e) => handleViewsKeyDown(e, row.date)}
                                   className="w-32 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums text-[#F44708] focus:outline-none focus:ring-1 focus:ring-[#F44708]/40 disabled:opacity-30"
                                 />
-                                {row.updater_nome && (
-                                  row.updater_avatar ? (
-                                    <img src={row.updater_avatar} alt={row.updater_nome} title={`Editado por ${row.updater_nome}`} className="h-5 w-5 rounded-full object-cover shrink-0" />
-                                  ) : (
-                                    <div title={`Editado por ${row.updater_nome}`} className="h-5 w-5 rounded-full bg-muted border border-border flex items-center justify-center shrink-0 text-[9px] font-bold text-muted-foreground">
-                                      {row.updater_nome[0].toUpperCase()}
-                                    </div>
-                                  )
+                                {row.updater_nome && row.last_edited_field === "views" && (
+                                  <UpdaterAvatar nome={row.updater_nome} avatar={row.updater_avatar} />
                                 )}
                               </div>
                             </td>
                             <td className="px-4 py-2.5 text-right">
-                              <input
-                                type="text" inputMode="numeric" disabled={isFuture || !canWrite}
-                                data-followers-input={row.date}
-                                placeholder="0"
-                                value={followersFocusDate === row.date
-                                  ? (row.actual_followers ?? "")
-                                  : (row.actual_followers != null ? row.actual_followers.toLocaleString("pt-BR") : "")}
-                                onFocus={() => setFollowersFocusDate(row.date)}
-                                onBlur={() => { setFollowersFocusDate(null); handleFieldBlur(row); }}
-                                onChange={(e) => handleFollowersChange(row, e.target.value)}
-                                onKeyDown={(e) => handleFollowersKeyDown(e, row.date)}
-                                className="w-24 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums text-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/40 disabled:opacity-30"
-                              />
+                              <div className="flex items-center justify-end gap-1.5">
+                                {row.updater_nome && row.last_edited_field === "followers" && (
+                                  <UpdaterAvatar nome={row.updater_nome} avatar={row.updater_avatar} />
+                                )}
+                                <input
+                                  type="text" inputMode="numeric" disabled={isFuture || !canWrite}
+                                  data-followers-input={row.date}
+                                  placeholder="0"
+                                  value={followersFocusDate === row.date
+                                    ? (row.actual_followers ?? "")
+                                    : (row.actual_followers != null ? row.actual_followers.toLocaleString("pt-BR") : "")}
+                                  onFocus={() => setFollowersFocusDate(row.date)}
+                                  onBlur={() => { setFollowersFocusDate(null); handleFieldBlur(row); }}
+                                  onChange={(e) => handleFollowersChange(row, e.target.value)}
+                                  onKeyDown={(e) => handleFollowersKeyDown(e, row.date)}
+                                  className="w-24 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums text-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/40 disabled:opacity-30"
+                                />
+                              </div>
                             </td>
                             <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
                               {row.posts_revenue > 0 ? `$${row.posts_revenue.toFixed(2)}` : <span className="text-muted-foreground/40">—</span>}
                             </td>
                             <td className="px-4 py-2.5 text-right">
-                              <input
-                                type="number" min="0" step="0.01" disabled={isFuture || !canWrite}
-                                placeholder="0.00"
-                                value={row.actual_revenue ?? ""}
-                                onChange={(e) => handleActualChange(row, e.target.value)}
-                                onBlur={() => handleFieldBlur(row)}
-                                className="w-28 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
-                              />
+                              <div className="flex items-center justify-end gap-1.5">
+                                <input
+                                  type="number" min="0" step="0.01" disabled={isFuture || !canWrite}
+                                  placeholder="0.00"
+                                  value={row.actual_revenue ?? ""}
+                                  onChange={(e) => handleActualChange(row, e.target.value)}
+                                  onBlur={() => handleFieldBlur(row)}
+                                  className="w-28 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
+                                />
+                                {row.updater_nome && row.last_edited_field === "revenue" && (
+                                  <UpdaterAvatar nome={row.updater_nome} avatar={row.updater_avatar} />
+                                )}
+                              </div>
                             </td>
                             <td className="px-2 py-2.5 w-8">
                               {row.saving ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />

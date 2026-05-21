@@ -16,7 +16,7 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Users, Plus, Loader2, Trash2, Shield, Eye, UserCheck } from "lucide-react";
+import { Users, Plus, Loader2, Trash2, Shield, Eye, UserCheck, Camera } from "lucide-react";
 
 export const Route = createFileRoute("/admin/cadastro")({
   head: () => ({ meta: [{ title: "Cadastro de Usuários — Splash Creators" }] }),
@@ -30,6 +30,7 @@ interface UserProfile {
   nome: string;
   email: string | null;
   role: Role;
+  avatar_url: string | null;
   created_at: string;
 }
 
@@ -40,7 +41,7 @@ const ROLE_LABEL: Record<Role, string> = {
 };
 
 function Page() {
-  const { profile } = useAuth();
+  const { profile, refresh } = useAuth();
   const navigate = useNavigate();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,6 +50,7 @@ function Page() {
   const [deleteTarget, setDeleteTarget] = useState<UserProfile | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [updatingRole, setUpdatingRole] = useState<Set<string>>(new Set());
+  const [uploadingAvatar, setUploadingAvatar] = useState<Set<string>>(new Set());
 
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
@@ -67,10 +69,46 @@ function Page() {
     setLoading(true);
     const { data } = await supabase
       .from("profiles")
-      .select("id, nome, email, role, created_at")
+      .select("id, nome, email, role, avatar_url, created_at")
       .order("created_at", { ascending: false });
     setUsers((data as UserProfile[]) ?? []);
     setLoading(false);
+  };
+
+  const handleAvatarUpload = async (userId: string, file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecione um arquivo de imagem");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Imagem deve ter no máximo 2 MB");
+      return;
+    }
+    setUploadingAvatar((prev) => new Set(prev).add(userId));
+    try {
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `${userId}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
+      const publicUrl = urlData.publicUrl + `?t=${Date.now()}`;
+      const { error: dbErr } = await supabase
+        .from("profiles")
+        .update({ avatar_url: publicUrl })
+        .eq("id", userId);
+      if (dbErr) throw dbErr;
+      setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, avatar_url: publicUrl } : u));
+      if (userId === profile?.id) await refresh();
+      toast.success("Foto atualizada");
+    } catch (err) {
+      toast.error("Erro ao enviar foto", {
+        description: err instanceof Error ? err.message : "Erro desconhecido",
+      });
+    } finally {
+      setUploadingAvatar((prev) => { const s = new Set(prev); s.delete(userId); return s; });
+    }
   };
 
   const onSubmit = async (e: FormEvent) => {
@@ -220,14 +258,38 @@ function Page() {
               {users.map((u) => (
                 <div key={u.id} className="px-4 py-4 space-y-2">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium truncate">{u.nome}</p>
-                        {u.id === profile?.id && (
-                          <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">Você</span>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <label className="relative cursor-pointer group shrink-0">
+                        <input
+                          type="file" accept="image/*" className="sr-only"
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAvatarUpload(u.id, f); e.target.value = ""; }}
+                        />
+                        {uploadingAvatar.has(u.id) ? (
+                          <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center">
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : u.avatar_url ? (
+                          <>
+                            <img src={u.avatar_url} alt={u.nome} className="h-9 w-9 rounded-full object-cover" />
+                            <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                              <Camera className="h-3.5 w-3.5 text-white" />
+                            </div>
+                          </>
+                        ) : (
+                          <div className="h-9 w-9 rounded-full bg-muted border border-border flex items-center justify-center">
+                            <Camera className="h-3.5 w-3.5 text-muted-foreground" />
+                          </div>
                         )}
+                      </label>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium truncate">{u.nome}</p>
+                          {u.id === profile?.id && (
+                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">Você</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                     </div>
                     {u.id !== profile?.id && (
                       <Button
@@ -278,11 +340,35 @@ function Page() {
                   {users.map((u) => (
                     <tr key={u.id} className="hover:bg-muted/20">
                       <td className="px-5 py-3 font-medium">
-                        <span className="flex items-center gap-2">
-                          {u.nome}
-                          {u.id === profile?.id && (
-                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">Você</span>
-                          )}
+                        <span className="flex items-center gap-2.5">
+                          <label className="relative cursor-pointer group shrink-0" title="Clique para mudar a foto">
+                            <input
+                              type="file" accept="image/*" className="sr-only"
+                              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAvatarUpload(u.id, f); e.target.value = ""; }}
+                            />
+                            {uploadingAvatar.has(u.id) ? (
+                              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                              </div>
+                            ) : u.avatar_url ? (
+                              <>
+                                <img src={u.avatar_url} alt={u.nome} className="h-8 w-8 rounded-full object-cover" />
+                                <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                  <Camera className="h-3.5 w-3.5 text-white" />
+                                </div>
+                              </>
+                            ) : (
+                              <div className="h-8 w-8 rounded-full bg-muted border border-border flex items-center justify-center group-hover:bg-accent transition-colors">
+                                <Camera className="h-3.5 w-3.5 text-muted-foreground" />
+                              </div>
+                            )}
+                          </label>
+                          <span>
+                            {u.nome}
+                            {u.id === profile?.id && (
+                              <span className="ml-1.5 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">Você</span>
+                            )}
+                          </span>
                         </span>
                       </td>
                       <td className="px-5 py-3 text-muted-foreground">{u.email}</td>
