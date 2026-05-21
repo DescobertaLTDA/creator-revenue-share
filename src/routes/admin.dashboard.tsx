@@ -1570,12 +1570,16 @@ function AdminDashboard() {
           {/* ── Colaboradores ── */}
           {!loading && activeCollabCards.filter((c) => c.posts > 0).length > 0 && (() => {
             const visibleCards = activeCollabCards.filter((c) => c.posts > 0);
+            const receitaOnById = new Map(collabCards.map((c) => [c.id, c.receita]));
+            const receitaOffById = new Map(collabCardsCsv.map((c) => [c.id, c.receita]));
             return (
               <ColabSection
                 cards={visibleCards}
                 sparklineByColab={sparklineByColab}
                 usdBrl={usdBrl}
                 onCardClick={(id) => setAuditColabId(id)}
+                receitaOnById={receitaOnById}
+                receitaOffById={receitaOffById}
               />
             );
           })()}
@@ -1961,13 +1965,12 @@ function RankBadge({ rank }: { rank: number }) {
   );
 }
 
-function ColaboradorCard({ item, rank, sparkline, usdBrl, onClick, idx }: {
+function ColaboradorCard({ item, rank, sparkline, usdBrl, onClick, idx, receitaOn, receitaOff }: {
   item: ColabCard; rank: number; sparkline: number[];
   usdBrl: number | null; onClick: () => void; idx: number;
+  receitaOn: number; receitaOff: number;
 }) {
-  const prev7 = sparkline.slice(0, 7).reduce((s, v) => s + v, 0);
-  const last7 = sparkline.slice(7).reduce((s, v) => s + v, 0);
-  const delta = prev7 > 0.001 ? ((last7 - prev7) / prev7) * 100 : null;
+  const delta = receitaOff > 0.001 ? ((receitaOn - receitaOff) / receitaOff) * 100 : null;
 
   return (
     <button
@@ -2002,11 +2005,13 @@ function ColaboradorCard({ item, rank, sparkline, usdBrl, onClick, idx }: {
   );
 }
 
-function ColabSection({ cards, sparklineByColab, usdBrl, onCardClick }: {
+function ColabSection({ cards, sparklineByColab, usdBrl, onCardClick, receitaOnById, receitaOffById }: {
   cards: ColabCard[];
   sparklineByColab: Map<string, number[]>;
   usdBrl: number | null;
   onCardClick: (id: string) => void;
+  receitaOnById: Map<string, number>;
+  receitaOffById: Map<string, number>;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -2048,6 +2053,8 @@ function ColabSection({ cards, sparklineByColab, usdBrl, onCardClick }: {
             key={card.id} item={card} rank={i + 1}
             sparkline={sparklineByColab.get(card.id) ?? Array(14).fill(0)}
             usdBrl={usdBrl} onClick={() => onCardClick(card.id)} idx={i}
+            receitaOn={receitaOnById.get(card.id) ?? card.receita}
+            receitaOff={receitaOffById.get(card.id) ?? card.receita}
           />
         ))}
       </div>
