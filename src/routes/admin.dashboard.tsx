@@ -1992,6 +1992,7 @@ function ColabSection({ cards, sparklineByColab, usdBrl, onCardClick }: {
   onCardClick: (id: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   const scroll = (dir: "left" | "right") => {
     scrollRef.current?.scrollBy({ left: dir === "right" ? 220 : -220, behavior: "smooth" });
   };
@@ -2009,7 +2010,7 @@ function ColabSection({ cards, sparklineByColab, usdBrl, onCardClick }: {
         </div>
         <div className="flex items-center gap-1.5">
           <button
-            onClick={() => onCardClick(cards[0]?.id ?? "")}
+            onClick={() => navigate({ to: "/admin/colaboradores" })}
             className="hidden sm:flex items-center gap-1 text-xs text-[#F44708] font-medium border border-[#F44708]/30 rounded-lg px-3 py-1.5 hover:bg-[#FFF0E8] transition-colors"
           >
             Ver todos
