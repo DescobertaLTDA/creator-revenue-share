@@ -41,9 +41,9 @@ interface DayEntry {
   dirty: boolean;
   saving: boolean;
   saved: boolean;
-  views_editor: FieldEditor | null;
-  followers_editor: FieldEditor | null;
-  revenue_editor: FieldEditor | null;
+  views_editors: FieldEditor[];
+  followers_editors: FieldEditor[];
+  revenue_editors: FieldEditor[];
   last_edited_field: "views" | "followers" | "revenue" | null;
   // snapshot of DB values at load time — used as before_json in audit log
   _db_views: number | null;
@@ -84,12 +84,27 @@ function getLastChangedField(
   return null;
 }
 
-function UpdaterAvatar({ nome, avatar }: { nome: string; avatar: string | null }) {
-  return avatar ? (
-    <img src={avatar} alt={nome} title={`Editado por ${nome}`} className="h-5 w-5 rounded-full object-cover shrink-0" />
-  ) : (
-    <div title={`Editado por ${nome}`} className="h-5 w-5 rounded-full bg-muted border border-border flex items-center justify-center shrink-0 text-[9px] font-bold text-muted-foreground">
-      {nome[0].toUpperCase()}
+function AvatarStack({ editors }: { editors: FieldEditor[] }) {
+  if (editors.length === 0) return null;
+  const shown = editors.slice(0, 3);
+  return (
+    <div className="flex items-center shrink-0">
+      {shown.map((editor, i) => (
+        <div
+          key={i}
+          className="relative"
+          style={{ marginLeft: i > 0 ? "-5px" : 0, zIndex: shown.length - i }}
+          title={`Editado por ${editor.nome}`}
+        >
+          {editor.avatar ? (
+            <img src={editor.avatar} alt={editor.nome} className="h-5 w-5 rounded-full object-cover border-[1.5px] border-background" />
+          ) : (
+            <div className="h-5 w-5 rounded-full bg-muted border-[1.5px] border-background flex items-center justify-center text-[9px] font-bold text-muted-foreground">
+              {editor.nome[0].toUpperCase()}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -327,12 +342,12 @@ function BonusManualPage() {
       postsByDay: Record<string, number>,
       viewsByDay: Record<string, number>,
       dbEntries: Record<string, any>,
-      fieldEditorsByDate: Map<string, { views: FieldEditor | null; followers: FieldEditor | null; revenue: FieldEditor | null }>
+      fieldEditorsByDate: Map<string, { views: FieldEditor[]; followers: FieldEditor[]; revenue: FieldEditor[] }>
     ): DayEntry[] => {
       return days.map((date) => {
         const d = new Date(date + "T00:00:00");
         const db = dbEntries[date];
-        const fe = fieldEditorsByDate.get(date) ?? { views: null, followers: null, revenue: null };
+        const fe = fieldEditorsByDate.get(date) ?? { views: [], followers: [], revenue: [] };
         return {
           date,
           label: `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`,
@@ -348,9 +363,9 @@ function BonusManualPage() {
           dirty: false,
           saving: false,
           saved: false,
-          views_editor: fe.views,
-          followers_editor: fe.followers,
-          revenue_editor: fe.revenue,
+          views_editors: fe.views,
+          followers_editors: fe.followers,
+          revenue_editors: fe.revenue,
           last_edited_field: null,
           _db_views: db?.actual_views ?? null,
           _db_followers: db?.actual_followers ?? null,
@@ -403,27 +418,29 @@ function BonusManualPage() {
       dbEntries[e.entry_date] = e;
     }
 
-    // Build per-field editor map: for each date, find the most recent audit entry
-    // where each specific field changed, independently per field.
-    const fieldEditorIds = new Map<string, { views: string | null; followers: string | null; revenue: string | null }>();
+    // Build per-field editor arrays: collect unique editors per field per date,
+    // ordered most-recent first (auditData is already sorted DESC).
+    const fieldEditorIds = new Map<string, { views: string[]; followers: string[]; revenue: string[] }>();
     const allActorIds = new Set<string>();
     for (const audit of (auditData ?? []) as any[]) {
       const date = audit.entity_id.split(":")[0];
-      if (!fieldEditorIds.has(date)) fieldEditorIds.set(date, { views: null, followers: null, revenue: null });
+      if (!fieldEditorIds.has(date)) fieldEditorIds.set(date, { views: [], followers: [], revenue: [] });
       const entry = fieldEditorIds.get(date)!;
       const before = audit.before_json ?? {};
       const after = audit.after_json ?? {};
-      if (entry.views === null && before.actual_views !== after.actual_views) {
-        entry.views = audit.actor_profile_id;
-        if (audit.actor_profile_id) allActorIds.add(audit.actor_profile_id);
+      const actorId: string | null = audit.actor_profile_id ?? null;
+      if (!actorId) continue;
+      if (before.actual_views !== after.actual_views && !entry.views.includes(actorId)) {
+        entry.views.push(actorId);
+        allActorIds.add(actorId);
       }
-      if (entry.followers === null && before.actual_followers !== after.actual_followers) {
-        entry.followers = audit.actor_profile_id;
-        if (audit.actor_profile_id) allActorIds.add(audit.actor_profile_id);
+      if (before.actual_followers !== after.actual_followers && !entry.followers.includes(actorId)) {
+        entry.followers.push(actorId);
+        allActorIds.add(actorId);
       }
-      if (entry.revenue === null && before.actual_revenue_usd !== after.actual_revenue_usd) {
-        entry.revenue = audit.actor_profile_id;
-        if (audit.actor_profile_id) allActorIds.add(audit.actor_profile_id);
+      if (before.actual_revenue_usd !== after.actual_revenue_usd && !entry.revenue.includes(actorId)) {
+        entry.revenue.push(actorId);
+        allActorIds.add(actorId);
       }
     }
 
@@ -438,12 +455,12 @@ function BonusManualPage() {
       }
     }
 
-    const fieldEditorsByDate = new Map<string, { views: FieldEditor | null; followers: FieldEditor | null; revenue: FieldEditor | null }>();
+    const fieldEditorsByDate = new Map<string, { views: FieldEditor[]; followers: FieldEditor[]; revenue: FieldEditor[] }>();
     for (const [date, ids] of fieldEditorIds) {
       fieldEditorsByDate.set(date, {
-        views: ids.views ? (profileCache.get(ids.views) ?? null) : null,
-        followers: ids.followers ? (profileCache.get(ids.followers) ?? null) : null,
-        revenue: ids.revenue ? (profileCache.get(ids.revenue) ?? null) : null,
+        views: ids.views.map((id) => profileCache.get(id)).filter(Boolean) as FieldEditor[],
+        followers: ids.followers.map((id) => profileCache.get(id)).filter(Boolean) as FieldEditor[],
+        revenue: ids.revenue.map((id) => profileCache.get(id)).filter(Boolean) as FieldEditor[],
       });
     }
 
@@ -555,20 +572,24 @@ function BonusManualPage() {
         });
       }
       const editor: FieldEditor = { nome: profile.nome, avatar: profile.avatar_url ?? null };
-      const fieldUpdate = row.last_edited_field
-        ? { [row.last_edited_field === "views" ? "views_editor" : row.last_edited_field === "followers" ? "followers_editor" : "revenue_editor"]: editor }
-        : {};
-      setRows((prev) => prev.map((r) => r.date === row.date ? {
-        ...r,
-        ...fieldUpdate,
-        id: data?.id ?? r.id,
-        saving: false,
-        dirty: false,
-        saved: true,
-        _db_views: row.actual_views,
-        _db_followers: row.actual_followers,
-        _db_revenue: row.actual_revenue,
-      } : r));
+      setRows((prev) => prev.map((r) => {
+        if (r.date !== row.date) return r;
+        const f = row.last_edited_field;
+        const prependEditor = (arr: FieldEditor[]) => [editor, ...arr.filter((e) => e.nome !== editor.nome)];
+        return {
+          ...r,
+          id: data?.id ?? r.id,
+          saving: false,
+          dirty: false,
+          saved: true,
+          views_editors: f === "views" ? prependEditor(r.views_editors) : r.views_editors,
+          followers_editors: f === "followers" ? prependEditor(r.followers_editors) : r.followers_editors,
+          revenue_editors: f === "revenue" ? prependEditor(r.revenue_editors) : r.revenue_editors,
+          _db_views: row.actual_views,
+          _db_followers: row.actual_followers,
+          _db_revenue: row.actual_revenue,
+        };
+      }));
       setTimeout(() => setRows((prev) => prev.map((r) => r.date === row.date ? { ...r, saved: false } : r)), 2000);
     }
   };
@@ -803,9 +824,7 @@ function BonusManualPage() {
                           <div>
                             <div className="flex items-center gap-1.5 mb-1">
                               <p className="text-[10px] uppercase tracking-wider text-[#F44708] font-semibold">Views manuais</p>
-                              {row.views_editor && (
-                                <UpdaterAvatar nome={row.views_editor.nome} avatar={row.views_editor.avatar} />
-                              )}
+                              <AvatarStack editors={row.views_editors} />
                             </div>
                             <input
                               type="text" inputMode="numeric" disabled={isFuture || !canWrite}
@@ -824,9 +843,7 @@ function BonusManualPage() {
                           <div>
                             <div className="flex items-center gap-1.5 mb-1">
                               <p className="text-[10px] uppercase tracking-wider text-emerald-600 font-semibold">Seguidores</p>
-                              {row.followers_editor && (
-                                <UpdaterAvatar nome={row.followers_editor.nome} avatar={row.followers_editor.avatar} />
-                              )}
+                              <AvatarStack editors={row.followers_editors} />
                             </div>
                             <input
                               type="text" inputMode="numeric" disabled={isFuture || !canWrite}
@@ -845,9 +862,7 @@ function BonusManualPage() {
                           <div className="col-span-2">
                             <div className="flex items-center gap-1.5 mb-1">
                               <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Real recebido (USD)</p>
-                              {row.revenue_editor && (
-                                <UpdaterAvatar nome={row.revenue_editor.nome} avatar={row.revenue_editor.avatar} />
-                              )}
+                              <AvatarStack editors={row.revenue_editors} />
                             </div>
                             <input
                               type="number" min="0" step="0.01" disabled={isFuture || !canWrite}
@@ -933,9 +948,7 @@ function BonusManualPage() {
                                   onKeyDown={(e) => handleViewsKeyDown(e, row.date)}
                                   className="w-32 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums text-[#F44708] focus:outline-none focus:ring-1 focus:ring-[#F44708]/40 disabled:opacity-30"
                                 />
-                                {row.views_editor && (
-                                  <UpdaterAvatar nome={row.views_editor.nome} avatar={row.views_editor.avatar} />
-                                )}
+                                <AvatarStack editors={row.views_editors} />
                               </div>
                             </td>
                             <td className="px-4 py-2.5 text-right">
@@ -953,9 +966,7 @@ function BonusManualPage() {
                                   onKeyDown={(e) => handleFollowersKeyDown(e, row.date)}
                                   className="w-24 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums text-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/40 disabled:opacity-30"
                                 />
-                                {row.followers_editor && (
-                                  <UpdaterAvatar nome={row.followers_editor.nome} avatar={row.followers_editor.avatar} />
-                                )}
+                                <AvatarStack editors={row.followers_editors} />
                               </div>
                             </td>
                             <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
@@ -971,9 +982,7 @@ function BonusManualPage() {
                                   onBlur={() => handleFieldBlur(row)}
                                   className="w-28 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
                                 />
-                                {row.revenue_editor && (
-                                  <UpdaterAvatar nome={row.revenue_editor.nome} avatar={row.revenue_editor.avatar} />
-                                )}
+                                <AvatarStack editors={row.revenue_editors} />
                               </div>
                             </td>
                             <td className="px-2 py-2.5 w-8">
