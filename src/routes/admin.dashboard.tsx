@@ -1207,11 +1207,10 @@ function AdminDashboard() {
   }, [allPosts, filterPage, filterFrom, filterTo, chartMetric, dailyEntries]);
 
   // Projection chart data: last 30 days real + next 28 projected (página única)
-  // When showManual=OFF, use pure CSV data (no manual corrections)
+  // Orange line always = pure CSV posts revenue; green line = actual_revenue_usd (manual)
   const projectionChartData = useMemo(() => {
-    const source = showManual ? chartData : chartDataCsv;
-    const hist = source.slice(-30).map((d) => ({ dia: d.dia, real: d.receita, proj: null as number | null }));
-    const last = source[source.length - 1];
+    const hist = chartDataCsv.slice(-30).map((d) => ({ dia: d.dia, real: d.receita, proj: null as number | null }));
+    const last = chartDataCsv[chartDataCsv.length - 1];
     const today = new Date();
     const futuro = Array.from({ length: 28 }, (_, i) => {
       const d = new Date(today);
@@ -1221,7 +1220,7 @@ function AdminDashboard() {
     });
     if (last) hist[hist.length - 1] = { ...hist[hist.length - 1], proj: projections.today };
     return [...hist, ...futuro];
-  }, [chartData, chartDataCsv, showManual, projections]);
+  }, [chartDataCsv, projections]);
 
   // Map "dd/mm" → actual_revenue_usd for overlay on revenue charts (filtered by selected page)
   const dailyActualByDia = useMemo(() => {
