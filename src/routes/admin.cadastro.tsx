@@ -374,11 +374,18 @@ function RoleSelect({
 }) {
   return (
     <Select value={value} onValueChange={(v) => onChange(v as Role)} disabled={disabled}>
-      <SelectTrigger className={compact ? "h-7 text-xs px-2 w-auto min-w-[130px]" : undefined}>
-        <span className="flex items-center gap-1.5">
-          <RoleIcon role={value} className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
-          {ROLE_LABEL[value]}
-        </span>
+      <SelectTrigger
+        className={
+          compact
+            ? `inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border-0 shadow-none h-auto w-auto focus:ring-0 focus:ring-offset-0 [&>svg:last-child]:hidden hover:opacity-80 cursor-pointer ${
+                value === "admin" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+              }`
+            : undefined
+        }
+      >
+        <RoleIcon role={value} className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
+        <span>{ROLE_LABEL[value]}</span>
+        {compact && <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-60"><path d="m6 9 6 6 6-6"/></svg>}
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="colaborador">
