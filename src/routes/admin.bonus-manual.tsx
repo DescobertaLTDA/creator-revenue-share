@@ -21,6 +21,11 @@ interface PageOption {
   isMonetized: boolean;
 }
 
+interface FieldEditor {
+  nome: string;
+  avatar: string | null;
+}
+
 interface DayEntry {
   date: string;
   label: string;
@@ -36,8 +41,9 @@ interface DayEntry {
   dirty: boolean;
   saving: boolean;
   saved: boolean;
-  updater_nome: string | null;
-  updater_avatar: string | null;
+  views_editor: FieldEditor | null;
+  followers_editor: FieldEditor | null;
+  revenue_editor: FieldEditor | null;
   last_edited_field: "views" | "followers" | "revenue" | null;
   // snapshot of DB values at load time — used as before_json in audit log
   _db_views: number | null;
@@ -321,13 +327,12 @@ function BonusManualPage() {
       postsByDay: Record<string, number>,
       viewsByDay: Record<string, number>,
       dbEntries: Record<string, any>,
-      updaterMap: Map<string, { nome: string; avatar: string | null }>,
-      lastEditedFieldMap: Map<string, "views" | "followers" | "revenue" | null>
+      fieldEditorsByDate: Map<string, { views: FieldEditor | null; followers: FieldEditor | null; revenue: FieldEditor | null }>
     ): DayEntry[] => {
       return days.map((date) => {
         const d = new Date(date + "T00:00:00");
         const db = dbEntries[date];
-        const updater = db?.updated_by ? updaterMap.get(db.updated_by) : null;
+        const fe = fieldEditorsByDate.get(date) ?? { views: null, followers: null, revenue: null };
         return {
           date,
           label: `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`,
@@ -343,9 +348,10 @@ function BonusManualPage() {
           dirty: false,
           saving: false,
           saved: false,
-          updater_nome: updater?.nome ?? null,
-          updater_avatar: updater?.avatar ?? null,
-          last_edited_field: lastEditedFieldMap.get(date) ?? null,
+          views_editor: fe.views,
+          followers_editor: fe.followers,
+          revenue_editor: fe.revenue,
+          last_edited_field: null,
           _db_views: db?.actual_views ?? null,
           _db_followers: db?.actual_followers ?? null,
           _db_revenue: db?.actual_revenue_usd ?? null,
@@ -393,33 +399,55 @@ function BonusManualPage() {
     }
 
     const dbEntries: Record<string, any> = {};
-    const updaterIds = new Set<string>();
     for (const e of (dbData ?? []) as any[]) {
       dbEntries[e.entry_date] = e;
-      if (e.updated_by) updaterIds.add(e.updated_by);
     }
 
-    // Build map of which field was last edited per date (most recent audit entry wins)
-    const lastEditedFieldMap = new Map<string, "views" | "followers" | "revenue" | null>();
+    // Build per-field editor map: for each date, find the most recent audit entry
+    // where each specific field changed, independently per field.
+    const fieldEditorIds = new Map<string, { views: string | null; followers: string | null; revenue: string | null }>();
+    const allActorIds = new Set<string>();
     for (const audit of (auditData ?? []) as any[]) {
       const date = audit.entity_id.split(":")[0];
-      if (!lastEditedFieldMap.has(date)) {
-        lastEditedFieldMap.set(date, getLastChangedField(audit.before_json ?? {}, audit.after_json ?? {}));
+      if (!fieldEditorIds.has(date)) fieldEditorIds.set(date, { views: null, followers: null, revenue: null });
+      const entry = fieldEditorIds.get(date)!;
+      const before = audit.before_json ?? {};
+      const after = audit.after_json ?? {};
+      if (entry.views === null && before.actual_views !== after.actual_views) {
+        entry.views = audit.actor_profile_id;
+        if (audit.actor_profile_id) allActorIds.add(audit.actor_profile_id);
+      }
+      if (entry.followers === null && before.actual_followers !== after.actual_followers) {
+        entry.followers = audit.actor_profile_id;
+        if (audit.actor_profile_id) allActorIds.add(audit.actor_profile_id);
+      }
+      if (entry.revenue === null && before.actual_revenue_usd !== after.actual_revenue_usd) {
+        entry.revenue = audit.actor_profile_id;
+        if (audit.actor_profile_id) allActorIds.add(audit.actor_profile_id);
       }
     }
 
-    const updaterMap = new Map<string, { nome: string; avatar: string | null }>();
-    if (updaterIds.size > 0) {
+    const profileCache = new Map<string, FieldEditor>();
+    if (allActorIds.size > 0) {
       const { data: profileRows } = await supabase
         .from("profiles")
         .select("id, nome, avatar_url")
-        .in("id", [...updaterIds]);
+        .in("id", [...allActorIds]);
       for (const p of (profileRows ?? []) as any[]) {
-        updaterMap.set(p.id, { nome: p.nome, avatar: p.avatar_url ?? null });
+        profileCache.set(p.id, { nome: p.nome, avatar: p.avatar_url ?? null });
       }
     }
 
-    setRows(buildRows(days, postsByDay, viewsByDay, dbEntries, updaterMap, lastEditedFieldMap));
+    const fieldEditorsByDate = new Map<string, { views: FieldEditor | null; followers: FieldEditor | null; revenue: FieldEditor | null }>();
+    for (const [date, ids] of fieldEditorIds) {
+      fieldEditorsByDate.set(date, {
+        views: ids.views ? (profileCache.get(ids.views) ?? null) : null,
+        followers: ids.followers ? (profileCache.get(ids.followers) ?? null) : null,
+        revenue: ids.revenue ? (profileCache.get(ids.revenue) ?? null) : null,
+      });
+    }
+
+    setRows(buildRows(days, postsByDay, viewsByDay, dbEntries, fieldEditorsByDate));
     setLoading(false);
   }, [buildRows]);
 
@@ -526,14 +554,17 @@ function BonusManualPage() {
           after_json: after,
         });
       }
+      const editor: FieldEditor = { nome: profile.nome, avatar: profile.avatar_url ?? null };
+      const fieldUpdate = row.last_edited_field
+        ? { [row.last_edited_field === "views" ? "views_editor" : row.last_edited_field === "followers" ? "followers_editor" : "revenue_editor"]: editor }
+        : {};
       setRows((prev) => prev.map((r) => r.date === row.date ? {
         ...r,
+        ...fieldUpdate,
         id: data?.id ?? r.id,
         saving: false,
         dirty: false,
         saved: true,
-        updater_nome: profile.nome,
-        updater_avatar: profile.avatar_url ?? null,
         _db_views: row.actual_views,
         _db_followers: row.actual_followers,
         _db_revenue: row.actual_revenue,
@@ -772,8 +803,8 @@ function BonusManualPage() {
                           <div>
                             <div className="flex items-center gap-1.5 mb-1">
                               <p className="text-[10px] uppercase tracking-wider text-[#F44708] font-semibold">Views manuais</p>
-                              {row.updater_nome && row.last_edited_field === "views" && (
-                                <UpdaterAvatar nome={row.updater_nome} avatar={row.updater_avatar} />
+                              {row.views_editor && (
+                                <UpdaterAvatar nome={row.views_editor.nome} avatar={row.views_editor.avatar} />
                               )}
                             </div>
                             <input
@@ -793,8 +824,8 @@ function BonusManualPage() {
                           <div>
                             <div className="flex items-center gap-1.5 mb-1">
                               <p className="text-[10px] uppercase tracking-wider text-emerald-600 font-semibold">Seguidores</p>
-                              {row.updater_nome && row.last_edited_field === "followers" && (
-                                <UpdaterAvatar nome={row.updater_nome} avatar={row.updater_avatar} />
+                              {row.followers_editor && (
+                                <UpdaterAvatar nome={row.followers_editor.nome} avatar={row.followers_editor.avatar} />
                               )}
                             </div>
                             <input
@@ -814,8 +845,8 @@ function BonusManualPage() {
                           <div className="col-span-2">
                             <div className="flex items-center gap-1.5 mb-1">
                               <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Real recebido (USD)</p>
-                              {row.updater_nome && row.last_edited_field === "revenue" && (
-                                <UpdaterAvatar nome={row.updater_nome} avatar={row.updater_avatar} />
+                              {row.revenue_editor && (
+                                <UpdaterAvatar nome={row.revenue_editor.nome} avatar={row.revenue_editor.avatar} />
                               )}
                             </div>
                             <input
@@ -902,8 +933,8 @@ function BonusManualPage() {
                                   onKeyDown={(e) => handleViewsKeyDown(e, row.date)}
                                   className="w-32 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums text-[#F44708] focus:outline-none focus:ring-1 focus:ring-[#F44708]/40 disabled:opacity-30"
                                 />
-                                {row.updater_nome && row.last_edited_field === "views" && (
-                                  <UpdaterAvatar nome={row.updater_nome} avatar={row.updater_avatar} />
+                                {row.views_editor && (
+                                  <UpdaterAvatar nome={row.views_editor.nome} avatar={row.views_editor.avatar} />
                                 )}
                               </div>
                             </td>
@@ -922,8 +953,8 @@ function BonusManualPage() {
                                   onKeyDown={(e) => handleFollowersKeyDown(e, row.date)}
                                   className="w-24 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums text-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/40 disabled:opacity-30"
                                 />
-                                {row.updater_nome && row.last_edited_field === "followers" && (
-                                  <UpdaterAvatar nome={row.updater_nome} avatar={row.updater_avatar} />
+                                {row.followers_editor && (
+                                  <UpdaterAvatar nome={row.followers_editor.nome} avatar={row.followers_editor.avatar} />
                                 )}
                               </div>
                             </td>
@@ -940,8 +971,8 @@ function BonusManualPage() {
                                   onBlur={() => handleFieldBlur(row)}
                                   className="w-28 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
                                 />
-                                {row.updater_nome && row.last_edited_field === "revenue" && (
-                                  <UpdaterAvatar nome={row.updater_nome} avatar={row.updater_avatar} />
+                                {row.revenue_editor && (
+                                  <UpdaterAvatar nome={row.revenue_editor.nome} avatar={row.revenue_editor.avatar} />
                                 )}
                               </div>
                             </td>
