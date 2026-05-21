@@ -1179,7 +1179,7 @@ function AdminDashboard() {
     return map;
   }, [dailyEntries]);
 
-  // Map "dd/mm" → actual_views for overlay on views chart
+  // Map "dd/mm" → actual_views (summed, for single-page overlay)
   const dailyActualViewsByDia = useMemo(() => {
     const map = new Map<string, number>();
     for (const e of dailyEntries) {
@@ -1188,6 +1188,20 @@ function AdminDashboard() {
       map.set(`${d}/${mo}`, (map.get(`${d}/${mo}`) ?? 0) + Number(e.actual_views));
     }
     return map;
+  }, [dailyEntries]);
+
+  // Map pageId → (dia "dd/mm" → actual_views) for multi-page overlay
+  const dailyActualViewsByPage = useMemo(() => {
+    const outer = new Map<string, Map<string, number>>();
+    for (const e of dailyEntries) {
+      if (e.actual_views == null || !e.page_id) continue;
+      const [, mo, d] = e.entry_date.split("-");
+      const dia = `${d}/${mo}`;
+      if (!outer.has(e.page_id)) outer.set(e.page_id, new Map());
+      const inner = outer.get(e.page_id)!;
+      inner.set(dia, (inner.get(dia) ?? 0) + Number(e.actual_views));
+    }
+    return outer;
   }, [dailyEntries]);
 
   // Scores always computed across ALL pages (date-filtered only, never page-filtered)
@@ -1454,7 +1468,13 @@ function AdminDashboard() {
                         data={chartMetric === "receita"
                           ? activeDataset.data.map((row) => ({ ...row, __actual: dailyActualByDia.get(row.dia) ?? null }))
                           : chartMetric === "views"
-                          ? activeDataset.data.map((row) => ({ ...row, __actual_views: dailyActualViewsByDia.get(row.dia) ?? null }))
+                          ? activeDataset.data.map((row) => {
+                              const extra: Record<string, number | null> = {};
+                              for (const pid of activeDataset.pageIds) {
+                                extra[`__actual_${pid}`] = dailyActualViewsByPage.get(pid)?.get(row.dia) ?? null;
+                              }
+                              return { ...row, ...extra };
+                            })
                           : activeDataset.data}
                         margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
                       >
@@ -1503,19 +1523,20 @@ function AdminDashboard() {
                             legendType="plainline"
                           />
                         )}
-                        {chartMetric === "views" && (
+                        {chartMetric === "views" && activeDataset.pageIds.map((pid, i) => (
                           <Line
+                            key={`__actual_${pid}`}
                             type="monotone"
-                            dataKey="__actual_views"
-                            name="Views Manuais"
-                            stroke="#16a34a"
+                            dataKey={`__actual_${pid}`}
+                            name={`${activeDataset.pageNameById.get(pid) ?? "Sem nome"} (manual)`}
+                            stroke={PAGE_COLORS[i % PAGE_COLORS.length]}
                             strokeWidth={2.5}
                             strokeDasharray="6 3"
                             dot={false}
                             connectNulls
                             legendType="plainline"
                           />
-                        )}
+                        ))}
                       </ComposedChart>
                     ) : filterPage !== "all" && chartMetric === "receita" ? (
                       <AreaChart
