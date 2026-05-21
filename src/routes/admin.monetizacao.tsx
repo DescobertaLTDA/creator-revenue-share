@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import fbLogo from "@/assets/facebook.png";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
@@ -1241,14 +1242,13 @@ function OverviewRing({ pct }: { pct: number }) {
 
 // ─── Page Avatar ──────────────────────────────────────────────────────────────
 
-const AVATAR_COLORS = ["#F44708", "#0ea5e9", "#16a34a", "#f59e0b", "#ef4444", "#FAA613", "#ec4899", "#06b6d4"];
-
-function PageAvatar({ name, size = 32 }: { name: string; size?: number }) {
-  const color = AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
+function PageAvatar({ size = 32 }: { name?: string; size?: number }) {
   return (
-    <div className="rounded-full flex items-center justify-center text-white font-bold shrink-0"
-      style={{ width: size, height: size, backgroundColor: color, fontSize: size * 0.35 }}>
-      {name.slice(0, 2).toUpperCase()}
-    </div>
+    <img
+      src={fbLogo}
+      alt="Facebook"
+      className="rounded-full shrink-0 object-contain"
+      style={{ width: size, height: size }}
+    />
   );
 }
