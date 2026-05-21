@@ -1965,6 +1965,10 @@ function ColaboradorCard({ item, rank, sparkline, usdBrl, onClick, idx }: {
   item: ColabCard; rank: number; sparkline: number[];
   usdBrl: number | null; onClick: () => void; idx: number;
 }) {
+  const prev7 = sparkline.slice(0, 7).reduce((s, v) => s + v, 0);
+  const last7 = sparkline.slice(7).reduce((s, v) => s + v, 0);
+  const delta = prev7 > 0.001 ? ((last7 - prev7) / prev7) * 100 : null;
+
   return (
     <button
       onClick={onClick}
@@ -1983,7 +1987,14 @@ function ColaboradorCard({ item, rank, sparkline, usdBrl, onClick, idx }: {
           <p className="text-[17px] font-black text-[#1A0A00] tabular-nums leading-none">
             {usdBrl ? formatBRL(item.receita * usdBrl) : `$${item.receita.toFixed(2)}`}
           </p>
-          <p className="text-[11px] text-[#9B9B9B] tabular-nums mt-0.5">${item.receita.toFixed(2)}</p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <p className="text-[11px] text-[#9B9B9B] tabular-nums">${item.receita.toFixed(2)}</p>
+            {delta !== null && (
+              <span className={`text-[10px] font-bold tabular-nums ${delta >= 0 ? "text-[#16a34a]" : "text-[#dc2626]"}`}>
+                {delta >= 0 ? "▲" : "▼"}{Math.abs(delta).toFixed(0)}%
+              </span>
+            )}
+          </div>
         </div>
       </div>
       <ColabSparkline data={sparkline} idx={idx} />
