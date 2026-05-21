@@ -7,7 +7,7 @@ import {
   CalendarCheck, Users, HandCoins, LogOut, Menu, X, UserCog, Target, TrendingUp, BarChart3,
 } from "lucide-react";
 
-const LOGO = "/assets/logo/logo%20site.webp";
+const LOGO = "/assets/logo/logo.webp";
 
 interface NavItem {
   to: string;
@@ -50,7 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex">
       {/* ── Desktop sidebar ─────────────────────────────── */}
-      <aside className="hidden lg:flex w-64 flex-col border-r border-[#7A0501] bg-sidebar h-screen sticky top-0 overflow-hidden">
+      <aside className="hidden lg:flex w-64 flex-col border-r border-[#222222] bg-sidebar h-screen sticky top-0 overflow-hidden">
         <SidebarContent
           nav={adminNav}
           pathname={location.pathname}
@@ -67,7 +67,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             onClick={() => setDrawerOpen(false)}
           />
           <div className="relative w-72 bg-sidebar h-full flex flex-col">
-            <div className="flex items-center justify-between h-14 px-4 border-b border-[#7A0501] shrink-0">
+            <div className="flex items-center justify-between h-14 px-4 border-b border-[#222222] shrink-0">
               <div className="flex items-center gap-2.5">
                 <img src={LOGO} alt="Splash Creators" className="h-7 w-7 object-contain rounded-md shrink-0" />
                 <span className="font-semibold text-sm text-white">Splash Creators</span>
@@ -105,7 +105,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               })}
             </nav>
 
-            <div className="border-t border-[#7A0501] p-3 shrink-0">
+            <div className="border-t border-[#222222] p-3 shrink-0">
               <div className="px-3 py-2">
                 <p className="text-sm font-medium text-white truncate">{profile?.nome}</p>
                 <p className="text-xs text-white/50 truncate">{profile?.email}</p>
@@ -164,7 +164,7 @@ function SidebarContent({
 }) {
   return (
     <>
-      <div className="h-16 flex items-center gap-3 px-5 border-b border-[#7A0501] shrink-0">
+      <div className="h-16 flex items-center gap-3 px-5 border-b border-[#222222] shrink-0">
         <img src={LOGO} alt="Splash Creators" className="h-9 w-9 object-contain rounded-lg shrink-0" />
         <div className="flex flex-col">
           <span className="font-bold leading-tight text-white">Splash Creators</span>
@@ -196,7 +196,7 @@ function SidebarContent({
         })}
       </nav>
 
-      <div className="border-t border-[#7A0501] p-3 shrink-0">
+      <div className="border-t border-[#222222] p-3 shrink-0">
         <div className="px-3 py-2">
           <p className="font-semibold text-sm text-white truncate">{profile?.nome}</p>
           <p className="text-[11px] text-white/50 truncate mt-0.5">{profile?.email}</p>
