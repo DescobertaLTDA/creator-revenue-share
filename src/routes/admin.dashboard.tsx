@@ -1440,7 +1440,7 @@ function AdminDashboard() {
                   {showManual ? "ON" : "OFF"}
                 </span>
                 {/* thumb */}
-                <span className={`h-6 w-6 rounded-full bg-white shadow-md transition-all duration-200 shrink-0 ${showManual ? "translate-x-[36px]" : "translate-x-0"}`} />
+                <span className={`relative z-10 h-6 w-6 rounded-full bg-white shadow-md transition-all duration-200 shrink-0 ${showManual ? "translate-x-[36px]" : "translate-x-0"}`} />
               </div>
             </button>
           </div>
