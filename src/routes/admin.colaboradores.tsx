@@ -447,35 +447,40 @@ function Page() {
             <div className="sm:hidden divide-y divide-border">
               {rows.map((r, i) => (
                 <div key={r.id} className="px-4 py-4 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-3 min-w-0">
                       <ColabAvatar nome={r.nome} avatarUrl={r.avatar_url} size={40} idx={i} />
                       <div className="min-w-0">
                         <p className="font-semibold truncate">{r.nome}</p>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          {r.hashtag
-                            ? <span className="inline-flex items-center gap-1 text-primary font-mono text-xs bg-primary/10 px-2 py-0.5 rounded-md">#{r.hashtag}</span>
-                            : <span className="text-xs text-muted-foreground">Sem hashtag</span>}
-                        </div>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground tabular-nums">
-                          <span className="flex items-center gap-1"><FileText className="h-3 w-3" />{fmt(r.post_count)}</span>
-                          <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{fmt(r.total_views)}</span>
-                          <span className="flex items-center gap-1"><Heart className="h-3 w-3" />{fmt(r.total_reactions)}</span>
-                          <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3" />{fmt(r.total_comments)}</span>
-                        </div>
+                        {r.hashtag
+                          ? <span className="text-primary font-mono text-xs bg-primary/10 px-2 py-0.5 rounded-md mt-0.5 inline-block">#{r.hashtag}</span>
+                          : <span className="text-xs text-muted-foreground">Sem hashtag</span>}
                       </div>
                     </div>
                     <span className={`text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${r.ativo ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"}`}>
                       {r.ativo ? "Ativo" : "Inativo"}
                     </span>
                   </div>
+                  <div className="grid grid-cols-4 gap-2 tabular-nums">
+                    {([
+                      { label: "Posts", value: fmt(r.post_count) },
+                      { label: "Views", value: fmt(r.total_views) },
+                      { label: "Curt.", value: fmt(r.total_reactions) },
+                      { label: "Com.", value: fmt(r.total_comments) },
+                    ] as const).map(({ label, value }) => (
+                      <div key={label} className="bg-muted/50 rounded-lg px-2 py-2 flex flex-col items-center gap-0.5">
+                        <span className="font-semibold text-sm">{value}</span>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</span>
+                      </div>
+                    ))}
+                  </div>
                   {isAdmin && (
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => openEdit(r)} className="flex-1 h-10">Editar</Button>
-                      <Button size="sm" variant="ghost" onClick={() => toggleAtivo(r)} className="flex-1 h-10">
+                      <Button size="sm" variant="outline" onClick={() => openEdit(r)} className="flex-1 h-9">Editar</Button>
+                      <Button size="sm" variant="ghost" onClick={() => toggleAtivo(r)} className="flex-1 h-9">
                         {r.ativo ? "Desativar" : "Ativar"}
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(r)} className="h-10 text-destructive hover:text-destructive hover:bg-destructive/10">
+                      <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(r)} className="h-9 text-destructive hover:text-destructive hover:bg-destructive/10">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -483,60 +488,58 @@ function Page() {
                 </div>
               ))}
             </div>
-            {/* Desktop table */}
-            <div className="hidden sm:block">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="text-left px-5 py-3 font-medium">Nome</th>
-                    <th className="text-left px-5 py-3 font-medium">Hashtag</th>
-                    <th className="text-left px-5 py-3 font-medium">Métricas</th>
-                    <th className="text-left px-5 py-3 font-medium">Status</th>
-                    {isAdmin && <th className="text-left px-5 py-3 font-medium">Ações</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {rows.map((r, i) => (
-                    <tr key={r.id} className="hover:bg-muted/20">
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-3">
-                          <ColabAvatar nome={r.nome} avatarUrl={r.avatar_url} size={34} idx={i} />
-                          <span className="font-medium">{r.nome}</span>
+            {/* Desktop list */}
+            <div className="hidden sm:divide-y sm:divide-border sm:block">
+              {rows.map((r, i) => (
+                <div key={r.id} className="flex items-center justify-between gap-6 px-6 py-4 hover:bg-muted/20 transition-colors">
+                  {/* Avatar + name + hashtag */}
+                  <div className="flex items-center gap-4 min-w-[180px]">
+                    <ColabAvatar nome={r.nome} avatarUrl={r.avatar_url} size={42} idx={i} />
+                    <div>
+                      <p className="font-semibold text-sm">{r.nome}</p>
+                      {r.hashtag
+                        ? <span className="text-primary font-mono text-xs bg-primary/10 px-2 py-0.5 rounded-md mt-0.5 inline-block">#{r.hashtag}</span>
+                        : <span className="text-xs text-muted-foreground">Sem hashtag</span>}
+                    </div>
+                  </div>
+
+                  {/* Metrics */}
+                  <div className="flex items-center gap-6 flex-1 justify-center tabular-nums">
+                    {[
+                      { icon: FileText, label: "Posts", value: fmt(r.post_count) },
+                      { icon: Eye, label: "Views", value: fmt(r.total_views) },
+                      { icon: Heart, label: "Curtidas", value: fmt(r.total_reactions) },
+                      { icon: MessageCircle, label: "Comentários", value: fmt(r.total_comments) },
+                    ].map(({ icon: Icon, label, value }) => (
+                      <div key={label} className="flex flex-col items-center gap-0.5 min-w-[64px]">
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <Icon className="h-3.5 w-3.5" />
+                          <span className="text-[11px] uppercase tracking-wide">{label}</span>
                         </div>
-                      </td>
-                      <td className="px-5 py-3">
-                        {r.hashtag
-                          ? <span className="inline-flex items-center gap-1 text-primary font-mono text-xs bg-primary/10 px-2 py-0.5 rounded">#{r.hashtag}</span>
-                          : <span className="text-muted-foreground">-</span>}
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground tabular-nums">
-                          <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{fmt(r.post_count)}</span>
-                          <span className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{fmt(r.total_views)}</span>
-                          <span className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{fmt(r.total_reactions)}</span>
-                          <span className="flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" />{fmt(r.total_comments)}</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${r.ativo ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"}`}>
-                          {r.ativo ? "Ativo" : "Inativo"}
-                        </span>
-                      </td>
-                      {isAdmin && (
-                        <td className="px-5 py-3 flex gap-2">
-                          <Button size="sm" variant="outline" onClick={() => openEdit(r)}>Editar</Button>
-                          <Button size="sm" variant="ghost" onClick={() => toggleAtivo(r)}>
-                            {r.ativo ? "Desativar" : "Ativar"}
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(r)} className="text-destructive hover:text-destructive hover:bg-destructive/10">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        <span className="font-semibold text-base">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Status + actions */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${r.ativo ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"}`}>
+                      {r.ativo ? "Ativo" : "Inativo"}
+                    </span>
+                    {isAdmin && (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => openEdit(r)}>Editar</Button>
+                        <Button size="sm" variant="ghost" onClick={() => toggleAtivo(r)}>
+                          {r.ativo ? "Desativar" : "Ativar"}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(r)} className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </>
         )}
