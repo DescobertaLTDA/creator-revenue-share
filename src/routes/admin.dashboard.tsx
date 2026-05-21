@@ -862,6 +862,10 @@ function AdminDashboard() {
 
     const purePostsUsd = geralUsd; // CSV-only total, before manual corrections
 
+    // Snapshot of byDay before corrections — used for CSV-only chart when toggle is OFF
+    const byDayCsv: typeof byDay = {};
+    for (const [k, v] of Object.entries(byDay)) byDayCsv[k] = { ...v };
+
     // Daily revenue corrections — use actual_revenue_usd from daily_revenue_entries.
     // Entries are now per-page (page_id). When a specific page is selected, only
     // apply corrections for that page. When "all", sum across all pages per day.
@@ -973,6 +977,10 @@ function AdminDashboard() {
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([, v]) => ({ ...v, receita: parseFloat(v.receita.toFixed(4)) }));
 
+    const chartDataCsv = Object.entries(byDayCsv)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([, v]) => ({ ...v, receita: parseFloat(v.receita.toFixed(4)) }));
+
     // Revenue projection: avg of last 7 days
     const last7 = chartData.slice(-7);
     const avgDaily = last7.length > 0 ? last7.reduce((s, d) => s + d.receita, 0) / last7.length : 0;
@@ -1018,6 +1026,7 @@ function AdminDashboard() {
         avgScore,
       },
       chartData,
+      chartDataCsv,
       activeMonthRef: latestMonth,
       collabCards: Array.from(merged.values()).sort((a, b) => b.receita - a.receita || a.nome.localeCompare(b.nome, "pt-BR")),
       rulesByPage,
@@ -1034,7 +1043,7 @@ function AdminDashboard() {
   }, [allPosts, postAuthors, splitRules, colabs, manualBonuses, dailyEntries, filterPage, filterColab, filterFrom, filterTo, pages]);
 
   const {
-    kpis, chartData, activeMonthRef, collabCards,
+    kpis, chartData, chartDataCsv, activeMonthRef, collabCards,
     rulesByPage, postToCollabs, pageStats, projections, sparklineByPage,
   } = computed;
 
@@ -1198,9 +1207,11 @@ function AdminDashboard() {
   }, [allPosts, filterPage, filterFrom, filterTo, chartMetric, dailyEntries]);
 
   // Projection chart data: last 30 days real + next 28 projected (página única)
+  // When showManual=OFF, use pure CSV data (no manual corrections)
   const projectionChartData = useMemo(() => {
-    const hist = chartData.slice(-30).map((d) => ({ dia: d.dia, real: d.receita, proj: null as number | null }));
-    const last = chartData[chartData.length - 1];
+    const source = showManual ? chartData : chartDataCsv;
+    const hist = source.slice(-30).map((d) => ({ dia: d.dia, real: d.receita, proj: null as number | null }));
+    const last = source[source.length - 1];
     const today = new Date();
     const futuro = Array.from({ length: 28 }, (_, i) => {
       const d = new Date(today);
@@ -1210,7 +1221,7 @@ function AdminDashboard() {
     });
     if (last) hist[hist.length - 1] = { ...hist[hist.length - 1], proj: projections.today };
     return [...hist, ...futuro];
-  }, [chartData, projections]);
+  }, [chartData, chartDataCsv, showManual, projections]);
 
   // Map "dd/mm" → actual_revenue_usd for overlay on revenue charts (filtered by selected page)
   const dailyActualByDia = useMemo(() => {
