@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
-import { Users, Plus, Loader2, Hash, Trash2, Camera, UserCircle } from "lucide-react";
+import { Users, Plus, Loader2, Hash, Trash2, Camera, UserCircle, Eye, Heart, MessageCircle, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/admin/colaboradores")({
   head: () => ({ meta: [{ title: "Colaboradores - Splash Creators" }] }),
@@ -27,7 +27,16 @@ interface Col {
   hashtag: string | null;
   avatar_url: string | null;
   ativo: boolean;
-  post_count?: number;
+  post_count: number;
+  total_views: number;
+  total_reactions: number;
+  total_comments: number;
+}
+
+function fmt(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+  return String(n);
 }
 
 interface PostLite {
@@ -150,16 +159,27 @@ function Page() {
     }
 
     const ids = cols.map((c) => c.id);
-    const counts = await fetchAllRows<{ collaborator_id: string }>(() =>
-      supabase.from("post_authors").select("collaborator_id").in("collaborator_id", ids)
+    const paRows = await fetchAllRows<{
+      collaborator_id: string;
+      posts: { views: number | null; reactions: number | null; comments: number | null } | null;
+    }>(() =>
+      supabase
+        .from("post_authors")
+        .select("collaborator_id, posts(views, reactions, comments)")
+        .in("collaborator_id", ids)
     );
 
-    const countMap: Record<string, number> = {};
-    for (const c of counts) {
-      countMap[c.collaborator_id] = (countMap[c.collaborator_id] ?? 0) + 1;
+    const metricsMap: Record<string, { post_count: number; total_views: number; total_reactions: number; total_comments: number }> = {};
+    for (const row of paRows) {
+      const cid = row.collaborator_id;
+      if (!metricsMap[cid]) metricsMap[cid] = { post_count: 0, total_views: 0, total_reactions: 0, total_comments: 0 };
+      metricsMap[cid].post_count++;
+      metricsMap[cid].total_views += row.posts?.views ?? 0;
+      metricsMap[cid].total_reactions += row.posts?.reactions ?? 0;
+      metricsMap[cid].total_comments += row.posts?.comments ?? 0;
     }
 
-    setRows(cols.map((c) => ({ ...c, post_count: countMap[c.id] ?? 0 })));
+    setRows(cols.map((c) => ({ ...c, ...(metricsMap[c.id] ?? { post_count: 0, total_views: 0, total_reactions: 0, total_comments: 0 }) })));
     setLoading(false);
   };
 
@@ -436,7 +456,12 @@ function Page() {
                           {r.hashtag
                             ? <span className="inline-flex items-center gap-1 text-primary font-mono text-xs bg-primary/10 px-2 py-0.5 rounded-md">#{r.hashtag}</span>
                             : <span className="text-xs text-muted-foreground">Sem hashtag</span>}
-                          <span className="text-xs text-muted-foreground">{r.post_count ?? 0} posts</span>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground tabular-nums">
+                          <span className="flex items-center gap-1"><FileText className="h-3 w-3" />{fmt(r.post_count)}</span>
+                          <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{fmt(r.total_views)}</span>
+                          <span className="flex items-center gap-1"><Heart className="h-3 w-3" />{fmt(r.total_reactions)}</span>
+                          <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3" />{fmt(r.total_comments)}</span>
                         </div>
                       </div>
                     </div>
@@ -465,7 +490,7 @@ function Page() {
                   <tr>
                     <th className="text-left px-5 py-3 font-medium">Nome</th>
                     <th className="text-left px-5 py-3 font-medium">Hashtag</th>
-                    <th className="text-right px-5 py-3 font-medium">Posts vinculados</th>
+                    <th className="text-left px-5 py-3 font-medium">Métricas</th>
                     <th className="text-left px-5 py-3 font-medium">Status</th>
                     {isAdmin && <th className="text-left px-5 py-3 font-medium">Ações</th>}
                   </tr>
@@ -484,7 +509,14 @@ function Page() {
                           ? <span className="inline-flex items-center gap-1 text-primary font-mono text-xs bg-primary/10 px-2 py-0.5 rounded">#{r.hashtag}</span>
                           : <span className="text-muted-foreground">-</span>}
                       </td>
-                      <td className="px-5 py-3 text-right tabular-nums">{r.post_count ?? 0}</td>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground tabular-nums">
+                          <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{fmt(r.post_count)}</span>
+                          <span className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{fmt(r.total_views)}</span>
+                          <span className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{fmt(r.total_reactions)}</span>
+                          <span className="flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" />{fmt(r.total_comments)}</span>
+                        </div>
+                      </td>
                       <td className="px-5 py-3">
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${r.ativo ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"}`}>
                           {r.ativo ? "Ativo" : "Inativo"}
