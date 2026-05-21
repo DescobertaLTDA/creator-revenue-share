@@ -568,6 +568,7 @@ function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<"overview" | "charts">("overview");
   const [chartMetric, setChartMetric] = useState<"receita" | "views" | "curtidas" | "comentarios" | "compartilhamentos" | "seguidores">("receita");
 
+  const [showManual, setShowManual] = useState(true);
   const [filterPage, setFilterPage] = useState("all");
   const [filterColab, setFilterColab] = useState("all");
   const [filterFrom, setFilterFrom] = useState(() => {
@@ -1020,7 +1021,14 @@ function AdminDashboard() {
     rulesByPage, postToCollabs, pageStats, projections, sparklineByPage,
   } = computed;
 
-  const { totalMonth, totalViews, avgRpm, avgScore } = kpis;
+  const { totalMonth: csvTotalMonth, totalViews: csvTotalViews, avgRpm: csvAvgRpm, avgScore } = kpis;
+
+  // When showManual is ON, override KPIs with manually entered values (when available)
+  const totalMonth = showManual && manualKpiTotals.revenue > 0 ? manualKpiTotals.revenue : csvTotalMonth;
+  const totalViews = showManual && manualKpiTotals.views > 0 ? manualKpiTotals.views : csvTotalViews;
+  const avgRpm = showManual && manualKpiTotals.revenue > 0 && manualKpiTotals.views > 0
+    ? (manualKpiTotals.revenue / manualKpiTotals.views) * 1000
+    : csvAvgRpm;
 
   const [auditColabId, setAuditColabId] = useState<string | null>(null);
 
@@ -1273,6 +1281,19 @@ function AdminDashboard() {
     return { data, pageIds, pageNameById, pageTotal };
   }, [dailyActualFollowersByPage, filterPage, pages]);
 
+  // Manual KPI totals — sum of actual_revenue_usd / actual_views filtered by page + date
+  const manualKpiTotals = useMemo(() => {
+    let revenue = 0; let views = 0;
+    for (const e of dailyEntries) {
+      if (filterPage !== "all" && e.page_id !== filterPage) continue;
+      if (filterFrom && e.entry_date < filterFrom) continue;
+      if (filterTo && e.entry_date > filterTo) continue;
+      if (e.actual_revenue_usd != null) revenue += Number(e.actual_revenue_usd);
+      if (e.actual_views != null) views += Number(e.actual_views);
+    }
+    return { revenue, views };
+  }, [dailyEntries, filterPage, filterFrom, filterTo]);
+
   // Scores always computed across ALL pages (date-filtered only, never page-filtered)
   // so a single-page view doesn't self-normalize to 100.
   const globalPageScores = useMemo(() => {
@@ -1404,6 +1425,21 @@ function AdminDashboard() {
               Limpar
             </button>
           )}
+          {/* Manual data toggle */}
+          <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+            <label className="text-[10px] font-medium uppercase tracking-wider text-[#6B6B6B]">Dados manuais</label>
+            <button
+              onClick={() => setShowManual((v) => !v)}
+              className={`h-8 flex items-center gap-2 px-3 rounded-lg border text-xs font-semibold transition-all ${
+                showManual
+                  ? "bg-[#16a34a] border-[#16a34a] text-white"
+                  : "bg-white border-[#E0E0E0] text-[#6B6B6B]"
+              }`}
+            >
+              <span className={`h-3.5 w-3.5 rounded-full border-2 transition-all ${showManual ? "bg-white border-white" : "border-[#6B6B6B]"}`} />
+              {showManual ? "Ativado" : "Desativado"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1535,9 +1571,9 @@ function AdminDashboard() {
                   <ResponsiveContainer width="100%" height="100%">
                     {filterPage === "all" && activeDataset && activeDataset.data.length > 0 ? (
                       <ComposedChart
-                        data={chartMetric === "receita"
+                        data={chartMetric === "receita" && showManual
                           ? activeDataset.data.map((row) => ({ ...row, __actual: dailyActualByDia.get(row.dia) ?? null }))
-                          : chartMetric === "views"
+                          : chartMetric === "views" && showManual
                           ? activeDataset.data.map((row) => {
                               const extra: Record<string, number | null> = {};
                               for (const pid of activeDataset.pageIds) {
@@ -1580,7 +1616,7 @@ function AdminDashboard() {
                             connectNulls
                           />
                         ))}
-                        {chartMetric === "receita" && (
+                        {chartMetric === "receita" && showManual && (
                           <Line
                             type="monotone"
                             dataKey="__actual"
@@ -1593,7 +1629,7 @@ function AdminDashboard() {
                             legendType="plainline"
                           />
                         )}
-                        {chartMetric === "views" && activeDataset.pageIds.map((pid, i) => (
+                        {chartMetric === "views" && showManual && activeDataset.pageIds.map((pid, i) => (
                           <Line
                             key={`__actual_${pid}`}
                             type="monotone"
@@ -1610,7 +1646,7 @@ function AdminDashboard() {
                       </ComposedChart>
                     ) : filterPage !== "all" && chartMetric === "receita" ? (
                       <AreaChart
-                        data={projectionChartData.map((row) => ({ ...row, actual: dailyActualByDia.get(row.dia) ?? null }))}
+                        data={showManual ? projectionChartData.map((row) => ({ ...row, actual: dailyActualByDia.get(row.dia) ?? null })) : projectionChartData}
                         margin={{ top: 4, right: 0, left: 0, bottom: 0 }}
                       >
                         <defs>
@@ -1633,11 +1669,11 @@ function AdminDashboard() {
                         <Legend content={() => null} />
                         <Area type="monotone" dataKey="real" stroke="#F44708" strokeWidth={2} fill="url(#gradReal)" dot={false} connectNulls={false} legendType="none" />
                         <Area type="monotone" dataKey="proj" stroke="#FAC46A" strokeWidth={1.5} strokeDasharray="4 3" fill="url(#gradProj)" dot={false} connectNulls={false} legendType="none" />
-                        <Line type="monotone" dataKey="actual" stroke="#16a34a" strokeWidth={2.5} strokeDasharray="6 3" dot={false} connectNulls={false} legendType="none" />
+                        {showManual && <Line type="monotone" dataKey="actual" stroke="#16a34a" strokeWidth={2.5} strokeDasharray="6 3" dot={false} connectNulls={false} legendType="none" />}
                       </AreaChart>
                     ) : singlePageMetricData && singlePageMetricData.length > 0 ? (
                       <ComposedChart
-                        data={chartMetric === "views"
+                        data={chartMetric === "views" && showManual
                           ? singlePageMetricData.map((row) => ({ ...row, actual: dailyActualViewsByDia.get(row.dia) ?? null }))
                           : singlePageMetricData}
                         margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
@@ -1661,7 +1697,7 @@ function AdminDashboard() {
                         />
                         <Legend content={() => null} />
                         <Area type="monotone" dataKey="value" stroke="#F44708" strokeWidth={2} fill="url(#gradSingle)" dot={false} connectNulls legendType="none" />
-                        {chartMetric === "views" && (
+                        {chartMetric === "views" && showManual && (
                           <Line type="monotone" dataKey="actual" stroke="#16a34a" strokeWidth={2.5} strokeDasharray="6 3" dot={false} connectNulls legendType="none" />
                         )}
                       </ComposedChart>
