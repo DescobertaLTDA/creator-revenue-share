@@ -920,6 +920,9 @@ function AdminDashboard() {
     }
     if (!merged.has(SEM_COLAB_ID)) merged.set(SEM_COLAB_ID, { id: SEM_COLAB_ID, nome: "Sem colaborador", hashtag: null, posts: 0, views: 0, reacoes: 0, receita: 0 });
 
+    // CSV-only snapshot (before any manual bonus distribution)
+    const mergedCsvSnapshot = new Map(Array.from(merged.entries()).map(([k, v]) => [k, { ...v }]));
+
     const baseRevenueByColab = new Map<string, number>();
     for (const [id, item] of merged.entries()) {
       if (id !== SEM_COLAB_ID) baseRevenueByColab.set(id, Number(item.receita ?? 0));
@@ -1057,6 +1060,7 @@ function AdminDashboard() {
       chartDataCsv,
       activeMonthRef: latestMonth,
       collabCards: Array.from(merged.values()).sort((a, b) => b.receita - a.receita || a.nome.localeCompare(b.nome, "pt-BR")),
+      collabCardsCsv: Array.from(mergedCsvSnapshot.values()).sort((a, b) => b.receita - a.receita || a.nome.localeCompare(b.nome, "pt-BR")),
       rulesByPage,
       postToCollabs,
       pageStats,
@@ -1072,9 +1076,11 @@ function AdminDashboard() {
   }, [allPosts, postAuthors, splitRules, colabs, manualBonuses, dailyEntries, filterPage, filterColab, filterFrom, filterTo, pages]);
 
   const {
-    kpis, chartData, chartDataCsv, activeMonthRef, collabCards,
+    kpis, chartData, chartDataCsv, activeMonthRef, collabCards, collabCardsCsv,
     rulesByPage, postToCollabs, pageStats, projections, sparklineByPage, sparklineByColab,
   } = computed;
+
+  const activeCollabCards = showManual ? collabCards : collabCardsCsv;
 
   const { totalMonth: correctedTotalMonth, totalMonthCsv, totalViews: csvTotalViews, avgRpm: csvAvgRpm, avgScore } = kpis;
 
@@ -1562,8 +1568,8 @@ function AdminDashboard() {
           })()}
 
           {/* ── Colaboradores ── */}
-          {!loading && collabCards.filter((c) => c.posts > 0).length > 0 && (() => {
-            const visibleCards = collabCards.filter((c) => c.posts > 0);
+          {!loading && activeCollabCards.filter((c) => c.posts > 0).length > 0 && (() => {
+            const visibleCards = activeCollabCards.filter((c) => c.posts > 0);
             return (
               <ColabSection
                 cards={visibleCards}
