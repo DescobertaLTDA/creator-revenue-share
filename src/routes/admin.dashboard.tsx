@@ -126,6 +126,15 @@ interface PageStat {
 
 const SEM_COLAB_ID = "__sem_colaborador__";
 
+const METRIC_TABS_DEF = [
+  { key: "receita",           label: "Receita" },
+  { key: "views",             label: "Views" },
+  { key: "seguidores",        label: "Seguidores" },
+  { key: "curtidas",          label: "Curtidas" },
+  { key: "comentarios",       label: "Comentários" },
+  { key: "compartilhamentos", label: "Compartilhamentos" },
+] as const;
+
 // ─── Module-level cache (survives route navigation) ───────────────────────────
 
 interface DashCache {
@@ -1535,14 +1544,7 @@ function AdminDashboard() {
 
           {/* ── Gráfico com abas de métricas ── */}
           {(() => {
-            const METRIC_TABS = [
-              { key: "receita" as const,           label: "Receita" },
-              { key: "views" as const,              label: "Views" },
-              { key: "seguidores" as const,         label: "Seguidores" },
-              { key: "curtidas" as const,           label: "Curtidas" },
-              { key: "comentarios" as const,        label: "Comentários" },
-              { key: "compartilhamentos" as const,  label: "Compartilhamentos" },
-            ];
+            const METRIC_TABS = METRIC_TABS_DEF;
 
             const fmtMetricVal = (v: number) => {
               if (chartMetric === "receita") return usdBrl ? formatBRL(v * usdBrl) : `$${v.toFixed(4)}`;
