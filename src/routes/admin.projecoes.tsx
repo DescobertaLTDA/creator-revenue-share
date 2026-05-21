@@ -55,12 +55,12 @@ export default function ProjecoesPage() {
   const [loading, setLoading] = useState(true);
 
   // derived from DB
-  const [rpm, setRpm]                   = useState(2.0);
+  const [rpm, setRpm]                   = useState(0.05);
   const [actualRevMonth, setActualRevMonth] = useState(0);
 
   // ── Simulator controls
-  const [postsPerDay, setPostsPerDay]   = useState(1);
-  const [avgViews, setAvgViews]         = useState(12_000);
+  const [postsPerDay, setPostsPerDay]   = useState(12);
+  const [avgViews, setAvgViews]         = useState(500_000);
 
   // ── Exchange rate
   const [brlRate, setBrlRate] = useState(5.0);
