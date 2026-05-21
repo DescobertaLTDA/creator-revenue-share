@@ -234,14 +234,14 @@ function PageDropdown({ pages, value, onChange }: { pages: PageRow[]; value: str
         <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-30 bg-white rounded-xl border border-border shadow-lg py-1 min-w-[220px]">
+        <div className="absolute right-0 top-full mt-1 z-30 bg-white rounded-xl border border-border py-1 min-w-[220px]">
           {pages.map(p => (
             <button
               key={p.id}
               onClick={() => { onChange(p.id); setOpen(false); }}
               className={cn(
                 "w-full text-left px-4 py-2 text-sm transition-colors",
-                p.id === value ? "bg-[#6D4AFF]/10 text-[#6D4AFF] font-semibold" : "hover:bg-accent text-foreground"
+                p.id === value ? "bg-[#F44708]/10 text-[#F44708] font-semibold" : "hover:bg-accent text-foreground"
               )}
             >
               {p.nome}
@@ -306,7 +306,7 @@ function ControlsPanel({
             { label: "Por semana", value: weeklyRev },
             { label: "Por mês",  value: monthlyRev },
           ].map(({ label, value }) => (
-            <div key={label} className="bg-[#F9F8FF] rounded-xl p-3 text-center">
+            <div key={label} className="bg-[#FFF0E8] rounded-xl p-3 text-center">
               <p className="text-[10px] text-muted-foreground font-medium mb-1">{label}</p>
               <p className="text-sm font-black text-foreground">{fmtUSD(value)}</p>
             </div>
@@ -335,8 +335,8 @@ function NumInput({ label, value, onChange, suffix, prefix, format, step = 1, de
     <div className="flex flex-col gap-1.5">
       <label className="text-[11px] font-semibold text-muted-foreground">{label}</label>
       <div className={cn(
-        "relative rounded-lg border transition-all bg-white shadow-sm",
-        focused ? "border-[#6D4AFF] ring-2 ring-[#6D4AFF]/20" : "border-border hover:border-[#6D4AFF]/50"
+        "relative rounded-lg border transition-all bg-white",
+        focused ? "border-[#F44708] ring-2 ring-[#F44708]/20" : "border-border hover:border-[#F44708]/50"
       )}>
         <input
           type={focused ? "number" : "text"}
@@ -381,7 +381,7 @@ function HeroCard({
   return (
     <div
       className="rounded-2xl overflow-hidden flex flex-col justify-between min-h-[280px]"
-      style={{ background: "linear-gradient(135deg, #5B35E8 0%, #8B5CF6 60%, #A78BFA 100%)" }}
+      style={{ background: "linear-gradient(135deg, #F44708 0%, #FAA613 60%, #FAC46A 100%)" }}
     >
       <div className="p-6 flex-1 flex flex-col justify-between">
         {/* Top label + badge */}
@@ -460,10 +460,10 @@ function SimpleChart({ chartData, totalRev }: { chartData: ChartPoint[]; totalRe
         <p className="text-sm font-semibold text-foreground">Evolução no mês</p>
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
-            <span className="h-0.5 w-5 bg-[#6D4AFF] inline-block rounded" /> Realizado
+            <span className="h-0.5 w-5 bg-[#F44708] inline-block rounded" /> Realizado
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-0.5 w-5 border-t-2 border-dashed border-[#9B71FF] inline-block" /> Projeção
+            <span className="h-0.5 w-5 border-t-2 border-dashed border-[#FAA613] inline-block" /> Projeção
           </span>
         </div>
       </div>
@@ -477,7 +477,7 @@ function SimpleChart({ chartData, totalRev }: { chartData: ChartPoint[]; totalRe
         {/* Y grid + labels */}
         {yLabels.map(({ v, y: yy }) => (
           <g key={v}>
-            <line x1={PAD.left} y1={yy} x2={W - PAD.right} y2={yy} stroke="#f0eeff" strokeWidth={1} />
+            <line x1={PAD.left} y1={yy} x2={W - PAD.right} y2={yy} stroke="#F0E0D0" strokeWidth={1} />
             <text x={PAD.left - 6} y={yy + 4} textAnchor="end" fontSize={9} fill="#aaa">
               ${v > 0 ? (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v.toFixed(0)) : "0"}
             </text>
@@ -485,15 +485,15 @@ function SimpleChart({ chartData, totalRev }: { chartData: ChartPoint[]; totalRe
         ))}
 
         {/* Areas */}
-        {toArea(actual, "#6D4AFF")}
-        {toArea(projected, "#9B71FF")}
+        {toArea(actual, "#F44708")}
+        {toArea(projected, "#FAA613")}
 
         {/* Lines */}
         {actual.length >= 2 && (
-          <path d={toPath(actual)} fill="none" stroke="#6D4AFF" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+          <path d={toPath(actual)} fill="none" stroke="#F44708" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
         )}
         {projected.length >= 2 && (
-          <path d={toPath(projected)} fill="none" stroke="#9B71FF" strokeWidth={2} strokeDasharray="6 3" strokeLinecap="round" strokeLinejoin="round" />
+          <path d={toPath(projected)} fill="none" stroke="#FAA613" strokeWidth={2} strokeDasharray="6 3" strokeLinecap="round" strokeLinejoin="round" />
         )}
 
         {/* X axis day labels */}
@@ -550,10 +550,10 @@ function LoadingSkeleton() {
             <div className="h-2 bg-gray-100 rounded-full" />
           </div>
         ))}
-        <div className="h-10 bg-[#F3F0FF]/60 rounded-xl" />
+        <div className="h-10 bg-[#FFF0E8]/60 rounded-xl" />
       </div>
       <div className="space-y-4">
-        <div className="h-36 rounded-2xl bg-[#6D4AFF]/20" />
+        <div className="h-36 rounded-2xl bg-[#F44708]/20" />
         <div className="h-44 bg-white rounded-2xl border border-border" />
       </div>
     </div>

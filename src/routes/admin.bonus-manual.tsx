@@ -156,7 +156,7 @@ function PageSelect({
       <button
         onClick={() => setOpen((o) => !o)}
         className={`h-10 min-w-[220px] flex items-center gap-2 px-3 rounded-xl border text-sm transition-colors bg-white ${
-          open ? "border-[#6200b3] ring-2 ring-[#6200b3]/20" : "border-border hover:border-[#c4b5d8]"
+          open ? "border-[#F44708] ring-2 ring-[#F44708]/20" : "border-border hover:border-[#c4b5d8]"
         }`}
       >
         {selected ? (
@@ -171,7 +171,7 @@ function PageSelect({
       </button>
 
       {open && (
-        <div className="absolute z-50 top-full mt-1 left-0 min-w-full w-max max-w-sm bg-white border border-border rounded-xl shadow-lg overflow-hidden">
+        <div className="absolute z-50 top-full mt-1 left-0 min-w-full w-max max-w-sm bg-white border border-border rounded-xl overflow-hidden">
           <div className="max-h-72 overflow-y-auto p-1.5 space-y-px">
             {monetized.length > 0 && (
               <>
@@ -184,7 +184,7 @@ function PageSelect({
                     key={p.id}
                     onClick={() => { onChange(p.id); setOpen(false); }}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left ${
-                      value === p.id ? "bg-[#6200b3] text-white" : "hover:bg-[#f3e8ff] text-foreground"
+                      value === p.id ? "bg-[#F44708] text-white" : "hover:bg-[#FFF0E8] text-foreground"
                     }`}
                   >
                     <Coins className={`h-3.5 w-3.5 shrink-0 ${value === p.id ? "text-white/80" : "text-emerald-500"}`} />
@@ -204,7 +204,7 @@ function PageSelect({
                     key={p.id}
                     onClick={() => { onChange(p.id); setOpen(false); }}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left ${
-                      value === p.id ? "bg-[#6200b3] text-white" : "hover:bg-[#f3e8ff] text-foreground"
+                      value === p.id ? "bg-[#F44708] text-white" : "hover:bg-[#FFF0E8] text-foreground"
                     }`}
                   >
                     <Coins className={`h-3.5 w-3.5 shrink-0 ${value === p.id ? "text-white/80" : "text-red-400"}`} />

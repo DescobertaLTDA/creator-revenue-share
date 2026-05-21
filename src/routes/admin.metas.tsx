@@ -266,11 +266,11 @@ export function MetasPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Metas</h1>
-          <p className="text-sm text-[#7c6f8e] mt-0.5">Crie e acompanhe metas de receita, views e engajamento</p>
+          <p className="text-sm text-[#6B6B6B] mt-0.5">Crie e acompanhe metas de receita, views e engajamento</p>
         </div>
         <button
           onClick={openCreate}
-          className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#6200b3] to-[#b43e8f] text-white text-sm font-medium rounded-xl hover:from-[#3b0086] hover:to-[#8f2d6f] transition-all shadow-sm"
+          className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#F44708] to-[#FAA613] text-white text-sm font-medium rounded-xl hover:from-[#D93D07] hover:to-[#E09010] transition-all"
         >
           <Plus className="h-4 w-4" />
           Nova Meta
@@ -281,20 +281,20 @@ export function MetasPage() {
       {loadingGoals && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-white border border-[#e8e0f5] rounded-2xl p-5 h-40 animate-pulse" />
+            <div key={i} className="bg-white border border-[#E0E0E0] rounded-2xl p-5 h-40 animate-pulse" />
           ))}
         </div>
       )}
 
       {/* Empty state */}
       {!loadingGoals && goals.length === 0 && (
-        <div className="bg-white border border-[#e8e0f5] rounded-2xl p-16 text-center shadow-sm">
-          <div className="h-12 w-12 rounded-2xl bg-[#f3e8ff] flex items-center justify-center mx-auto mb-4">
-            <Target className="h-6 w-6 text-[#6200b3]" />
+        <div className="bg-white border border-[#E0E0E0] rounded-2xl p-16 text-center">
+          <div className="h-12 w-12 rounded-2xl bg-[#FFF0E8] flex items-center justify-center mx-auto mb-4">
+            <Target className="h-6 w-6 text-[#F44708]" />
           </div>
-          <p className="font-semibold text-[#1a0533]">Nenhuma meta criada</p>
-          <p className="text-sm text-[#9d8fb0] mt-1 mb-4">Defina metas de receita, views ou curtidas com prazo</p>
-          <button onClick={openCreate} className="px-5 py-2 bg-[#6200b3] text-white text-sm font-medium rounded-xl hover:bg-[#4a0090] transition-colors">
+          <p className="font-semibold text-[#1A0A00]">Nenhuma meta criada</p>
+          <p className="text-sm text-[#6B6B6B] mt-1 mb-4">Defina metas de receita, views ou curtidas com prazo</p>
+          <button onClick={openCreate} className="px-5 py-2 bg-[#F44708] text-white text-sm font-medium rounded-xl hover:bg-[#D93D07] transition-colors">
             Criar primeira meta
           </button>
         </div>
@@ -328,18 +328,18 @@ export function MetasPage() {
           </DialogHeader>
           <div className="space-y-4 pt-1">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-[#7c6f8e] uppercase tracking-wider">Nome da meta</label>
+              <label className="text-xs font-medium text-[#6B6B6B] uppercase tracking-wider">Nome da meta</label>
               <input
                 type="text"
                 placeholder="Ex: 1M de views em maio"
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                className="w-full h-9 rounded-lg border border-[#e8e0f5] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6200b3]/30"
+                className="w-full h-9 rounded-lg border border-[#E0E0E0] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#F44708]/30"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-[#7c6f8e] uppercase tracking-wider">Métrica</label>
+              <label className="text-xs font-medium text-[#6B6B6B] uppercase tracking-wider">Métrica</label>
               <div className="grid grid-cols-2 gap-2">
                 {(Object.keys(METRIC_CONFIG) as MetricKey[]).map((mk) => {
                   const { label, icon: Icon } = METRIC_CONFIG[mk];
@@ -353,8 +353,8 @@ export function MetasPage() {
                       }}
                       className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
                         draft.metric === mk
-                          ? "bg-[#6200b3] text-white border-[#6200b3]"
-                          : "border-[#e8e0f5] text-[#4a3560] hover:bg-[#f3e8ff]"
+                          ? "bg-[#F44708] text-white border-[#F44708]"
+                          : "border-[#E0E0E0] text-[#1A0A00] hover:bg-[#FFF0E8]"
                       }`}
                     >
                       <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -366,7 +366,7 @@ export function MetasPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-[#7c6f8e] uppercase tracking-wider">
+              <label className="text-xs font-medium text-[#6B6B6B] uppercase tracking-wider">
                 {draft.metric === "receita" ? "Meta — Receita (em R$)" : `Meta — ${METRIC_CONFIG[draft.metric].label}`}
               </label>
               {draft.metric === "receita" ? (
@@ -391,7 +391,7 @@ export function MetasPage() {
                   onBlur={() => {
                     if (draft.target > 0) setTargetText(fmtTargetDisplay(draft));
                   }}
-                  className="w-full h-9 rounded-lg border border-[#e8e0f5] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6200b3]/30"
+                  className="w-full h-9 rounded-lg border border-[#E0E0E0] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#F44708]/30"
                 />
               ) : (
                 <input
@@ -404,29 +404,29 @@ export function MetasPage() {
                     setTargetText(raw);
                     setDraft((d) => ({ ...d, target: parseInt(raw, 10) || 0 }));
                   }}
-                  className="w-full h-9 rounded-lg border border-[#e8e0f5] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6200b3]/30"
+                  className="w-full h-9 rounded-lg border border-[#E0E0E0] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#F44708]/30"
                 />
               )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[#7c6f8e] uppercase tracking-wider">Início</label>
+                <label className="text-xs font-medium text-[#6B6B6B] uppercase tracking-wider">Início</label>
                 <input
                   type="date"
                   value={draft.startDate}
                   onChange={(e) => setDraft({ ...draft, startDate: e.target.value })}
-                  className="w-full h-9 rounded-lg border border-[#e8e0f5] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6200b3]/30"
+                  className="w-full h-9 rounded-lg border border-[#E0E0E0] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#F44708]/30"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[#7c6f8e] uppercase tracking-wider">Prazo</label>
+                <label className="text-xs font-medium text-[#6B6B6B] uppercase tracking-wider">Prazo</label>
                 <input
                   type="date"
                   value={draft.endDate}
                   min={draft.startDate}
                   onChange={(e) => setDraft({ ...draft, endDate: e.target.value })}
-                  className="w-full h-9 rounded-lg border border-[#e8e0f5] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6200b3]/30"
+                  className="w-full h-9 rounded-lg border border-[#E0E0E0] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#F44708]/30"
                 />
               </div>
             </div>
@@ -437,14 +437,14 @@ export function MetasPage() {
             <div className="flex gap-2 pt-1">
               <button
                 onClick={() => setShowForm(false)}
-                className="flex-1 h-9 rounded-xl border border-[#e8e0f5] text-sm text-[#4a3560] hover:bg-[#f3e8ff] transition-colors"
+                className="flex-1 h-9 rounded-xl border border-[#E0E0E0] text-sm text-[#1A0A00] hover:bg-[#FFF0E8] transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={saveForm}
                 disabled={!draft.name.trim() || draft.target <= 0 || saving}
-                className="flex-1 h-9 rounded-xl bg-[#6200b3] text-white text-sm font-medium hover:bg-[#4a0090] transition-colors disabled:opacity-40"
+                className="flex-1 h-9 rounded-xl bg-[#F44708] text-white text-sm font-medium hover:bg-[#D93D07] transition-colors disabled:opacity-40"
               >
                 {saving ? "Salvando…" : editingGoal ? "Salvar" : "Criar meta"}
               </button>
@@ -462,8 +462,8 @@ function Section({ title, count, children, muted }: { title: string; count: numb
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
-        <h2 className={`text-sm font-semibold ${muted ? "text-[#9d8fb0]" : "text-[#1a0533]"}`}>{title}</h2>
-        <span className="text-xs bg-[#f3e8ff] text-[#7c6f8e] px-2 py-0.5 rounded-full">{count}</span>
+        <h2 className={`text-sm font-semibold ${muted ? "text-[#6B6B6B]" : "text-[#1A0A00]"}`}>{title}</h2>
+        <span className="text-xs bg-[#FFF0E8] text-[#6B6B6B] px-2 py-0.5 rounded-full">{count}</span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {children}
@@ -487,9 +487,9 @@ function GoalCard({ g, usdBrl, onEdit, onDelete, loading }: {
 
   const barColor = isCompleted ? "bg-emerald-500"
     : isExpired ? "bg-red-400"
-    : g.pct >= 75 ? "bg-gradient-to-r from-[#6200b3] to-[#b43e8f]"
-    : g.pct >= 40 ? "bg-gradient-to-r from-[#6200b3] to-[#ea7af4]"
-    : "bg-[#6200b3]";
+    : g.pct >= 75 ? "bg-gradient-to-r from-[#F44708] to-[#FAA613]"
+    : g.pct >= 40 ? "bg-gradient-to-r from-[#F44708] to-[#FAC46A]"
+    : "bg-[#F44708]";
 
   const statusBadge = isCompleted
     ? <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full"><CheckCircle2 className="h-3 w-3" />Concluída</span>
@@ -497,25 +497,25 @@ function GoalCard({ g, usdBrl, onEdit, onDelete, loading }: {
     ? <span className="flex items-center gap-1 text-[10px] font-medium text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full"><XCircle className="h-3 w-3" />Expirada</span>
     : g.daysLeft <= 3
     ? <span className="flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full"><Clock className="h-3 w-3" />{g.daysLeft}d restantes</span>
-    : <span className="text-[10px] font-medium text-[#9d8fb0]">{g.daysLeft}d restantes</span>;
+    : <span className="text-[10px] font-medium text-[#6B6B6B]">{g.daysLeft}d restantes</span>;
 
   return (
-    <div className={`bg-white border rounded-2xl p-5 shadow-sm flex flex-col gap-4 ${isCompleted ? "border-emerald-200" : isExpired ? "border-red-100" : "border-[#e8e0f5]"}`}>
+    <div className={`bg-white border rounded-2xl p-5 flex flex-col gap-4 ${isCompleted ? "border-emerald-200" : isExpired ? "border-red-100" : "border-[#E0E0E0]"}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${isCompleted ? "bg-emerald-50" : "bg-[#f3e8ff]"}`}>
-            <Icon className={`h-4 w-4 ${isCompleted ? "text-emerald-600" : "text-[#6200b3]"}`} />
+          <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${isCompleted ? "bg-emerald-50" : "bg-[#FFF0E8]"}`}>
+            <Icon className={`h-4 w-4 ${isCompleted ? "text-emerald-600" : "text-[#F44708]"}`} />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold truncate">{g.name}</p>
-            <p className="text-[11px] text-[#9d8fb0]">{label} · {fmtDate(g.startDate)} – {fmtDate(g.endDate)}</p>
+            <p className="text-[11px] text-[#6B6B6B]">{label} · {fmtDate(g.startDate)} – {fmtDate(g.endDate)}</p>
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-[#f3e8ff] text-[#9d8fb0] hover:text-[#6200b3] transition-colors">
+          <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-[#FFF0E8] text-[#6B6B6B] hover:text-[#F44708] transition-colors">
             <Pencil className="h-3.5 w-3.5" />
           </button>
-          <button onClick={onDelete} className="p-1.5 rounded-lg hover:bg-red-50 text-[#9d8fb0] hover:text-red-500 transition-colors">
+          <button onClick={onDelete} className="p-1.5 rounded-lg hover:bg-red-50 text-[#6B6B6B] hover:text-red-500 transition-colors">
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -525,22 +525,22 @@ function GoalCard({ g, usdBrl, onEdit, onDelete, loading }: {
         <div className="flex items-end justify-between gap-2">
           <div>
             {loading ? (
-              <div className="h-6 w-20 bg-[#f3e8ff] rounded animate-pulse" />
+              <div className="h-6 w-20 bg-[#FFF0E8] rounded animate-pulse" />
             ) : (
               <p className="text-xl font-bold tabular-nums tracking-tight">
                 {fmtValue(g.metric, g.current, usdBrl)}
               </p>
             )}
-            <p className="text-xs text-[#9d8fb0]">de {fmtValue(g.metric, g.target, usdBrl)}</p>
+            <p className="text-xs text-[#6B6B6B]">de {fmtValue(g.metric, g.target, usdBrl)}</p>
           </div>
           <div className="text-right">
-            <p className={`text-2xl font-bold tabular-nums ${isCompleted ? "text-emerald-600" : isExpired && g.pct < 30 ? "text-red-500" : "text-[#6200b3]"}`}>
+            <p className={`text-2xl font-bold tabular-nums ${isCompleted ? "text-emerald-600" : isExpired && g.pct < 30 ? "text-red-500" : "text-[#F44708]"}`}>
               {g.pct.toFixed(0)}%
             </p>
           </div>
         </div>
 
-        <div className="h-2 bg-[#f3e8ff] rounded-full overflow-hidden">
+        <div className="h-2 bg-[#FFF0E8] rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${barColor}`}
             style={{ width: `${g.pct}%` }}
@@ -550,7 +550,7 @@ function GoalCard({ g, usdBrl, onEdit, onDelete, loading }: {
         <div className="flex justify-between items-center">
           {statusBadge}
           {!isCompleted && !isExpired && g.metric === "receita" && usdBrl && g.current < g.target && (
-            <span className="text-[10px] text-[#9d8fb0]">
+            <span className="text-[10px] text-[#6B6B6B]">
               falta {fmtValue(g.metric, g.target - g.current, usdBrl)}
             </span>
           )}
