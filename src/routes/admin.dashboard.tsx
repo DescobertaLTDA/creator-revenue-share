@@ -1656,17 +1656,18 @@ function AdminDashboard() {
                           />
                         )}
                         {chartMetric === "views" && showManual && activeDataset.pageIds.map((pid, i) => (
-                          <Line
+                          <Area
                             key={`__actual_${pid}`}
                             type="monotone"
                             dataKey={`__actual_${pid}`}
                             name={`${activeDataset.pageNameById.get(pid) ?? "Sem nome"} (manual)`}
-                            stroke={PAGE_COLORS[i % PAGE_COLORS.length]}
-                            strokeWidth={2.5}
-                            strokeDasharray="6 3"
+                            stroke="none"
+                            strokeWidth={0}
+                            fill={PAGE_COLORS[i % PAGE_COLORS.length]}
+                            fillOpacity={0.5}
                             dot={false}
                             connectNulls
-                            legendType="plainline"
+                            legendType="none"
                           />
                         ))}
                       </ComposedChart>
@@ -1681,8 +1682,12 @@ function AdminDashboard() {
                             <stop offset="95%" stopColor="#F44708" stopOpacity={0} />
                           </linearGradient>
                           <linearGradient id="gradProj" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#FAC46A" stopOpacity={0.15} />
+                            <stop offset="5%" stopColor="#FAC46A" stopOpacity={0.25} />
                             <stop offset="95%" stopColor="#FAC46A" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="gradActual" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#F44708" stopOpacity={0.75} />
+                            <stop offset="95%" stopColor="#F44708" stopOpacity={0.15} />
                           </linearGradient>
                         </defs>
                         <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#6B6B6B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
@@ -1693,9 +1698,9 @@ function AdminDashboard() {
                           contentStyle={{ border: "1px solid #E0E0E0", borderRadius: 10, fontSize: 11 }}
                         />
                         <Legend content={() => null} />
-                        <Area type="monotone" dataKey="real" stroke="#F44708" strokeWidth={2} fill="url(#gradReal)" dot={false} connectNulls={false} legendType="none" />
-                        <Area type="monotone" dataKey="proj" stroke="#FAC46A" strokeWidth={1.5} strokeDasharray="4 3" fill="url(#gradProj)" dot={false} connectNulls={false} legendType="none" />
-                        {showManual && <Line type="monotone" dataKey="actual" stroke="#16a34a" strokeWidth={2.5} strokeDasharray="6 3" dot={false} connectNulls={false} legendType="none" />}
+                        <Area type="monotone" dataKey="real" stroke="none" strokeWidth={0} fill="url(#gradReal)" dot={false} connectNulls={false} legendType="none" />
+                        <Area type="monotone" dataKey="proj" stroke="none" strokeWidth={0} fill="url(#gradProj)" dot={false} connectNulls={false} legendType="none" />
+                        {showManual && <Area type="monotone" dataKey="actual" stroke="none" strokeWidth={0} fill="url(#gradActual)" dot={false} connectNulls={false} legendType="none" />}
                       </ComposedChart>
                     ) : singlePageMetricData && singlePageMetricData.length > 0 ? (
                       <ComposedChart
@@ -1708,6 +1713,10 @@ function AdminDashboard() {
                           <linearGradient id="gradSingle" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#F44708" stopOpacity={0.3} />
                             <stop offset="95%" stopColor="#F44708" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="gradSingleActual" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#F44708" stopOpacity={0.75} />
+                            <stop offset="95%" stopColor="#F44708" stopOpacity={0.15} />
                           </linearGradient>
                         </defs>
                         <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#6B6B6B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
@@ -1722,9 +1731,9 @@ function AdminDashboard() {
                           contentStyle={{ border: "1px solid #E0E0E0", borderRadius: 10, fontSize: 11 }}
                         />
                         <Legend content={() => null} />
-                        <Area type="monotone" dataKey="value" stroke="#F44708" strokeWidth={2} fill="url(#gradSingle)" dot={false} connectNulls legendType="none" />
+                        <Area type="monotone" dataKey="value" stroke="none" strokeWidth={0} fill="url(#gradSingle)" dot={false} connectNulls legendType="none" />
                         {chartMetric === "views" && showManual && (
-                          <Line type="monotone" dataKey="actual" stroke="#16a34a" strokeWidth={2.5} strokeDasharray="6 3" dot={false} connectNulls legendType="none" />
+                          <Area type="monotone" dataKey="actual" stroke="none" strokeWidth={0} fill="url(#gradSingleActual)" dot={false} connectNulls legendType="none" />
                         )}
                       </ComposedChart>
                     ) : (
