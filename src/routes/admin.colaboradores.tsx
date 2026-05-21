@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
-import { Users, Plus, Loader2, Hash, Trash2, Camera, UserCircle, Lock } from "lucide-react";
+import { Users, Plus, Loader2, Hash, Trash2, Camera, UserCircle } from "lucide-react";
 
 export const Route = createFileRoute("/admin/colaboradores")({
   head: () => ({ meta: [{ title: "Colaboradores - Splash Creators" }] }),
@@ -297,20 +297,6 @@ function Page() {
     }
   };
 
-  if (!isAdmin && profile !== null) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
-        <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
-          <Lock className="h-8 w-8 text-muted-foreground" />
-        </div>
-        <div>
-          <p className="font-semibold text-lg">Acesso restrito</p>
-          <p className="text-sm text-muted-foreground mt-1">Você não tem permissão para acessar essa área.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div>
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
@@ -338,10 +324,10 @@ function Page() {
       <PageHeader
         title="Colaboradores"
         description="Cadastre hashtags e o sistema vincula posts antigos e novos automaticamente."
-        actions={<Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Novo</Button>}
+        actions={isAdmin ? <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Novo</Button> : undefined}
       />
 
-      {showForm && (
+      {isAdmin && showForm && (
         <form onSubmit={onSubmit} className="bg-card border border-border rounded-lg p-5 mb-6 space-y-4">
           <h3 className="font-medium">{editId ? "Editar colaborador" : "Novo colaborador"}</h3>
 
@@ -458,15 +444,17 @@ function Page() {
                       {r.ativo ? "Ativo" : "Inativo"}
                     </span>
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => openEdit(r)} className="flex-1 h-10">Editar</Button>
-                    <Button size="sm" variant="ghost" onClick={() => toggleAtivo(r)} className="flex-1 h-10">
-                      {r.ativo ? "Desativar" : "Ativar"}
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(r)} className="h-10 text-destructive hover:text-destructive hover:bg-destructive/10">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  {isAdmin && (
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => openEdit(r)} className="flex-1 h-10">Editar</Button>
+                      <Button size="sm" variant="ghost" onClick={() => toggleAtivo(r)} className="flex-1 h-10">
+                        {r.ativo ? "Desativar" : "Ativar"}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(r)} className="h-10 text-destructive hover:text-destructive hover:bg-destructive/10">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -479,7 +467,7 @@ function Page() {
                     <th className="text-left px-5 py-3 font-medium">Hashtag</th>
                     <th className="text-right px-5 py-3 font-medium">Posts vinculados</th>
                     <th className="text-left px-5 py-3 font-medium">Status</th>
-                    <th className="text-left px-5 py-3 font-medium">Ações</th>
+                    {isAdmin && <th className="text-left px-5 py-3 font-medium">Ações</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -502,15 +490,17 @@ function Page() {
                           {r.ativo ? "Ativo" : "Inativo"}
                         </span>
                       </td>
-                      <td className="px-5 py-3 flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => openEdit(r)}>Editar</Button>
-                        <Button size="sm" variant="ghost" onClick={() => toggleAtivo(r)}>
-                          {r.ativo ? "Desativar" : "Ativar"}
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(r)} className="text-destructive hover:text-destructive hover:bg-destructive/10">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </td>
+                      {isAdmin && (
+                        <td className="px-5 py-3 flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => openEdit(r)}>Editar</Button>
+                          <Button size="sm" variant="ghost" onClick={() => toggleAtivo(r)}>
+                            {r.ativo ? "Desativar" : "Ativar"}
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(r)} className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
