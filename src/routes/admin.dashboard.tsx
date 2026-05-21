@@ -612,7 +612,7 @@ function AdminDashboard() {
     };
 
     const doLoad = async (background: boolean) => {
-      const [posts, pas, { data: pagesData }, colabsRes, { data: rulesData }, { data: imports }] =
+      const [posts, pas, { data: pagesData }, { data: colabsData }, { data: rulesData }, { data: imports }] =
         await Promise.all([
           fetchAllRows<RawPost>(() =>
             supabase.from("posts").select(
@@ -623,8 +623,7 @@ function AdminDashboard() {
             supabase.from("post_authors").select("post_id, collaborator_id")
           ),
           supabase.from("pages").select("id, nome"),
-          supabase.from("collaborators").select("id, nome, hashtag, avatar_url").eq("ativo", true)
-            .catch(() => supabase.from("collaborators").select("id, nome, hashtag").eq("ativo", true)),
+          supabase.from("collaborators").select("id, nome, hashtag").eq("ativo", true),
           supabase.from("split_rules").select("page_id, effective_from, collaborator_pct, active").eq("active", true),
           supabase.from("csv_imports")
             .select("id, file_name, status, created_at, valid_rows, total_rows, detected_pages_count")
@@ -632,16 +631,21 @@ function AdminDashboard() {
             .limit(5),
         ]);
 
-      // If avatar_url column doesn't exist yet, retry without it
-      const colabsData = colabsRes.error
-        ? ((await supabase.from("collaborators").select("id, nome, hashtag").eq("ativo", true)).data ?? [])
-        : (colabsRes.data ?? []);
+      // Fetch avatar_url separately (non-blocking — column may not exist yet)
+      const avatarMap = new Map<string, string>();
+      try {
+        const { data: avatarRows, error: avatarErr } = await (supabase as any)
+          .from("collaborators").select("id, avatar_url").eq("ativo", true);
+        if (!avatarErr && avatarRows) {
+          for (const r of avatarRows) if (r.avatar_url) avatarMap.set(r.id, r.avatar_url);
+        }
+      } catch { /* column doesn't exist yet — safe to ignore */ }
 
       const fresh: DashCache = {
         posts,
         postAuthors: pas,
         pages: (pagesData ?? []).map((p: any) => ({ id: p.id, name: p.nome })),
-        colabs: colabsData.map((c: any) => ({ id: c.id, nome: c.nome, hashtag: c.hashtag, avatar_url: c.avatar_url ?? null })),
+        colabs: (colabsData ?? []).map((c: any) => ({ id: c.id, nome: c.nome, hashtag: c.hashtag, avatar_url: avatarMap.get(c.id) ?? null })),
         splitRules: (rulesData as SplitRule[]) ?? [],
         imports: (imports ?? []) as RecentImport[],
         ts: Date.now(),
@@ -694,11 +698,13 @@ function AdminDashboard() {
   useEffect(() => {
     const channel = supabase.channel("admin-dash-colabs")
       .on("postgres_changes", { event: "*", schema: "public", table: "collaborators" }, async () => {
-        const res = await supabase.from("collaborators").select("id, nome, hashtag, avatar_url").eq("ativo", true);
-        const data = res.error
-          ? ((await supabase.from("collaborators").select("id, nome, hashtag").eq("ativo", true)).data ?? [])
-          : (res.data ?? []);
-        setColabs(data.map((c: any) => ({ id: c.id, nome: c.nome, hashtag: c.hashtag, avatar_url: c.avatar_url ?? null })));
+        const { data } = await supabase.from("collaborators").select("id, nome, hashtag").eq("ativo", true);
+        const avatarMap2 = new Map<string, string>();
+        try {
+          const { data: ar, error: ae } = await (supabase as any).from("collaborators").select("id, avatar_url").eq("ativo", true);
+          if (!ae && ar) for (const r of ar) if (r.avatar_url) avatarMap2.set(r.id, r.avatar_url);
+        } catch { /* ignore */ }
+        setColabs((data ?? []).map((c: any) => ({ id: c.id, nome: c.nome, hashtag: c.hashtag, avatar_url: avatarMap2.get(c.id) ?? null })));
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
