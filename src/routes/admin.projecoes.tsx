@@ -113,26 +113,6 @@ export default function ProjecoesPage() {
       .then(({ data }: { data: RawPost[] | null }) => {
         if (!data || data.length === 0) { setLoading(false); return; }
 
-        const totalRev   = data.reduce((s, p) => s + (p.estimated_usd ?? 0), 0);
-        const totalViews = data.reduce((s, p) => s + (p.views ?? 0), 0);
-
-        const calcRpm = totalViews > 5_000 && totalRev > 0
-          ? (totalRev / totalViews) * 1000
-          : 2.0;
-
-        // Avg posts per day in 30d window
-        const postCount = data.length;
-        const estimatedPostsPerDay = Math.max(1, Math.round(postCount / 30));
-
-        // Avg views per post
-        const avgViewsCalc = postCount > 0
-          ? Math.round(totalViews / postCount)
-          : 10_000;
-
-        setRpm(calcRpm);
-        setPostsPerDay(clamp(estimatedPostsPerDay, 1, 30));
-        setAvgViews(clamp(avgViewsCalc, 1_000, 10_000_000));
-
         // Actual this-month revenue
         const monthStart = new Date(); monthStart.setDate(1);
         monthStart.setHours(0, 0, 0, 0);
