@@ -555,15 +555,21 @@ function BonusManualPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          {row.views > 0 && (
+                            <div className="shrink-0 text-right">
+                              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Views CSV</p>
+                              <p className="text-sm tabular-nums text-muted-foreground h-10 flex items-center justify-end pr-1">{fmtViews(row.views)}</p>
+                            </div>
+                          )}
                           <div className="flex-1">
-                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Views reais</p>
+                            <p className="text-[10px] uppercase tracking-wider text-[#F44708] font-semibold mb-1">Views manuais</p>
                             <input
                               type="number" min="0" step="1" disabled={isFuture}
                               placeholder="0"
                               value={row.actual_views ?? ""}
                               onChange={(e) => handleViewsChange(row, e.target.value)}
                               onBlur={() => handleFieldBlur(row)}
-                              className="w-full h-10 rounded-lg border border-input bg-background px-3 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-[#F44708]/40 disabled:opacity-30"
+                              className="w-full h-10 rounded-lg border border-input bg-background px-3 text-right text-sm tabular-nums text-[#F44708] focus:outline-none focus:ring-2 focus:ring-[#F44708]/40 disabled:opacity-30"
                             />
                           </div>
                           <div className="flex-1">
@@ -614,7 +620,8 @@ function BonusManualPage() {
                     <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                       <tr>
                         <th className="text-left px-4 py-3 font-medium w-24">Dia</th>
-                        <th className="text-right px-4 py-3 font-medium text-[#F44708]">Views reais</th>
+                        <th className="text-right px-4 py-3 font-medium">Views CSV</th>
+                        <th className="text-right px-4 py-3 font-medium text-[#F44708]">Views manuais</th>
                         <th className="text-right px-4 py-3 font-medium">Posts (USD)</th>
                         <th className="text-right px-4 py-3 font-medium">Real recebido (USD)</th>
                         <th className="w-8 px-4 py-3" />
@@ -630,10 +637,13 @@ function BonusManualPage() {
                               <span className="font-semibold tabular-nums">{row.label}</span>
                               <span className="text-[10px] text-muted-foreground ml-1.5">{row.weekday}</span>
                             </td>
+                            <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                              {row.views > 0 ? fmtViews(row.views) : <span className="text-muted-foreground/40">—</span>}
+                            </td>
                             <td className="px-4 py-2.5 text-right">
                               <input
                                 type="number" min="0" step="1" disabled={isFuture}
-                                placeholder={row.views > 0 ? fmtViews(row.views) : "0"}
+                                placeholder="0"
                                 value={row.actual_views ?? ""}
                                 onChange={(e) => handleViewsChange(row, e.target.value)}
                                 onBlur={() => handleFieldBlur(row)}
@@ -666,7 +676,12 @@ function BonusManualPage() {
                     <tfoot>
                       <tr className="border-t-2 border-border bg-muted/30 font-semibold text-sm">
                         <td className="px-4 py-3 text-muted-foreground">Total</td>
-                        <td className="px-4 py-3 text-right tabular-nums text-[#F44708]">{totalViews > 0 ? fmtViews(totalViews) : "—"}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
+                          {(() => { const t = rows.reduce((s, r) => s + r.views, 0); return t > 0 ? fmtViews(t) : "—"; })()}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums text-[#F44708]">
+                          {(() => { const t = rows.reduce((s, r) => s + (r.actual_views ?? 0), 0); return t > 0 ? fmtViews(t) : "—"; })()}
+                        </td>
                         <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">${totalPosts.toFixed(2)}</td>
                         <td className="px-4 py-3 text-right tabular-nums">${totalActual.toFixed(2)}</td>
                         <td />
