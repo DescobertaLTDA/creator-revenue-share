@@ -235,6 +235,7 @@ function BonusManualPage() {
   const [loading, setLoading] = useState(true);
   const [colabDist, setColabDist] = useState<ColabDist[]>([]);
   const [distLoading, setDistLoading] = useState(false);
+  const [viewsFocusDate, setViewsFocusDate] = useState<string | null>(null);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // Load pages list once
@@ -403,8 +404,9 @@ function BonusManualPage() {
   };
 
   const handleViewsChange = (row: DayEntry, raw: string) => {
-    const val = raw === "" ? null : parseInt(raw, 10);
-    updateRow(row.date, "actual_views", Number.isFinite(val) && val !== null ? val : null);
+    const digits = raw.replace(/\D/g, "");
+    const val = digits === "" ? null : parseInt(digits, 10);
+    updateRow(row.date, "actual_views", val);
     clearTimeout(saveTimers.current[row.date + "_views"]);
     saveTimers.current[row.date + "_views"] = setTimeout(() => {
       setRows((prev) => {
@@ -413,6 +415,15 @@ function BonusManualPage() {
         return prev;
       });
     }, 800);
+  };
+
+  const handleViewsKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, date: string) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const inputs = Array.from(document.querySelectorAll<HTMLInputElement>("[data-views-input]"));
+      const idx = inputs.findIndex((el) => el.dataset.viewsInput === date);
+      if (idx >= 0 && idx < inputs.length - 1) inputs[idx + 1].focus();
+    }
   };
 
   const handleFieldBlur = guard((row: DayEntry) => { if (row.dirty) saveRow(row); });
@@ -564,11 +575,16 @@ function BonusManualPage() {
                           <div className="flex-1">
                             <p className="text-[10px] uppercase tracking-wider text-[#F44708] font-semibold mb-1">Views manuais</p>
                             <input
-                              type="number" min="0" step="1" disabled={isFuture}
+                              type="text" inputMode="numeric" disabled={isFuture}
+                              data-views-input={row.date}
                               placeholder="0"
-                              value={row.actual_views ?? ""}
+                              value={viewsFocusDate === row.date
+                                ? (row.actual_views ?? "")
+                                : (row.actual_views != null ? row.actual_views.toLocaleString("pt-BR") : "")}
+                              onFocus={() => setViewsFocusDate(row.date)}
+                              onBlur={() => { setViewsFocusDate(null); handleFieldBlur(row); }}
                               onChange={(e) => handleViewsChange(row, e.target.value)}
-                              onBlur={() => handleFieldBlur(row)}
+                              onKeyDown={(e) => handleViewsKeyDown(e, row.date)}
                               className="w-full h-10 rounded-lg border border-input bg-background px-3 text-right text-sm tabular-nums text-[#F44708] focus:outline-none focus:ring-2 focus:ring-[#F44708]/40 disabled:opacity-30"
                             />
                           </div>
@@ -642,11 +658,16 @@ function BonusManualPage() {
                             </td>
                             <td className="px-4 py-2.5 text-right">
                               <input
-                                type="number" min="0" step="1" disabled={isFuture}
+                                type="text" inputMode="numeric" disabled={isFuture}
+                                data-views-input={row.date}
                                 placeholder="0"
-                                value={row.actual_views ?? ""}
+                                value={viewsFocusDate === row.date
+                                  ? (row.actual_views ?? "")
+                                  : (row.actual_views != null ? row.actual_views.toLocaleString("pt-BR") : "")}
+                                onFocus={() => setViewsFocusDate(row.date)}
+                                onBlur={() => { setViewsFocusDate(null); handleFieldBlur(row); }}
                                 onChange={(e) => handleViewsChange(row, e.target.value)}
-                                onBlur={() => handleFieldBlur(row)}
+                                onKeyDown={(e) => handleViewsKeyDown(e, row.date)}
                                 className="w-32 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums text-[#F44708] focus:outline-none focus:ring-1 focus:ring-[#F44708]/40 disabled:opacity-30"
                               />
                             </td>
