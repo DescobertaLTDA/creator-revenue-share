@@ -9,6 +9,7 @@ export interface AppProfile {
   nome: string;
   email: string | null;
   role: AppRole;
+  avatar_url: string | null;
 }
 
 interface AuthCtx {
@@ -31,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadProfile = async (uid: string) => {
     const { data } = await supabase
       .from("profiles")
-      .select("id, nome, email, role")
+      .select("id, nome, email, role, avatar_url")
       .eq("id", uid)
       .maybeSingle();
     setProfile((data as AppProfile) ?? null);

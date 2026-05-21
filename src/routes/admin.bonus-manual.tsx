@@ -372,17 +372,12 @@ function BonusManualPage() {
 
     const updaterMap = new Map<string, { nome: string; avatar: string | null }>();
     if (updaterIds.size > 0) {
-      const { data: profiles } = await supabase
+      const { data: profileRows } = await supabase
         .from("profiles")
-        .select("id, nome")
+        .select("id, nome, avatar_url")
         .in("id", [...updaterIds]);
-      const { data: collabs } = await supabase
-        .from("collaborators")
-        .select("profile_id, avatar_url")
-        .in("profile_id", [...updaterIds]);
-      const avatarByProfileId = new Map((collabs ?? []).map((c: any) => [c.profile_id, c.avatar_url]));
-      for (const p of (profiles ?? []) as any[]) {
-        updaterMap.set(p.id, { nome: p.nome, avatar: avatarByProfileId.get(p.id) ?? null });
+      for (const p of (profileRows ?? []) as any[]) {
+        updaterMap.set(p.id, { nome: p.nome, avatar: p.avatar_url ?? null });
       }
     }
 
@@ -417,10 +412,9 @@ function BonusManualPage() {
     if (!logs || logs.length === 0) { setAuditLogs([]); setAuditLoading(false); return; }
 
     const actorIds = [...new Set((logs as any[]).map((l: any) => l.actor_profile_id).filter(Boolean))];
-    const { data: profiles } = await supabase.from("profiles").select("id, nome").in("id", actorIds);
-    const { data: collabs } = await supabase.from("collaborators").select("profile_id, avatar_url").in("profile_id", actorIds);
-    const nameMap = new Map((profiles ?? []).map((p: any) => [p.id, p.nome]));
-    const avatarMap = new Map((collabs ?? []).map((c: any) => [c.profile_id, c.avatar_url]));
+    const { data: profileRows } = await supabase.from("profiles").select("id, nome, avatar_url").in("id", actorIds);
+    const nameMap = new Map((profileRows ?? []).map((p: any) => [p.id, p.nome]));
+    const avatarMap = new Map((profileRows ?? []).map((p: any) => [p.id, p.avatar_url ?? null]));
 
     setAuditLogs((logs as any[]).map((l: any) => ({
       id: l.id,
@@ -501,7 +495,7 @@ function BonusManualPage() {
         dirty: false,
         saved: true,
         updater_nome: profile.nome,
-        updater_avatar: null,
+        updater_avatar: profile.avatar_url ?? null,
         _db_views: row.actual_views,
         _db_followers: row.actual_followers,
         _db_revenue: row.actual_revenue,
