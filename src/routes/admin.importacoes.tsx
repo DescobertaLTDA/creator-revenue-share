@@ -255,7 +255,8 @@ function ImportacoesPage() {
       });
       await load();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Erro desconhecido";
+      const msg = err instanceof Error ? err.message : (err as any)?.message ?? String(err) ?? "Erro desconhecido";
+      console.error("Falha na importação:", err);
       toast.error("Falha na importação", { id: toastId, description: msg });
     } finally {
       if (!fromBulk) {
