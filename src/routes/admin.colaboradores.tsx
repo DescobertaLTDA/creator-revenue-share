@@ -221,17 +221,25 @@ function Page() {
         try {
           const ext = avatarFile.name.split(".").pop()?.toLowerCase() || "jpg";
           const path = `collaborators/${collaboratorId}.${ext}`;
+          // Delete old files for all possible extensions before uploading new one
+          await Promise.allSettled(
+            ["jpg", "jpeg", "png", "webp", "gif"].map((e) =>
+              supabase.storage.from("avatars").remove([`collaborators/${collaboratorId}.${e}`])
+            )
+          );
           const { error: uploadError } = await supabase.storage
             .from("avatars")
             .upload(path, avatarFile, { upsert: true, contentType: avatarFile.type });
           if (!uploadError) {
             const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
-            await supabase.from("collaborators").update({ avatar_url: publicUrl }).eq("id", collaboratorId);
+            // Append timestamp to bust browser cache when photo is replaced
+            const urlWithCache = `${publicUrl}?v=${Date.now()}`;
+            await supabase.from("collaborators").update({ avatar_url: urlWithCache }).eq("id", collaboratorId);
           } else {
-            toast.warning("Foto não salva", { description: "Bucket de avatars não configurado ainda. Colaborador salvo sem foto." });
+            toast.warning("Foto não salva", { description: uploadError.message });
           }
         } catch {
-          toast.warning("Foto não salva", { description: "Erro ao fazer upload. Colaborador salvo sem foto." });
+          toast.warning("Foto não salva", { description: "Erro ao fazer upload." });
         }
       }
 
