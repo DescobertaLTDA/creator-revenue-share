@@ -1187,27 +1187,29 @@ function AdminDashboard() {
     return [...hist, ...futuro];
   }, [chartData, projections]);
 
-  // Map "dd/mm" → actual_revenue_usd for overlay on revenue charts
+  // Map "dd/mm" → actual_revenue_usd for overlay on revenue charts (filtered by selected page)
   const dailyActualByDia = useMemo(() => {
     const map = new Map<string, number>();
     for (const e of dailyEntries) {
       if (e.actual_revenue_usd == null) continue;
+      if (filterPage !== "all" && e.page_id !== filterPage) continue;
       const [, mo, d] = e.entry_date.split("-");
-      map.set(`${d}/${mo}`, Number(e.actual_revenue_usd));
+      map.set(`${d}/${mo}`, (map.get(`${d}/${mo}`) ?? 0) + Number(e.actual_revenue_usd));
     }
     return map;
-  }, [dailyEntries]);
+  }, [dailyEntries, filterPage]);
 
-  // Map "dd/mm" → actual_views (summed, for single-page overlay)
+  // Map "dd/mm" → actual_views (filtered by selected page, for single-page overlay)
   const dailyActualViewsByDia = useMemo(() => {
     const map = new Map<string, number>();
     for (const e of dailyEntries) {
       if (e.actual_views == null) continue;
+      if (filterPage !== "all" && e.page_id !== filterPage) continue;
       const [, mo, d] = e.entry_date.split("-");
       map.set(`${d}/${mo}`, (map.get(`${d}/${mo}`) ?? 0) + Number(e.actual_views));
     }
     return map;
-  }, [dailyEntries]);
+  }, [dailyEntries, filterPage]);
 
   // Map pageId → (dia "dd/mm" → actual_views) for multi-page overlay
   const dailyActualViewsByPage = useMemo(() => {
