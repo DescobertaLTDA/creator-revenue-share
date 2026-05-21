@@ -20,7 +20,7 @@ const allNav: NavItem[] = [
   { to: "/admin/metas", label: "Metas", icon: Target },
   { to: "/admin/monetizacao", label: "Monetização", icon: TrendingUp },
   { to: "/admin/projecoes", label: "Projeções", icon: BarChart3 },
-  { to: "/admin/posts", label: "Posts", icon: FileText },
+  { to: "/admin/posts", label: "Analytics", icon: FileText },
   { to: "/admin/fechamentos", label: "Fechamentos", icon: CalendarCheck },
   { to: "/admin/colaboradores", label: "Equipe", icon: Users },
   { to: "/admin/importacoes", label: "Importações", icon: FileSpreadsheet },
