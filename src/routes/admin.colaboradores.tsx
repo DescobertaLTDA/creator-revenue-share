@@ -491,10 +491,10 @@ function Page() {
             {/* Desktop list */}
             <div className="hidden sm:divide-y sm:divide-border sm:block">
               {rows.map((r, i) => (
-                <div key={r.id} className="flex items-center justify-between gap-6 px-6 py-4 hover:bg-muted/20 transition-colors">
+                <div key={r.id} className="grid items-center gap-4 px-6 py-4 hover:bg-muted/20 transition-colors" style={{ gridTemplateColumns: "minmax(160px,1fr) repeat(4,auto) auto" }}>
                   {/* Avatar + name + hashtag */}
-                  <div className="flex items-center gap-4 min-w-[180px]">
-                    <ColabAvatar nome={r.nome} avatarUrl={r.avatar_url} size={42} idx={i} />
+                  <div className="flex items-center gap-3">
+                    <ColabAvatar nome={r.nome} avatarUrl={r.avatar_url} size={40} idx={i} />
                     <div>
                       <p className="font-semibold text-sm">{r.nome}</p>
                       {r.hashtag
@@ -503,26 +503,24 @@ function Page() {
                     </div>
                   </div>
 
-                  {/* Metrics */}
-                  <div className="flex items-center gap-6 flex-1 justify-center tabular-nums">
-                    {[
-                      { icon: FileText, label: "Posts", value: fmt(r.post_count) },
-                      { icon: Eye, label: "Views", value: fmt(r.total_views) },
-                      { icon: Heart, label: "Curtidas", value: fmt(r.total_reactions) },
-                      { icon: MessageCircle, label: "Comentários", value: fmt(r.total_comments) },
-                    ].map(({ icon: Icon, label, value }) => (
-                      <div key={label} className="flex flex-col items-center gap-0.5 min-w-[64px]">
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <Icon className="h-3.5 w-3.5" />
-                          <span className="text-[11px] uppercase tracking-wide">{label}</span>
-                        </div>
-                        <span className="font-semibold text-base">{value}</span>
+                  {/* Metrics — each in its own grid column */}
+                  {[
+                    { icon: FileText, label: "Posts", value: fmt(r.post_count) },
+                    { icon: Eye, label: "Views", value: fmt(r.total_views) },
+                    { icon: Heart, label: "Curtidas", value: fmt(r.total_reactions) },
+                    { icon: MessageCircle, label: "Comentários", value: fmt(r.total_comments) },
+                  ].map(({ icon: Icon, label, value }) => (
+                    <div key={label} className="flex flex-col items-center gap-0.5 px-4 tabular-nums border-l border-border">
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <Icon className="h-3 w-3" />
+                        <span className="text-[10px] uppercase tracking-wide">{label}</span>
                       </div>
-                    ))}
-                  </div>
+                      <span className="font-semibold text-sm">{value}</span>
+                    </div>
+                  ))}
 
                   {/* Status + actions */}
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 pl-4 border-l border-border">
                     <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${r.ativo ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"}`}>
                       {r.ativo ? "Ativo" : "Inativo"}
                     </span>
