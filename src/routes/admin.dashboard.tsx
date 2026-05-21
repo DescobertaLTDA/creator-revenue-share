@@ -860,6 +860,8 @@ function AdminDashboard() {
       ps.isMonetized = (pageRevPostCounts.get(id) ?? 0) >= 3;
     }
 
+    const purePostsUsd = geralUsd; // CSV-only total, before manual corrections
+
     // Daily revenue corrections — use actual_revenue_usd from daily_revenue_entries.
     // Entries are now per-page (page_id). When a specific page is selected, only
     // apply corrections for that page. When "all", sum across all pages per day.
@@ -1007,6 +1009,7 @@ function AdminDashboard() {
     return {
       kpis: {
         totalMonth: geralUsd,
+        totalMonthCsv: purePostsUsd,
         totalGeral: geralUsd,
         totalPosts: filtered.length,
         totalViews: viewsSum,
@@ -1035,13 +1038,13 @@ function AdminDashboard() {
     rulesByPage, postToCollabs, pageStats, projections, sparklineByPage,
   } = computed;
 
-  const { totalMonth: csvTotalMonth, totalViews: csvTotalViews, avgRpm: csvAvgRpm, avgScore } = kpis;
+  const { totalMonth: correctedTotalMonth, totalMonthCsv, totalViews: csvTotalViews, avgRpm: csvAvgRpm, avgScore } = kpis;
 
-  // When showManual is ON, override KPIs with manually entered values (when available)
-  const totalMonth = showManual && manualKpiTotals.revenue > 0 ? manualKpiTotals.revenue : csvTotalMonth;
+  // ON = show corrected totals (CSV posts + manual corrections); OFF = pure CSV posts only
+  const totalMonth = showManual ? correctedTotalMonth : totalMonthCsv;
   const totalViews = showManual && manualKpiTotals.views > 0 ? manualKpiTotals.views : csvTotalViews;
-  const avgRpm = showManual && manualKpiTotals.revenue > 0 && manualKpiTotals.views > 0
-    ? (manualKpiTotals.revenue / manualKpiTotals.views) * 1000
+  const avgRpm = showManual && totalViews > 0 && totalMonth > 0
+    ? (totalMonth / totalViews) * 1000
     : csvAvgRpm;
 
   const [auditColabId, setAuditColabId] = useState<string | null>(null);
