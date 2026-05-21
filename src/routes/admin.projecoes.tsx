@@ -57,6 +57,7 @@ export default function ProjecoesPage() {
   // derived from DB
   const [rpm, setRpm]                   = useState(0.05);
   const [actualRevMonth, setActualRevMonth] = useState(0);
+  const [realStats, setRealStats] = useState<{ postsPerDay: number; avgViews: number; rpm: number } | null>(null);
 
   // ── Simulator controls
   const [postsPerDay, setPostsPerDay]   = useState(12);
@@ -111,7 +112,15 @@ export default function ProjecoesPage() {
       .eq("page_id", pageId)
       .gte("published_at", iso)
       .then(({ data }: { data: RawPost[] | null }) => {
-        if (!data || data.length === 0) { setLoading(false); return; }
+        if (!data || data.length === 0) { setRealStats(null); setLoading(false); return; }
+
+        const totalRev   = data.reduce((s, p) => s + (p.estimated_usd ?? 0), 0);
+        const totalViews = data.reduce((s, p) => s + (p.views ?? 0), 0);
+        const postCount  = data.length;
+        const realRpm    = totalViews > 5_000 && totalRev > 0 ? (totalRev / totalViews) * 1000 : 0;
+        const realPpd    = Math.max(1, Math.round(postCount / 30));
+        const realAvg    = postCount > 0 ? Math.round(totalViews / postCount) : 0;
+        setRealStats({ postsPerDay: realPpd, avgViews: realAvg, rpm: realRpm });
 
         // Actual this-month revenue
         const monthStart = new Date(); monthStart.setDate(1);
@@ -170,6 +179,7 @@ export default function ProjecoesPage() {
               setAvgViews={setAvgViews}
               rpm={rpm}
               setRpm={setRpm}
+              realStats={realStats}
             />
             <HeroCard
               totalRev={projection.totalRev}
@@ -239,14 +249,16 @@ function ControlsPanel({
   postsPerDay, setPostsPerDay,
   avgViews, setAvgViews,
   rpm, setRpm,
+  realStats,
 }: {
   postsPerDay: number; setPostsPerDay: (v: number) => void;
   avgViews: number; setAvgViews: (v: number) => void;
   rpm: number; setRpm: (v: number) => void;
+  realStats: { postsPerDay: number; avgViews: number; rpm: number } | null;
 }) {
-  const dailyRev  = postsPerDay * (avgViews / 1_000) * rpm;
-  const weeklyRev = dailyRev * 7;
-  const monthlyRev = dailyRev * 30;
+  const realDaily   = realStats ? realStats.postsPerDay * (realStats.avgViews / 1_000) * realStats.rpm : null;
+  const realWeekly  = realDaily !== null ? realDaily * 7 : null;
+  const realMonthly = realDaily !== null ? realDaily * 30 : null;
 
   return (
     <div className="bg-white rounded-2xl border border-border p-5 space-y-5 lg:sticky lg:top-4">
@@ -277,21 +289,28 @@ function ControlsPanel({
         />
       </div>
 
-      {/* Quick estimates */}
+      {/* Quick estimates — based on real page data */}
       <div className="border-t border-border pt-4 space-y-1.5">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Estimativa rápida</p>
         <div className="grid grid-cols-3 gap-2">
           {[
-            { label: "Por dia",  value: dailyRev },
-            { label: "Por semana", value: weeklyRev },
-            { label: "Por mês",  value: monthlyRev },
+            { label: "Por dia",    value: realDaily },
+            { label: "Por semana", value: realWeekly },
+            { label: "Por mês",    value: realMonthly },
           ].map(({ label, value }) => (
             <div key={label} className="bg-[#FFF0E8] rounded-xl p-3 text-center">
               <p className="text-[10px] text-muted-foreground font-medium mb-1">{label}</p>
-              <p className="text-sm font-black text-foreground">{fmtUSD(value)}</p>
+              <p className="text-sm font-black text-foreground">
+                {value !== null && value > 0 ? fmtUSD(value) : "—"}
+              </p>
             </div>
           ))}
         </div>
+        {realStats && (
+          <p className="text-[10px] text-muted-foreground text-center pt-1">
+            {realStats.postsPerDay} posts/dia · {fmtViewsPt(realStats.avgViews)} views/post · RPM ${realStats.rpm.toFixed(2)}
+          </p>
+        )}
       </div>
     </div>
   );
