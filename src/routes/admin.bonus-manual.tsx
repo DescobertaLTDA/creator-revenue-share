@@ -383,7 +383,7 @@ function BonusManualPage() {
         .lte("entry_date", to),
       (supabase as any)
         .from("audit_logs")
-        .select("entity_id, before_json, after_json")
+        .select("entity_id, actor_profile_id, before_json, after_json")
         .eq("action", "update_daily_revenue")
         .like("entity_id", `${ref}-%:${pageId}`)
         .order("created_at", { ascending: false }),
