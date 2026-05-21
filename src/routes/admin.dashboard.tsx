@@ -1480,41 +1480,35 @@ function AdminDashboard() {
               : 0;
             const scoreColor = avgScore >= 75 ? "#16a34a" : avgScore >= 50 ? "#f59e0b" : avgScore >= 25 ? "#f97316" : "#F44708";
             return (
-              {(() => {
-                const revDelta = showManual && !loading ? totalMonth - totalMonthCsv : 0;
-                const viewsDelta = showManual && !loading ? totalViews - csvTotalViews : 0;
-                const rpmDelta = showManual && !loading ? avgRpm - csvAvgRpm : 0;
-                const fmtDelta = (v: number, fmt2: (n: number) => string) => {
-                  if (v === 0) return null;
-                  const sign = v > 0 ? "+" : "";
-                  const color = v > 0 ? "text-[#16a34a]" : "text-[#dc2626]";
-                  return <span className={`text-xs font-semibold ${color}`}>{sign}{fmt2(v)}</span>;
-                };
-                return (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {[
-                  {
-                    label: "Receita do Período",
-                    value: loading ? "—" : usdBrl ? formatBRL(totalMonth * usdBrl) : `$${totalMonth.toFixed(2)}`,
-                    sub: usdBrl && !loading ? `$${totalMonth.toFixed(2)} USD` : null,
-                    delta: fmtDelta(revDelta, (n) => usdBrl ? formatBRL(Math.abs(n) * usdBrl) : `$${Math.abs(n).toFixed(2)}`),
-                    icon: DollarSign,
-                  },
-                  {
-                    label: "RPM Médio",
-                    value: loading ? "—" : (usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(4)}`),
-                    sub: "por mil visualizações",
-                    delta: fmtDelta(rpmDelta, (n) => usdBrl ? formatBRL(Math.abs(n) * usdBrl) : `$${Math.abs(n).toFixed(4)}`),
-                    icon: Zap,
-                  },
-                  {
-                    label: "Visualizações",
-                    value: loading ? "—" : fmt(totalViews),
-                    sub: `${kpis.totalPosts.toLocaleString("pt-BR")} posts`,
-                    delta: fmtDelta(viewsDelta, (n) => fmt(Math.abs(n))),
-                    icon: Eye,
-                  },
-                ].map(({ label, value, sub, delta, icon: Icon }) => (
+                {(
+                  [
+                    {
+                      label: "Receita do Período",
+                      value: loading ? "—" : usdBrl ? formatBRL(totalMonth * usdBrl) : `$${totalMonth.toFixed(2)}`,
+                      sub: usdBrl && !loading ? `$${totalMonth.toFixed(2)} USD` : null,
+                      rawDelta: showManual && !loading ? totalMonth - totalMonthCsv : 0,
+                      fmtAbs: (n: number) => usdBrl ? formatBRL(Math.abs(n) * usdBrl) : `$${Math.abs(n).toFixed(2)}`,
+                      icon: DollarSign,
+                    },
+                    {
+                      label: "RPM Médio",
+                      value: loading ? "—" : (usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(4)}`),
+                      sub: "por mil visualizações",
+                      rawDelta: showManual && !loading ? avgRpm - csvAvgRpm : 0,
+                      fmtAbs: (n: number) => usdBrl ? formatBRL(Math.abs(n) * usdBrl) : `$${Math.abs(n).toFixed(4)}`,
+                      icon: Zap,
+                    },
+                    {
+                      label: "Visualizações",
+                      value: loading ? "—" : fmt(totalViews),
+                      sub: `${kpis.totalPosts.toLocaleString("pt-BR")} posts`,
+                      rawDelta: showManual && !loading ? totalViews - csvTotalViews : 0,
+                      fmtAbs: (n: number) => fmt(Math.abs(n)),
+                      icon: Eye,
+                    },
+                  ] as const
+                ).map(({ label, value, sub, rawDelta, fmtAbs, icon: Icon }) => (
                   <div key={label} className="bg-white border border-[#E0E0E0] rounded-2xl p-5 transition-colors">
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-xs font-medium text-[#6B6B6B] uppercase tracking-wider">{label}</p>
@@ -1525,13 +1519,15 @@ function AdminDashboard() {
                     <p className="text-2xl font-bold tracking-tight tabular-nums text-[#1A0A00]">{value}</p>
                     <div className="flex items-center gap-2 mt-1">
                       {sub && <p className="text-xs text-[#6B6B6B]">{sub}</p>}
-                      {delta}
+                      {rawDelta !== 0 && (
+                        <span className={`text-xs font-semibold ${rawDelta > 0 ? "text-[#16a34a]" : "text-[#dc2626]"}`}>
+                          {rawDelta > 0 ? "+" : ""}{fmtAbs(rawDelta)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
-                );
-              })()}
 
                 {/* Score Médio — com velocímetro */}
                 <div className="bg-white border border-[#E0E0E0] rounded-2xl p-5 transition-colors flex flex-col">
