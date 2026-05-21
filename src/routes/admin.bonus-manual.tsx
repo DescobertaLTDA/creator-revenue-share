@@ -834,41 +834,37 @@ function BonusManualPage() {
                         return (
                           <tr key={row.date} className={`hover:bg-muted/20 ${isWeekend ? "bg-muted/10" : ""} ${isFuture ? "opacity-40" : ""}`}>
                             <td className="px-4 py-2.5">
-                              <div className="flex items-center gap-2">
-                                <div>
-                                  <span className="font-semibold tabular-nums">{row.label}</span>
-                                  <span className="text-[10px] text-muted-foreground ml-1.5">{row.weekday}</span>
-                                </div>
-                                {row.updater_nome && (
-                                  <div className="flex items-center gap-1" title={`Editado por ${row.updater_nome}`}>
-                                    {row.updater_avatar ? (
-                                      <img src={row.updater_avatar} alt={row.updater_nome} className="h-5 w-5 rounded-full object-cover shrink-0" />
-                                    ) : (
-                                      <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center shrink-0 text-[9px] font-bold text-muted-foreground">
-                                        {row.updater_nome[0].toUpperCase()}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
+                              <span className="font-semibold tabular-nums">{row.label}</span>
+                              <span className="text-[10px] text-muted-foreground ml-1.5">{row.weekday}</span>
                             </td>
                             <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
                               {row.views > 0 ? fmtViews(row.views) : <span className="text-muted-foreground/40">—</span>}
                             </td>
                             <td className="px-4 py-2.5 text-right">
-                              <input
-                                type="text" inputMode="numeric" disabled={isFuture || !canWrite}
-                                data-views-input={row.date}
-                                placeholder="0"
-                                value={viewsFocusDate === row.date
-                                  ? (row.actual_views ?? "")
-                                  : (row.actual_views != null ? row.actual_views.toLocaleString("pt-BR") : "")}
-                                onFocus={() => setViewsFocusDate(row.date)}
-                                onBlur={() => { setViewsFocusDate(null); handleFieldBlur(row); }}
-                                onChange={(e) => handleViewsChange(row, e.target.value)}
-                                onKeyDown={(e) => handleViewsKeyDown(e, row.date)}
-                                className="w-32 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums text-[#F44708] focus:outline-none focus:ring-1 focus:ring-[#F44708]/40 disabled:opacity-30"
-                              />
+                              <div className="flex items-center justify-end gap-1.5">
+                                <input
+                                  type="text" inputMode="numeric" disabled={isFuture || !canWrite}
+                                  data-views-input={row.date}
+                                  placeholder="0"
+                                  value={viewsFocusDate === row.date
+                                    ? (row.actual_views ?? "")
+                                    : (row.actual_views != null ? row.actual_views.toLocaleString("pt-BR") : "")}
+                                  onFocus={() => setViewsFocusDate(row.date)}
+                                  onBlur={() => { setViewsFocusDate(null); handleFieldBlur(row); }}
+                                  onChange={(e) => handleViewsChange(row, e.target.value)}
+                                  onKeyDown={(e) => handleViewsKeyDown(e, row.date)}
+                                  className="w-32 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums text-[#F44708] focus:outline-none focus:ring-1 focus:ring-[#F44708]/40 disabled:opacity-30"
+                                />
+                                {row.updater_nome && (
+                                  row.updater_avatar ? (
+                                    <img src={row.updater_avatar} alt={row.updater_nome} title={`Editado por ${row.updater_nome}`} className="h-5 w-5 rounded-full object-cover shrink-0" />
+                                  ) : (
+                                    <div title={`Editado por ${row.updater_nome}`} className="h-5 w-5 rounded-full bg-muted border border-border flex items-center justify-center shrink-0 text-[9px] font-bold text-muted-foreground">
+                                      {row.updater_nome[0].toUpperCase()}
+                                    </div>
+                                  )
+                                )}
+                              </div>
                             </td>
                             <td className="px-4 py-2.5 text-right">
                               <input
