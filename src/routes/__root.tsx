@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/hooks/use-auth";
 
 import appCss from "../styles.css?url";
+import logoUrl from "../assets/logo.webp";
 
 function NotFoundComponent() {
   return (
@@ -39,7 +40,7 @@ export const Route = createRootRoute({
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
-    links: [{ rel: "stylesheet", href: appCss }, { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" }, { rel: "preconnect", href: "https://fonts.googleapis.com" }, { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" }],
+    links: [{ rel: "stylesheet", href: appCss }, { rel: "icon", href: logoUrl, type: "image/webp" }, { rel: "preconnect", href: "https://fonts.googleapis.com" }, { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" }],
   }),
   shellComponent: RootShell,
   component: RootComponent,
