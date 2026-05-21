@@ -1206,21 +1206,26 @@ function AdminDashboard() {
       });
   }, [allPosts, filterPage, filterFrom, filterTo, chartMetric, dailyEntries]);
 
-  // Projection chart data: last 30 days real + next 28 projected (página única)
+  // Projection chart data: last 30 days real + future projection only if filterTo is beyond today
   // Orange line always = pure CSV posts revenue; green line = actual_revenue_usd (manual)
   const projectionChartData = useMemo(() => {
     const hist = chartDataCsv.slice(-30).map((d) => ({ dia: d.dia, real: d.receita, proj: null as number | null }));
     const last = chartDataCsv[chartDataCsv.length - 1];
-    const today = new Date();
-    const futuro = Array.from({ length: 28 }, (_, i) => {
-      const d = new Date(today);
-      d.setDate(d.getDate() + i + 1);
-      const [, mo, dy] = d.toISOString().slice(0, 10).split("-");
-      return { dia: `${dy}/${mo}`, real: null as number | null, proj: projections.today };
-    });
+    const todayStr = new Date().toISOString().slice(0, 10);
+    // Only show projection days beyond today if filterTo is in the future
+    const projEnd = filterTo && filterTo > todayStr ? filterTo : todayStr;
+    const futuro: { dia: string; real: null; proj: number }[] = [];
+    for (let i = 1; i <= 28; i++) {
+      const d = new Date(todayStr);
+      d.setDate(d.getDate() + i);
+      const dateStr = d.toISOString().slice(0, 10);
+      if (dateStr > projEnd) break;
+      const [, mo, dy] = dateStr.split("-");
+      futuro.push({ dia: `${dy}/${mo}`, real: null, proj: projections.today });
+    }
     if (last) hist[hist.length - 1] = { ...hist[hist.length - 1], proj: projections.today };
     return [...hist, ...futuro];
-  }, [chartDataCsv, projections]);
+  }, [chartDataCsv, projections, filterTo]);
 
   // Map "dd/mm" → actual_revenue_usd for overlay on revenue charts (filtered by selected page)
   const dailyActualByDia = useMemo(() => {
