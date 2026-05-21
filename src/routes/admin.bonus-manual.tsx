@@ -26,6 +26,7 @@ interface DayEntry {
   label: string;
   weekday: string;
   posts_revenue: number;
+  views: number;
   actual_revenue: number | null;
   distribution_mode: string;
   note: string;
@@ -274,6 +275,7 @@ function BonusManualPage() {
     (
       days: string[],
       postsByDay: Record<string, number>,
+      viewsByDay: Record<string, number>,
       dbEntries: Record<string, { id: string; actual_revenue_usd: number | null; distribution_mode: string; note: string | null }>
     ): DayEntry[] => {
       return days.map((date) => {
@@ -284,6 +286,7 @@ function BonusManualPage() {
           label: `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`,
           weekday: WEEKDAYS_SHORT[d.getDay()],
           posts_revenue: postsByDay[date] ?? 0,
+          views: viewsByDay[date] ?? 0,
           actual_revenue: db?.actual_revenue_usd ?? null,
           distribution_mode: db?.distribution_mode ?? "hybrid",
           note: db?.note ?? "",
@@ -307,7 +310,7 @@ function BonusManualPage() {
     const [{ data: postsData }, { data: dbData }] = await Promise.all([
       supabase
         .from("posts")
-        .select("published_at, monetization_approx")
+        .select("published_at, monetization_approx, views")
         .eq("page_id", pageId)
         .gte("published_at", from)
         .lte("published_at", to + "T23:59:59"),
@@ -320,16 +323,18 @@ function BonusManualPage() {
     ]);
 
     const postsByDay: Record<string, number> = {};
+    const viewsByDay: Record<string, number> = {};
     for (const p of (postsData ?? []) as any[]) {
       if (!p.published_at) continue;
       const day = p.published_at.slice(0, 10);
       postsByDay[day] = (postsByDay[day] ?? 0) + Number(p.monetization_approx ?? 0);
+      viewsByDay[day] = (viewsByDay[day] ?? 0) + Number(p.views ?? 0);
     }
 
     const dbEntries: Record<string, any> = {};
     for (const e of (dbData ?? []) as any[]) dbEntries[e.entry_date] = e;
 
-    setRows(buildRows(days, postsByDay, dbEntries));
+    setRows(buildRows(days, postsByDay, viewsByDay, dbEntries));
     setLoading(false);
   }, [buildRows]);
 
@@ -399,7 +404,14 @@ function BonusManualPage() {
   const totalPosts = rows.reduce((s, r) => s + r.posts_revenue, 0);
   const totalActual = rows.reduce((s, r) => s + (r.actual_revenue ?? 0), 0);
   const totalBonus = totalActual - totalPosts;
+  const totalViews = rows.reduce((s, r) => s + r.views, 0);
   const filledDays = rows.filter((r) => r.actual_revenue != null).length;
+
+  function fmtViews(n: number) {
+    return n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M`
+      : n >= 1_000 ? `${Math.round(n / 1_000)}k`
+      : String(n);
+  }
 
   const distWithBonus: ColabDist[] = useMemo(() => {
     if (totalBonus <= 0) return colabDist.map((c) => ({ ...c, bonus_estimated: 0 }));
@@ -413,8 +425,8 @@ function BonusManualPage() {
     <div className="space-y-6">
       <WriteGuardDialog />
       <PageHeader
-        title="Conciliação diária"
-        description="Compare o que os posts geraram com o que o Facebook realmente pagou. A diferença é o bônus distribuído pelas views do mês anterior."
+        title="Histórico"
+        description="Views reais e receita dia a dia. Compare o que o Facebook pagou vs o que os posts geraram."
       />
 
       {/* Page + Month selectors */}
@@ -454,7 +466,12 @@ function BonusManualPage() {
       {selectedPageId && (
         <>
           {/* KPIs */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="bg-card border border-border rounded-lg p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Views reais</p>
+              <p className="text-xl font-bold mt-1 text-[#F44708]">{fmtViews(totalViews)}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">no mês</p>
+            </div>
             <div className="bg-card border border-border rounded-lg p-4">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Posts (USD)</p>
               <p className="text-xl font-bold mt-1">${totalPosts.toFixed(2)}</p>
@@ -574,6 +591,7 @@ function BonusManualPage() {
                     <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                       <tr>
                         <th className="text-left px-4 py-3 font-medium w-24">Dia</th>
+                        <th className="text-right px-4 py-3 font-medium text-[#F44708]">Views</th>
                         <th className="text-right px-4 py-3 font-medium">Posts (USD)</th>
                         <th className="text-right px-4 py-3 font-medium">Real recebido (USD)</th>
                         <th className="w-8 px-4 py-3" />
@@ -588,6 +606,9 @@ function BonusManualPage() {
                             <td className="px-4 py-2.5">
                               <span className="font-semibold tabular-nums">{row.label}</span>
                               <span className="text-[10px] text-muted-foreground ml-1.5">{row.weekday}</span>
+                            </td>
+                            <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#F44708]">
+                              {row.views > 0 ? fmtViews(row.views) : <span className="text-muted-foreground/40">—</span>}
                             </td>
                             <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
                               {row.posts_revenue > 0 ? `$${row.posts_revenue.toFixed(2)}` : <span className="text-muted-foreground/40">—</span>}

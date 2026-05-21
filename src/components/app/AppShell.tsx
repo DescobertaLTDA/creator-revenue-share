@@ -25,7 +25,7 @@ const allNav: NavItem[] = [
   { to: "/admin/colaboradores", label: "Equipe", icon: Users },
   { to: "/admin/importacoes", label: "Importações", icon: FileSpreadsheet },
   { to: "/admin/regras-split", label: "Regras de Split", icon: Percent },
-  { to: "/admin/bonus-manual", label: "Histórico de Ganhos", icon: HandCoins },
+  { to: "/admin/bonus-manual", label: "Histórico", icon: HandCoins },
   { to: "/admin/cadastro", label: "Cadastro", icon: UserCog, adminOnly: true },
 ];
 
