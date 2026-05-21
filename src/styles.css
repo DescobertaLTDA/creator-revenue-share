@@ -96,14 +96,14 @@
   --chart-4: #FFD9A8;
   --chart-5: #FFF0E8;
 
-  /* Sidebar: Deep Red */
-  --sidebar: #A10702;
+  /* Sidebar: Black */
+  --sidebar: #0a0a0a;
   --sidebar-foreground: #FFFFFF;
   --sidebar-primary: #F44708;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #8B0601;
+  --sidebar-accent: #1a1a1a;
   --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: #7A0501;
+  --sidebar-border: #222222;
   --sidebar-ring: #FAA613;
 }
 
