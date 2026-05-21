@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useWriteGuard } from "@/hooks/use-write-guard";
 import { formatMonth, formatPct } from "@/lib/format";
 import { toast } from "sonner";
-import { Check, Loader2, ChevronLeft, ChevronRight, Info, Coins, ChevronDown } from "lucide-react";
+import { Check, Loader2, ChevronLeft, ChevronRight, Info, Coins, ChevronDown, History, UserCircle } from "lucide-react";
 
 export const Route = createFileRoute("/admin/bonus-manual")({
   head: () => ({ meta: [{ title: "Conciliação diária — Splash Creators" }] }),
@@ -36,6 +36,18 @@ interface DayEntry {
   dirty: boolean;
   saving: boolean;
   saved: boolean;
+  updater_nome: string | null;
+  updater_avatar: string | null;
+}
+
+interface AuditEntry {
+  id: string;
+  created_at: string;
+  actor_nome: string;
+  actor_avatar: string | null;
+  before_json: Record<string, unknown>;
+  after_json: Record<string, unknown>;
+  entity_id: string;
 }
 
 interface ColabDist {
@@ -237,6 +249,9 @@ function BonusManualPage() {
   const [colabDist, setColabDist] = useState<ColabDist[]>([]);
   const [distLoading, setDistLoading] = useState(false);
   const [viewsFocusDate, setViewsFocusDate] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"receita" | "transparencia">("receita");
+  const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
   const [followersFocusDate, setFollowersFocusDate] = useState<string | null>(null);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -280,11 +295,13 @@ function BonusManualPage() {
       days: string[],
       postsByDay: Record<string, number>,
       viewsByDay: Record<string, number>,
-      dbEntries: Record<string, { id: string; actual_revenue_usd: number | null; actual_views: number | null; actual_followers: number | null; distribution_mode: string; note: string | null }>
+      dbEntries: Record<string, any>,
+      updaterMap: Map<string, { nome: string; avatar: string | null }>
     ): DayEntry[] => {
       return days.map((date) => {
         const d = new Date(date + "T00:00:00");
         const db = dbEntries[date];
+        const updater = db?.updated_by ? updaterMap.get(db.updated_by) : null;
         return {
           date,
           label: `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`,
@@ -300,6 +317,8 @@ function BonusManualPage() {
           dirty: false,
           saving: false,
           saved: false,
+          updater_nome: updater?.nome ?? null,
+          updater_avatar: updater?.avatar ?? null,
         };
       });
     },
@@ -322,7 +341,7 @@ function BonusManualPage() {
         .lte("published_at", to + "T23:59:59"),
       (supabase as any)
         .from("daily_revenue_entries")
-        .select("id, entry_date, actual_revenue_usd, actual_views, actual_followers, distribution_mode, note")
+        .select("id, entry_date, actual_revenue_usd, actual_views, actual_followers, distribution_mode, note, updated_by")
         .eq("page_id", pageId)
         .gte("entry_date", from)
         .lte("entry_date", to),
@@ -338,9 +357,29 @@ function BonusManualPage() {
     }
 
     const dbEntries: Record<string, any> = {};
-    for (const e of (dbData ?? []) as any[]) dbEntries[e.entry_date] = e;
+    const updaterIds = new Set<string>();
+    for (const e of (dbData ?? []) as any[]) {
+      dbEntries[e.entry_date] = e;
+      if (e.updated_by) updaterIds.add(e.updated_by);
+    }
 
-    setRows(buildRows(days, postsByDay, viewsByDay, dbEntries));
+    const updaterMap = new Map<string, { nome: string; avatar: string | null }>();
+    if (updaterIds.size > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, nome")
+        .in("id", [...updaterIds]);
+      const { data: collabs } = await supabase
+        .from("collaborators")
+        .select("profile_id, avatar_url")
+        .in("profile_id", [...updaterIds]);
+      const avatarByProfileId = new Map((collabs ?? []).map((c: any) => [c.profile_id, c.avatar_url]));
+      for (const p of (profiles ?? []) as any[]) {
+        updaterMap.set(p.id, { nome: p.nome, avatar: avatarByProfileId.get(p.id) ?? null });
+      }
+    }
+
+    setRows(buildRows(days, postsByDay, viewsByDay, dbEntries, updaterMap));
     setLoading(false);
   }, [buildRows]);
 
@@ -353,11 +392,49 @@ function BonusManualPage() {
     setDistLoading(false);
   }, []);
 
+  const loadAuditLogs = useCallback(async (ref: string, pageId: string) => {
+    if (!pageId) return;
+    setAuditLoading(true);
+    const days = daysInMonth(ref);
+    const from = days[0];
+    const to = days[days.length - 1];
+    const prefix = `${from.slice(0, 7)}-`;
+
+    const { data: logs } = await (supabase as any)
+      .from("audit_logs")
+      .select("id, created_at, actor_profile_id, before_json, after_json, entity_id")
+      .eq("action", "update_daily_revenue")
+      .like("entity_id", `%:${pageId}`)
+      .gte("created_at", from + "T00:00:00Z")
+      .lte("created_at", to + "T23:59:59Z")
+      .order("created_at", { ascending: false });
+
+    if (!logs || logs.length === 0) { setAuditLogs([]); setAuditLoading(false); return; }
+
+    const actorIds = [...new Set((logs as any[]).map((l: any) => l.actor_profile_id).filter(Boolean))];
+    const { data: profiles } = await supabase.from("profiles").select("id, nome").in("id", actorIds);
+    const { data: collabs } = await supabase.from("collaborators").select("profile_id, avatar_url").in("profile_id", actorIds);
+    const nameMap = new Map((profiles ?? []).map((p: any) => [p.id, p.nome]));
+    const avatarMap = new Map((collabs ?? []).map((c: any) => [c.profile_id, c.avatar_url]));
+
+    setAuditLogs((logs as any[]).map((l: any) => ({
+      id: l.id,
+      created_at: l.created_at,
+      actor_nome: nameMap.get(l.actor_profile_id) ?? "Usuário",
+      actor_avatar: avatarMap.get(l.actor_profile_id) ?? null,
+      before_json: l.before_json ?? {},
+      after_json: l.after_json ?? {},
+      entity_id: l.entity_id,
+    })));
+    setAuditLoading(false);
+  }, []);
+
   useEffect(() => {
     if (!selectedPageId) return;
     load(monthRef, selectedPageId);
     loadDist(monthRef, selectedPageId);
-  }, [monthRef, selectedPageId, load, loadDist]);
+    loadAuditLogs(monthRef, selectedPageId);
+  }, [monthRef, selectedPageId, load, loadDist, loadAuditLogs]);
 
   const updateRow = (date: string, field: keyof DayEntry, value: unknown) => {
     setRows((prev) =>
@@ -366,8 +443,15 @@ function BonusManualPage() {
   };
 
   const saveRow = async (row: DayEntry) => {
-    if (!selectedPageId) return;
+    if (!selectedPageId || !profile) return;
     setRows((prev) => prev.map((r) => r.date === row.date ? { ...r, saving: true } : r));
+
+    const before = {
+      actual_views: row.actual_views,
+      actual_followers: row.actual_followers,
+      actual_revenue_usd: row.actual_revenue,
+    };
+
     const payload = {
       entry_date: row.date,
       page_id: selectedPageId,
@@ -377,19 +461,43 @@ function BonusManualPage() {
       distribution_mode: row.distribution_mode,
       note: row.note.trim() || null,
       updated_at: new Date().toISOString(),
-      created_by: profile?.id ?? null,
+      updated_by: profile.id,
+      created_by: profile.id,
     };
     const { data, error } = await (supabase as any)
       .from("daily_revenue_entries")
       .upsert(payload, { onConflict: "entry_date,page_id" })
       .select("id")
       .single();
-    if (!error && data) setRows((prev) => prev.map((r) => r.date === row.date ? { ...r, id: data.id } : r));
+
     if (error) {
       toast.error("Erro ao salvar", { description: error.message });
       setRows((prev) => prev.map((r) => r.date === row.date ? { ...r, saving: false } : r));
     } else {
-      setRows((prev) => prev.map((r) => r.date === row.date ? { ...r, saving: false, dirty: false, saved: true } : r));
+      if (data) {
+        const after = {
+          actual_views: row.actual_views,
+          actual_followers: row.actual_followers,
+          actual_revenue_usd: row.actual_revenue,
+        };
+        await (supabase as any).from("audit_logs").insert({
+          actor_profile_id: profile.id,
+          action: "update_daily_revenue",
+          entity: "daily_revenue_entry",
+          entity_id: `${row.date}:${selectedPageId}`,
+          before_json: before,
+          after_json: after,
+        });
+      }
+      setRows((prev) => prev.map((r) => r.date === row.date ? {
+        ...r,
+        id: data?.id ?? r.id,
+        saving: false,
+        dirty: false,
+        saved: true,
+        updater_nome: profile.nome,
+        updater_avatar: null,
+      } : r));
       setTimeout(() => setRows((prev) => prev.map((r) => r.date === row.date ? { ...r, saved: false } : r)), 2000);
     }
   };
@@ -517,6 +625,24 @@ function BonusManualPage() {
 
       {selectedPageId && (
         <>
+          {/* Tab switcher */}
+          <div className="flex gap-1 border-b border-border">
+            <button
+              onClick={() => setActiveTab("receita")}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "receita" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+            >
+              Receita dia a dia
+            </button>
+            <button
+              onClick={() => { setActiveTab("transparencia"); loadAuditLogs(monthRef, selectedPageId); }}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "transparencia" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+            >
+              <History className="h-3.5 w-3.5" />
+              Transparência
+            </button>
+          </div>
+
+          {activeTab === "receita" && (<>
           {/* KPIs */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <div className="bg-card border border-border rounded-lg p-4">
@@ -690,6 +816,7 @@ function BonusManualPage() {
                         <th className="text-right px-4 py-3 font-medium text-emerald-600">Seguidores</th>
                         <th className="text-right px-4 py-3 font-medium">Posts (USD)</th>
                         <th className="text-right px-4 py-3 font-medium">Real recebido (USD)</th>
+                        <th className="w-24 px-4 py-3 font-medium text-muted-foreground">Editado por</th>
                         <th className="w-8 px-4 py-3" />
                       </tr>
                     </thead>
@@ -749,6 +876,20 @@ function BonusManualPage() {
                                 className="w-28 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
                               />
                             </td>
+                            <td className="px-4 py-2.5">
+                              {row.updater_nome && (
+                                <div className="flex items-center gap-1.5" title={row.updater_nome}>
+                                  {row.updater_avatar ? (
+                                    <img src={row.updater_avatar} alt={row.updater_nome} className="h-5 w-5 rounded-full object-cover shrink-0" />
+                                  ) : (
+                                    <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center shrink-0">
+                                      <UserCircle className="h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                  )}
+                                  <span className="text-xs text-muted-foreground truncate max-w-[60px]">{row.updater_nome.split(" ")[0]}</span>
+                                </div>
+                              )}
+                            </td>
                             <td className="px-2 py-2.5 w-8">
                               {row.saving ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
                                 : row.saved ? <Check className="h-3.5 w-3.5 text-[#16a34a]" />
@@ -773,7 +914,7 @@ function BonusManualPage() {
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">${totalPosts.toFixed(2)}</td>
                         <td className="px-4 py-3 text-right tabular-nums">${totalActual.toFixed(2)}</td>
-                        <td />
+                        <td /><td />
                       </tr>
                     </tfoot>
                   </table>
@@ -885,6 +1026,81 @@ function BonusManualPage() {
               </>
             )}
           </div>
+          </>)}
+
+          {activeTab === "transparencia" && (
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-5 py-4 border-b border-border">
+                <h2 className="font-semibold">Registro de alterações</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Histórico completo de edições nos dados de {formatMonth(monthRef)} — visível para todos os usuários.
+                </p>
+              </div>
+              {auditLoading ? (
+                <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+              ) : auditLogs.length === 0 ? (
+                <div className="p-10 text-center text-sm text-muted-foreground">
+                  Nenhuma alteração registrada em {formatMonth(monthRef)}.
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {auditLogs.map((log) => {
+                    const datePart = log.entity_id.split(":")[0];
+                    const [y, mo, d] = datePart.split("-");
+                    const dayLabel = `${d}/${mo}`;
+                    const ts = new Date(log.created_at);
+                    const tsStr = ts.toLocaleDateString("pt-BR") + " às " + ts.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+                    const changes: { field: string; before: string; after: string }[] = [];
+                    const fields: { key: keyof typeof log.after_json; label: string; fmt: (v: unknown) => string }[] = [
+                      { key: "actual_views", label: "Views Manuais", fmt: (v) => v != null ? Number(v).toLocaleString("pt-BR") : "—" },
+                      { key: "actual_followers", label: "Seguidores", fmt: (v) => v != null ? Number(v).toLocaleString("pt-BR") : "—" },
+                      { key: "actual_revenue_usd", label: "Real Recebido", fmt: (v) => v != null ? `$${Number(v).toFixed(2)}` : "—" },
+                    ];
+                    for (const f of fields) {
+                      const bv = log.before_json[f.key];
+                      const av = log.after_json[f.key];
+                      if (bv !== av) changes.push({ field: f.label, before: f.fmt(bv), after: f.fmt(av) });
+                    }
+                    if (changes.length === 0) return null;
+
+                    return (
+                      <div key={log.id} className="px-5 py-4 flex gap-4">
+                        <div className="shrink-0 mt-0.5">
+                          {log.actor_avatar ? (
+                            <img src={log.actor_avatar} alt={log.actor_nome} className="h-8 w-8 rounded-full object-cover" />
+                          ) : (
+                            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                              <UserCircle className="h-5 w-5 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <p className="text-sm font-semibold">{log.actor_nome}</p>
+                            <p className="text-xs text-muted-foreground shrink-0">{tsStr}</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5 mb-2">
+                            Editou os dados do dia <span className="font-semibold text-foreground">{dayLabel}</span>
+                          </p>
+                          <div className="space-y-1">
+                            {changes.map((c) => (
+                              <div key={c.field} className="flex items-center gap-2 text-xs">
+                                <span className="text-muted-foreground w-28 shrink-0">{c.field}</span>
+                                <span className="tabular-nums line-through text-muted-foreground">{c.before}</span>
+                                <span className="text-muted-foreground">→</span>
+                                <span className="tabular-nums font-semibold text-foreground">{c.after}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
