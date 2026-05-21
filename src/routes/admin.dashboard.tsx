@@ -79,6 +79,7 @@ interface ManualBonusRow {
 interface DailyEntry {
   entry_date: string;
   actual_revenue_usd: number | null;
+  actual_views: number | null;
   page_id: string | null;
 }
 
@@ -648,7 +649,7 @@ function AdminDashboard() {
       const to = filterTo || new Date().toISOString().slice(0, 10);
       const { data } = await (supabase as any)
         .from("daily_revenue_entries")
-        .select("entry_date, actual_revenue_usd, page_id")
+        .select("entry_date, actual_revenue_usd, actual_views, page_id")
         .gte("entry_date", from)
         .lte("entry_date", to);
       setDailyEntries((data ?? []) as DailyEntry[]);
@@ -1178,6 +1179,17 @@ function AdminDashboard() {
     return map;
   }, [dailyEntries]);
 
+  // Map "dd/mm" → actual_views for overlay on views chart
+  const dailyActualViewsByDia = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of dailyEntries) {
+      if (e.actual_views == null) continue;
+      const [, mo, d] = e.entry_date.split("-");
+      map.set(`${d}/${mo}`, (map.get(`${d}/${mo}`) ?? 0) + Number(e.actual_views));
+    }
+    return map;
+  }, [dailyEntries]);
+
   // Scores always computed across ALL pages (date-filtered only, never page-filtered)
   // so a single-page view doesn't self-normalize to 100.
   const globalPageScores = useMemo(() => {
@@ -1441,6 +1453,8 @@ function AdminDashboard() {
                       <ComposedChart
                         data={chartMetric === "receita"
                           ? activeDataset.data.map((row) => ({ ...row, __actual: dailyActualByDia.get(row.dia) ?? null }))
+                          : chartMetric === "views"
+                          ? activeDataset.data.map((row) => ({ ...row, __actual_views: dailyActualViewsByDia.get(row.dia) ?? null }))
                           : activeDataset.data}
                         margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
                       >
@@ -1468,6 +1482,10 @@ function AdminDashboard() {
                               const totalActual = Array.from(dailyActualByDia.values()).reduce((s, v) => s + v, 0);
                               return `Real Recebido (${fmtMetricVal(totalActual)})`;
                             }
+                            if (value === "Views Manuais") {
+                              const totalActualViews = Array.from(dailyActualViewsByDia.values()).reduce((s, v) => s + v, 0);
+                              return `Views Manuais (${fmtMetricVal(totalActualViews)})`;
+                            }
                             const name = activeDataset.pageNameById.get(value) ?? value.slice(0, 16);
                             const total = activeDataset.pageTotal.get(value) ?? 0;
                             return `${name} (${fmtMetricVal(total)})`;
@@ -1492,6 +1510,19 @@ function AdminDashboard() {
                             type="monotone"
                             dataKey="__actual"
                             name="Real Recebido"
+                            stroke="#16a34a"
+                            strokeWidth={2.5}
+                            strokeDasharray="6 3"
+                            dot={false}
+                            connectNulls
+                            legendType="plainline"
+                          />
+                        )}
+                        {chartMetric === "views" && (
+                          <Line
+                            type="monotone"
+                            dataKey="__actual_views"
+                            name="Views Manuais"
                             stroke="#16a34a"
                             strokeWidth={2.5}
                             strokeDasharray="6 3"
