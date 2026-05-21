@@ -1433,7 +1433,7 @@ function AdminDashboard() {
               onClick={() => setShowManual((v) => !v)}
               className={`h-8 flex items-center gap-2 px-3 rounded-lg border text-xs font-semibold transition-all ${
                 showManual
-                  ? "bg-[#16a34a] border-[#16a34a] text-white"
+                  ? "bg-[#F44708] border-[#F44708] text-white"
                   : "bg-white border-[#E0E0E0] text-[#6B6B6B]"
               }`}
             >
