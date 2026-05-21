@@ -54,22 +54,45 @@ function Page() {
         <div className="px-5 py-4 border-b border-border"><h2 className="font-medium">Histórico</h2></div>
         {loading ? <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground"/></div> :
         items.length === 0 ? <div className="p-6"><EmptyState icon={CalendarCheck} title="Sem fechamentos" description="Quando o admin publicar um fechamento, ele aparece aqui."/></div> :
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr><th className="text-left px-5 py-3 font-medium">Mês</th><th className="text-left px-5 py-3 font-medium">Página</th><th className="text-right px-5 py-3 font-medium">Bruto</th><th className="text-right px-5 py-3 font-medium">Valor final</th><th className="text-left px-5 py-3 font-medium">Status</th></tr>
-          </thead>
-          <tbody className="divide-y divide-border">
+        <>
+          {/* Mobile cards */}
+          <div className="sm:hidden divide-y divide-border">
             {items.map(i => (
-              <tr key={i.id}>
-                <td className="px-5 py-3 font-medium">{i.monthly_closings ? formatMonth(i.monthly_closings.month_ref) : "—"}</td>
-                <td className="px-5 py-3 text-muted-foreground">{i.monthly_closings?.pages?.nome ?? "—"}</td>
-                <td className="px-5 py-3 text-right tabular-nums">{formatBRL(i.gross_revenue)}</td>
-                <td className="px-5 py-3 text-right tabular-nums font-medium">{formatBRL(i.final_amount)}</td>
-                <td className="px-5 py-3"><StatusBadge status={i.payment_status}/></td>
-              </tr>
+              <div key={i.id} className="px-4 py-3 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="font-semibold text-sm">{i.monthly_closings ? formatMonth(i.monthly_closings.month_ref) : "—"}</p>
+                    <p className="text-xs text-muted-foreground">{i.monthly_closings?.pages?.nome ?? "—"}</p>
+                  </div>
+                  <StatusBadge status={i.payment_status}/>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground text-xs">Bruto: {formatBRL(i.gross_revenue)}</span>
+                  <span className="font-semibold tabular-nums">{formatBRL(i.final_amount)}</span>
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>}
+          </div>
+          {/* Desktop table */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                <tr><th className="text-left px-5 py-3 font-medium">Mês</th><th className="text-left px-5 py-3 font-medium">Página</th><th className="text-right px-5 py-3 font-medium">Bruto</th><th className="text-right px-5 py-3 font-medium">Valor final</th><th className="text-left px-5 py-3 font-medium">Status</th></tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {items.map(i => (
+                  <tr key={i.id}>
+                    <td className="px-5 py-3 font-medium">{i.monthly_closings ? formatMonth(i.monthly_closings.month_ref) : "—"}</td>
+                    <td className="px-5 py-3 text-muted-foreground">{i.monthly_closings?.pages?.nome ?? "—"}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">{formatBRL(i.gross_revenue)}</td>
+                    <td className="px-5 py-3 text-right tabular-nums font-medium">{formatBRL(i.final_amount)}</td>
+                    <td className="px-5 py-3"><StatusBadge status={i.payment_status}/></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>}
       </div>
     </div>
   );

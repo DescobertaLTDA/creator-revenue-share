@@ -1340,7 +1340,7 @@ function AdminDashboard() {
     <div className="space-y-5 pb-8">
 
       {/* ── Tab header ── */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
           <p className="text-sm text-[#6B6B6B] mt-0.5">
@@ -1348,7 +1348,7 @@ function AdminDashboard() {
             {usdBrl && <span className="ml-2 text-[#6B6B6B]">· USD 1 = {formatBRL(usdBrl)}</span>}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <div className="flex rounded-lg border border-[#E0E0E0] overflow-hidden text-sm">
             <button onClick={() => setActiveTab("overview")}
               className={`px-3 py-1.5 font-medium transition-colors ${activeTab === "overview" ? "bg-[#F44708] text-white" : "text-[#6B6B6B] hover:bg-[#FFF0E8]"}`}>
@@ -1360,9 +1360,9 @@ function AdminDashboard() {
             </button>
           </div>
           <button onClick={() => navigate({ to: "/admin/importacoes" })}
-            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#F44708] to-[#FAA613] text-white text-sm font-medium rounded-xl hover:from-[#D93D07] hover:to-[#E09010] transition-all">
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#F44708] to-[#FAA613] text-white text-sm font-medium rounded-xl hover:from-[#D93D07] hover:to-[#E09010] transition-all">
             <Upload className="h-3.5 w-3.5" />
-            Importar CSV
+            <span className="hidden sm:inline">Importar CSV</span>
           </button>
         </div>
       </div>

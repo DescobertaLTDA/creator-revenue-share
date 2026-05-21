@@ -594,14 +594,16 @@ function BonusManualPage() {
                               : null}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {row.views > 0 && (
-                            <div className="shrink-0 text-right">
-                              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Views CSV</p>
-                              <p className="text-sm tabular-nums text-muted-foreground h-10 flex items-center justify-end pr-1">{fmtViews(row.views)}</p>
-                            </div>
-                          )}
-                          <div className="flex-1">
+                        {/* Views CSV read-only row */}
+                        {row.views > 0 && (
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span className="font-semibold uppercase tracking-wider">Views CSV</span>
+                            <span className="tabular-nums">{fmtViews(row.views)}</span>
+                          </div>
+                        )}
+                        {/* Inputs grid: 2 cols on mobile */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
                             <p className="text-[10px] uppercase tracking-wider text-[#F44708] font-semibold mb-1">Views manuais</p>
                             <input
                               type="text" inputMode="numeric" disabled={isFuture}
@@ -617,7 +619,7 @@ function BonusManualPage() {
                               className="w-full h-10 rounded-lg border border-input bg-background px-3 text-right text-sm tabular-nums text-[#F44708] focus:outline-none focus:ring-2 focus:ring-[#F44708]/40 disabled:opacity-30"
                             />
                           </div>
-                          <div className="flex-1">
+                          <div>
                             <p className="text-[10px] uppercase tracking-wider text-emerald-600 font-semibold mb-1">Seguidores</p>
                             <input
                               type="text" inputMode="numeric" disabled={isFuture}
@@ -633,7 +635,7 @@ function BonusManualPage() {
                               className="w-full h-10 rounded-lg border border-input bg-background px-3 text-right text-sm tabular-nums text-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 disabled:opacity-30"
                             />
                           </div>
-                          <div className="flex-1">
+                          <div className="col-span-2">
                             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Real recebido (USD)</p>
                             <input
                               type="number" min="0" step="0.01" disabled={isFuture}
@@ -644,15 +646,17 @@ function BonusManualPage() {
                               className="w-full h-10 rounded-lg border border-input bg-background px-3 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-30"
                             />
                           </div>
-                          {bonus != null && (
-                            <div className="shrink-0 text-right">
-                              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Bônus</p>
+                        </div>
+                        {bonus != null && (
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold uppercase tracking-wider text-muted-foreground">Bônus</span>
+                            <div className="text-right">
                               <p className={`text-sm font-semibold tabular-nums ${bonus > 0 ? "text-[#16a34a]" : bonus < 0 ? "text-destructive" : "text-muted-foreground"}`}>
                                 {bonus > 0 ? "+" : ""}{bonus === 0 ? "$0.00" : `$${bonus.toFixed(2)}`}
                               </p>
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
                         {row.actual_revenue != null && (
                           <input
                             type="text" disabled={isFuture}
