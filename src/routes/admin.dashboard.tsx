@@ -1613,6 +1613,10 @@ function AdminDashboard() {
                               <stop offset="95%" stopColor={PAGE_COLORS[i % PAGE_COLORS.length]} stopOpacity={0.05} />
                             </linearGradient>
                           ))}
+                          <linearGradient id="gradActualMulti" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#F44708" stopOpacity={0.75} />
+                            <stop offset="95%" stopColor="#F44708" stopOpacity={0.15} />
+                          </linearGradient>
                         </defs>
                         <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#6B6B6B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
                         <YAxis hide />
@@ -1639,16 +1643,16 @@ function AdminDashboard() {
                           />
                         ))}
                         {chartMetric === "receita" && showManual && (
-                          <Line
+                          <Area
                             type="monotone"
                             dataKey="__actual"
                             name="Real Recebido"
-                            stroke="#16a34a"
-                            strokeWidth={2.5}
-                            strokeDasharray="6 3"
+                            stroke="none"
+                            strokeWidth={0}
+                            fill="url(#gradActualMulti)"
                             dot={false}
                             connectNulls
-                            legendType="plainline"
+                            legendType="none"
                           />
                         )}
                         {chartMetric === "views" && showManual && activeDataset.pageIds.map((pid, i) => (
