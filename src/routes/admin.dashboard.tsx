@@ -80,6 +80,7 @@ interface DailyEntry {
   entry_date: string;
   actual_revenue_usd: number | null;
   actual_views: number | null;
+  actual_followers: number | null;
   page_id: string | null;
 }
 
@@ -565,7 +566,7 @@ function AdminDashboard() {
   const [recentImports, setRecentImports] = useState<RecentImport[]>(() => _dashCache?.imports ?? []);
   const [usdBrl, setUsdBrl] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "charts">("overview");
-  const [chartMetric, setChartMetric] = useState<"receita" | "views" | "curtidas" | "comentarios" | "compartilhamentos">("receita");
+  const [chartMetric, setChartMetric] = useState<"receita" | "views" | "curtidas" | "comentarios" | "compartilhamentos" | "seguidores">("receita");
 
   const [filterPage, setFilterPage] = useState("all");
   const [filterColab, setFilterColab] = useState("all");
@@ -649,7 +650,7 @@ function AdminDashboard() {
       const to = filterTo || new Date().toISOString().slice(0, 10);
       const { data } = await (supabase as any)
         .from("daily_revenue_entries")
-        .select("entry_date, actual_revenue_usd, actual_views, page_id")
+        .select("entry_date, actual_revenue_usd, actual_views, actual_followers, page_id")
         .gte("entry_date", from)
         .lte("entry_date", to);
       setDailyEntries((data ?? []) as DailyEntry[]);
@@ -1132,6 +1133,24 @@ function AdminDashboard() {
   // Single-page non-revenue metric chart data
   const singlePageMetricData = useMemo(() => {
     if (filterPage === "all" || chartMetric === "receita") return null;
+    if (chartMetric === "seguidores") {
+      // followers come from manual entries, not posts
+      const byDay = new Map<string, number>();
+      for (const e of dailyEntries) {
+        if (e.actual_followers == null) continue;
+        if (filterPage !== "all" && e.page_id !== filterPage) continue;
+        const day = e.entry_date;
+        if (filterFrom && day < filterFrom) continue;
+        if (filterTo && day > filterTo) continue;
+        byDay.set(day, (byDay.get(day) ?? 0) + Number(e.actual_followers));
+      }
+      return Array.from(byDay.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([day, value]) => {
+          const [, mo, d] = day.split("-");
+          return { dia: `${d}/${mo}`, value };
+        });
+    }
     const fieldMap: Record<string, keyof RawPost> = {
       views: "views", curtidas: "reactions",
       comentarios: "comments", compartilhamentos: "shares",
@@ -1151,7 +1170,7 @@ function AdminDashboard() {
         const [, mo, d] = day.split("-");
         return { dia: `${d}/${mo}`, value };
       });
-  }, [allPosts, filterPage, filterFrom, filterTo, chartMetric]);
+  }, [allPosts, filterPage, filterFrom, filterTo, chartMetric, dailyEntries]);
 
   // Projection chart data: last 30 days real + next 28 projected (página única)
   const projectionChartData = useMemo(() => {
@@ -1203,6 +1222,54 @@ function AdminDashboard() {
     }
     return outer;
   }, [dailyEntries]);
+
+  // Map pageId → (dia "dd/mm" → actual_followers) for followers chart
+  const dailyActualFollowersByPage = useMemo(() => {
+    const outer = new Map<string, Map<string, number>>();
+    for (const e of dailyEntries) {
+      if (e.actual_followers == null || !e.page_id) continue;
+      const [, mo, d] = e.entry_date.split("-");
+      const dia = `${d}/${mo}`;
+      if (!outer.has(e.page_id)) outer.set(e.page_id, new Map());
+      const inner = outer.get(e.page_id)!;
+      inner.set(dia, (inner.get(dia) ?? 0) + Number(e.actual_followers));
+    }
+    return outer;
+  }, [dailyEntries]);
+
+  // Multi-page followers dataset (same structure as multiPageAllMetrics entries)
+  const multiPageFollowersDataset = useMemo(() => {
+    if (filterPage !== "all" || dailyActualFollowersByPage.size === 0) return null;
+    const pageNameById = new Map(pages.map((p) => [p.id, p.name]));
+    const pageTotal = new Map<string, number>();
+    for (const [pid, dias] of dailyActualFollowersByPage) {
+      let total = 0;
+      for (const v of dias.values()) total += v;
+      pageTotal.set(pid, total);
+    }
+    const pageIds = Array.from(pageTotal.entries())
+      .filter(([, t]) => t > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([id]) => id);
+    if (pageIds.length === 0) return null;
+    const allDays = new Set<string>();
+    for (const pid of pageIds) {
+      const dm = dailyActualFollowersByPage.get(pid);
+      if (dm) for (const d of dm.keys()) allDays.add(d);
+    }
+    // allDays contains "dd/mm" — sort by converting back to comparable form
+    const sortedDays = Array.from(allDays).sort((a, b) => {
+      const [da, ma] = a.split("/"); const [db, mb] = b.split("/");
+      return `${ma}${da}`.localeCompare(`${mb}${db}`);
+    });
+    const data = sortedDays.map((dia) => {
+      const entry: Record<string, any> = { dia };
+      for (const pid of pageIds) entry[pid] = dailyActualFollowersByPage.get(pid)?.get(dia) ?? null;
+      return entry;
+    });
+    return { data, pageIds, pageNameById, pageTotal };
+  }, [dailyActualFollowersByPage, filterPage, pages]);
 
   // Scores always computed across ALL pages (date-filtered only, never page-filtered)
   // so a single-page view doesn't self-normalize to 100.
@@ -1415,6 +1482,7 @@ function AdminDashboard() {
             const METRIC_TABS = [
               { key: "receita" as const,           label: "Receita" },
               { key: "views" as const,              label: "Views" },
+              { key: "seguidores" as const,         label: "Seguidores" },
               { key: "curtidas" as const,           label: "Curtidas" },
               { key: "comentarios" as const,        label: "Comentários" },
               { key: "compartilhamentos" as const,  label: "Compartilhamentos" },
@@ -1428,7 +1496,7 @@ function AdminDashboard() {
             };
 
             const activeDataset = filterPage === "all"
-              ? multiPageAllMetrics?.[chartMetric] ?? null
+              ? (chartMetric === "seguidores" ? multiPageFollowersDataset : multiPageAllMetrics?.[chartMetric] ?? null)
               : null;
 
             return (
