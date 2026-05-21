@@ -550,6 +550,37 @@ function PageSelect({
   );
 }
 
+function KpiCard({
+  label, value, sub, delta, fmtDelta, icon: Icon,
+}: {
+  label: string;
+  value: string;
+  sub: string | null;
+  delta: number;
+  fmtDelta: (n: number) => string;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
+  return (
+    <div className="bg-white border border-[#E0E0E0] rounded-2xl p-5 transition-colors">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-medium text-[#6B6B6B] uppercase tracking-wider">{label}</p>
+        <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#FFF0E8] to-[#FFD9C0] flex items-center justify-center">
+          <Icon className="h-4 w-4 text-[#F44708]" />
+        </div>
+      </div>
+      <p className="text-2xl font-bold tracking-tight tabular-nums text-[#1A0A00]">{value}</p>
+      <div className="flex items-center gap-2 mt-1">
+        {sub && <p className="text-xs text-[#6B6B6B]">{sub}</p>}
+        {delta !== 0 && (
+          <span className={`text-xs font-semibold ${delta > 0 ? "text-[#16a34a]" : "text-[#dc2626]"}`}>
+            {delta > 0 ? "+" : ""}{fmtDelta(delta)}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 function AdminDashboard() {
@@ -1481,52 +1512,33 @@ function AdminDashboard() {
             const scoreColor = avgScore >= 75 ? "#16a34a" : avgScore >= 50 ? "#f59e0b" : avgScore >= 25 ? "#f97316" : "#F44708";
             return (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {(
-                  [
-                    {
-                      label: "Receita do Período",
-                      value: loading ? "—" : usdBrl ? formatBRL(totalMonth * usdBrl) : `$${totalMonth.toFixed(2)}`,
-                      sub: usdBrl && !loading ? `$${totalMonth.toFixed(2)} USD` : null,
-                      rawDelta: showManual && !loading ? totalMonth - totalMonthCsv : 0,
-                      fmtAbs: (n: number) => usdBrl ? formatBRL(Math.abs(n) * usdBrl) : `$${Math.abs(n).toFixed(2)}`,
-                      icon: DollarSign,
-                    },
-                    {
-                      label: "RPM Médio",
-                      value: loading ? "—" : (usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(4)}`),
-                      sub: "por mil visualizações",
-                      rawDelta: showManual && !loading ? avgRpm - csvAvgRpm : 0,
-                      fmtAbs: (n: number) => usdBrl ? formatBRL(Math.abs(n) * usdBrl) : `$${Math.abs(n).toFixed(4)}`,
-                      icon: Zap,
-                    },
-                    {
-                      label: "Visualizações",
-                      value: loading ? "—" : fmt(totalViews),
-                      sub: `${kpis.totalPosts.toLocaleString("pt-BR")} posts`,
-                      rawDelta: showManual && !loading ? totalViews - csvTotalViews : 0,
-                      fmtAbs: (n: number) => fmt(Math.abs(n)),
-                      icon: Eye,
-                    },
-                  ] as const
-                ).map(({ label, value, sub, rawDelta, fmtAbs, icon: Icon }) => (
-                  <div key={label} className="bg-white border border-[#E0E0E0] rounded-2xl p-5 transition-colors">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-xs font-medium text-[#6B6B6B] uppercase tracking-wider">{label}</p>
-                      <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#FFF0E8] to-[#FFD9C0] flex items-center justify-center">
-                        <Icon className="h-4 w-4 text-[#F44708]" />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-bold tracking-tight tabular-nums text-[#1A0A00]">{value}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      {sub && <p className="text-xs text-[#6B6B6B]">{sub}</p>}
-                      {rawDelta !== 0 && (
-                        <span className={`text-xs font-semibold ${rawDelta > 0 ? "text-[#16a34a]" : "text-[#dc2626]"}`}>
-                          {rawDelta > 0 ? "+" : ""}{fmtAbs(rawDelta)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                {/* Receita do Período */}
+                <KpiCard
+                  label="Receita do Período"
+                  value={loading ? "—" : usdBrl ? formatBRL(totalMonth * usdBrl) : `$${totalMonth.toFixed(2)}`}
+                  sub={usdBrl && !loading ? `$${totalMonth.toFixed(2)} USD` : null}
+                  delta={showManual && !loading ? totalMonth - totalMonthCsv : 0}
+                  fmtDelta={(n) => usdBrl ? formatBRL(Math.abs(n) * usdBrl) : `$${Math.abs(n).toFixed(2)}`}
+                  icon={DollarSign}
+                />
+                {/* RPM Médio */}
+                <KpiCard
+                  label="RPM Médio"
+                  value={loading ? "—" : usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(4)}`}
+                  sub="por mil visualizações"
+                  delta={showManual && !loading ? avgRpm - csvAvgRpm : 0}
+                  fmtDelta={(n) => usdBrl ? formatBRL(Math.abs(n) * usdBrl) : `$${Math.abs(n).toFixed(4)}`}
+                  icon={Zap}
+                />
+                {/* Visualizações */}
+                <KpiCard
+                  label="Visualizações"
+                  value={loading ? "—" : fmt(totalViews)}
+                  sub={`${kpis.totalPosts.toLocaleString("pt-BR")} posts`}
+                  delta={showManual && !loading ? totalViews - csvTotalViews : 0}
+                  fmtDelta={(n) => fmt(Math.abs(n))}
+                  icon={Eye}
+                />
               </div>
 
                 {/* Score Médio — com velocímetro */}
