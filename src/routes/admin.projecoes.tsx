@@ -273,7 +273,7 @@ function ControlsPanel({
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Parâmetros</p>
 
       {/* 3-col input grid */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <NumInput
           label="Posts / dia"
           value={postsPerDay}

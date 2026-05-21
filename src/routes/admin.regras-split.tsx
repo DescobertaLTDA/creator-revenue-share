@@ -74,7 +74,7 @@ function RulesPage() {
               {pages.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div><Label>% Colab</Label><Input type="number" min={0} max={100} value={colPct} onChange={e => setColPct(Number(e.target.value))} className="h-9 rounded-md mt-1"/></div>
             <div><Label>% Página</Label><Input type="number" min={0} max={100} value={pgPct} onChange={e => setPgPct(Number(e.target.value))} className="h-9 rounded-md mt-1"/></div>
             <div><Label>% Equipe</Label><Input type="number" min={0} max={100} value={tmPct} onChange={e => setTmPct(Number(e.target.value))} className="h-9 rounded-md mt-1"/></div>

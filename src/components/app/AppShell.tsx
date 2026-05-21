@@ -65,7 +65,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             className="absolute inset-0 bg-black/50"
             onClick={() => setDrawerOpen(false)}
           />
-          <div className="relative w-72 bg-sidebar h-full flex flex-col">
+          <div className="relative w-[min(288px,85vw)] bg-sidebar h-full flex flex-col">
             <div className="flex items-center justify-between h-14 px-4 border-b border-[#222222] shrink-0">
               <div className="flex items-center gap-2.5">
                 <img src={LOGO} alt="Splash Creators" className="h-7 w-7 object-contain rounded-md shrink-0" />
@@ -141,7 +141,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         <main className="flex-1 overflow-x-hidden">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-5 lg:py-10">
+          <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 py-4 lg:py-10">
             {children}
           </div>
         </main>
