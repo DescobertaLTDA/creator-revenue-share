@@ -1609,8 +1609,8 @@ function AdminDashboard() {
                         <defs>
                           {activeDataset.pageIds.map((pid, i) => (
                             <linearGradient key={pid} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor={PAGE_COLORS[i % PAGE_COLORS.length]} stopOpacity={0.15} />
-                              <stop offset="95%" stopColor={PAGE_COLORS[i % PAGE_COLORS.length]} stopOpacity={0.02} />
+                              <stop offset="5%" stopColor={PAGE_COLORS[i % PAGE_COLORS.length]} stopOpacity={0.45} />
+                              <stop offset="95%" stopColor={PAGE_COLORS[i % PAGE_COLORS.length]} stopOpacity={0.05} />
                             </linearGradient>
                           ))}
                         </defs>
@@ -1631,8 +1631,8 @@ function AdminDashboard() {
                             type="monotone"
                             dataKey={pid}
                             name={activeDataset.pageNameById.get(pid) ?? "Sem nome"}
-                            stroke={PAGE_COLORS[i % PAGE_COLORS.length]}
-                            strokeWidth={2}
+                            stroke="none"
+                            strokeWidth={0}
                             fill={`url(#grad-${i})`}
                             dot={false}
                             connectNulls
