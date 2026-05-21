@@ -1447,7 +1447,7 @@ function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="h-64">
+                <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
                     {filterPage === "all" && activeDataset && activeDataset.data.length > 0 ? (
                       <ComposedChart
@@ -1476,22 +1476,7 @@ function AdminDashboard() {
                           labelStyle={{ color: "#1A0A00", fontSize: 11, fontWeight: 600 }}
                           contentStyle={{ border: "1px solid #E0E0E0", borderRadius: 12, fontSize: 11, boxShadow: "none" }}
                         />
-                        <Legend
-                          formatter={(value) => {
-                            if (value === "Real Recebido") {
-                              const totalActual = Array.from(dailyActualByDia.values()).reduce((s, v) => s + v, 0);
-                              return `Real Recebido (${fmtMetricVal(totalActual)})`;
-                            }
-                            if (value === "Views Manuais") {
-                              const totalActualViews = Array.from(dailyActualViewsByDia.values()).reduce((s, v) => s + v, 0);
-                              return `Views Manuais (${fmtMetricVal(totalActualViews)})`;
-                            }
-                            const name = activeDataset.pageNameById.get(value) ?? value.slice(0, 16);
-                            const total = activeDataset.pageTotal.get(value) ?? 0;
-                            return `${name} (${fmtMetricVal(total)})`;
-                          }}
-                          wrapperStyle={{ fontSize: 11, paddingTop: 12 }}
-                        />
+                        <Legend content={() => null} />
                         {activeDataset.pageIds.map((pid, i) => (
                           <Area
                             key={pid}
@@ -1554,9 +1539,10 @@ function AdminDashboard() {
                           labelStyle={{ color: "#1A0A00", fontSize: 11 }}
                           contentStyle={{ border: "1px solid #E0E0E0", borderRadius: 10, fontSize: 11 }}
                         />
-                        <Area type="monotone" dataKey="real" stroke="#F44708" strokeWidth={2} fill="url(#gradReal)" dot={false} connectNulls={false} name="CSV" />
-                        <Area type="monotone" dataKey="proj" stroke="#FAC46A" strokeWidth={1.5} strokeDasharray="4 3" fill="url(#gradProj)" dot={false} connectNulls={false} name="Projeção" />
-                        <Line type="monotone" dataKey="actual" stroke="#16a34a" strokeWidth={2.5} strokeDasharray="6 3" dot={false} connectNulls={false} name="Real Recebido" legendType="plainline" />
+                        <Legend content={() => null} />
+                        <Area type="monotone" dataKey="real" stroke="#F44708" strokeWidth={2} fill="url(#gradReal)" dot={false} connectNulls={false} legendType="none" />
+                        <Area type="monotone" dataKey="proj" stroke="#FAC46A" strokeWidth={1.5} strokeDasharray="4 3" fill="url(#gradProj)" dot={false} connectNulls={false} legendType="none" />
+                        <Line type="monotone" dataKey="actual" stroke="#16a34a" strokeWidth={2.5} strokeDasharray="6 3" dot={false} connectNulls={false} legendType="none" />
                       </AreaChart>
                     ) : singlePageMetricData && singlePageMetricData.length > 0 ? (
                       <AreaChart data={singlePageMetricData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
