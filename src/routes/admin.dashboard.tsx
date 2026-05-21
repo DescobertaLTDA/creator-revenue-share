@@ -1436,7 +1436,7 @@ function AdminDashboard() {
             >
               <div className={`relative flex items-center h-8 w-[72px] rounded-full px-1 transition-colors duration-200 ${showManual ? "bg-[#F44708]" : "bg-[#D0D0D0]"}`}>
                 {/* track label */}
-                <span className={`absolute text-[10px] font-bold text-white tracking-wide transition-all duration-200 ${showManual ? "right-2.5" : "left-2.5"}`}>
+                <span className={`absolute text-[10px] font-bold text-white tracking-wide transition-all duration-200 ${showManual ? "left-2.5" : "right-2.5"}`}>
                   {showManual ? "ON" : "OFF"}
                 </span>
                 {/* thumb */}
