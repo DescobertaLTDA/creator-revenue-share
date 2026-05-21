@@ -40,6 +40,47 @@ function normalizeHashtag(raw: string): string {
   return raw.replace(/^#+/, "").trim().toLowerCase();
 }
 
+const AVATAR_COLORS = [
+  ["#F44708", "#FAA613"],
+  ["#8B5CF6", "#C084FC"],
+  ["#0EA5E9", "#38BDF8"],
+  ["#10B981", "#34D399"],
+  ["#F59E0B", "#FCD34D"],
+  ["#EF4444", "#FC8181"],
+  ["#6366F1", "#A5B4FC"],
+];
+
+function ColabAvatar({ nome, avatarUrl, size = 36, idx }: { nome: string; avatarUrl?: string | null; size?: number; idx: number }) {
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={nome}
+        width={size}
+        height={size}
+        style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", display: "block", flexShrink: 0 }}
+      />
+    );
+  }
+  const [a, b] = AVATAR_COLORS[idx % AVATAR_COLORS.length];
+  const initials = nome.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
+  const gid = `ca-${idx}`;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ borderRadius: "50%", display: "block", flexShrink: 0 }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={a} />
+          <stop offset="100%" stopColor={b} />
+        </linearGradient>
+      </defs>
+      <circle cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#${gid})`} />
+      <text x={size / 2} y={size / 2 + size * 0.14} textAnchor="middle" fontSize={size * 0.35} fontWeight="700" fill="white" fontFamily="system-ui, sans-serif">
+        {initials}
+      </text>
+    </svg>
+  );
+}
+
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -387,16 +428,19 @@ function Page() {
           <>
             {/* Mobile card list */}
             <div className="sm:hidden divide-y divide-border">
-              {rows.map((r) => (
+              {rows.map((r, i) => (
                 <div key={r.id} className="px-4 py-4 space-y-3">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold">{r.nome}</p>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        {r.hashtag
-                          ? <span className="inline-flex items-center gap-1 text-primary font-mono text-xs bg-primary/10 px-2 py-0.5 rounded-md">#{r.hashtag}</span>
-                          : <span className="text-xs text-muted-foreground">Sem hashtag</span>}
-                        <span className="text-xs text-muted-foreground">{r.post_count ?? 0} posts</span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <ColabAvatar nome={r.nome} avatarUrl={r.avatar_url} size={40} idx={i} />
+                      <div className="min-w-0">
+                        <p className="font-semibold truncate">{r.nome}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          {r.hashtag
+                            ? <span className="inline-flex items-center gap-1 text-primary font-mono text-xs bg-primary/10 px-2 py-0.5 rounded-md">#{r.hashtag}</span>
+                            : <span className="text-xs text-muted-foreground">Sem hashtag</span>}
+                          <span className="text-xs text-muted-foreground">{r.post_count ?? 0} posts</span>
+                        </div>
                       </div>
                     </div>
                     <span className={`text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${r.ativo ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"}`}>
@@ -428,9 +472,14 @@ function Page() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {rows.map((r) => (
+                  {rows.map((r, i) => (
                     <tr key={r.id} className="hover:bg-muted/20">
-                      <td className="px-5 py-3 font-medium">{r.nome}</td>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-3">
+                          <ColabAvatar nome={r.nome} avatarUrl={r.avatar_url} size={34} idx={i} />
+                          <span className="font-medium">{r.nome}</span>
+                        </div>
+                      </td>
                       <td className="px-5 py-3">
                         {r.hashtag
                           ? <span className="inline-flex items-center gap-1 text-primary font-mono text-xs bg-primary/10 px-2 py-0.5 rounded">#{r.hashtag}</span>
