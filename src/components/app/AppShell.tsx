@@ -7,6 +7,8 @@ import {
   CalendarCheck, Users, HandCoins, LogOut, Menu, X, UserCog, Target, TrendingUp, BarChart3,
 } from "lucide-react";
 
+const LOGO = "/assets/logo/logo%20site.webp";
+
 interface NavItem {
   to: string;
   label: string;
@@ -48,7 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex">
       {/* ── Desktop sidebar ─────────────────────────────── */}
-      <aside className="hidden lg:flex w-64 flex-col border-r border-border bg-sidebar h-screen sticky top-0 overflow-hidden">
+      <aside className="hidden lg:flex w-64 flex-col border-r border-[#7A0501] bg-sidebar h-screen sticky top-0 overflow-hidden">
         <SidebarContent
           nav={adminNav}
           pathname={location.pathname}
@@ -61,22 +63,18 @@ export function AppShell({ children }: { children: ReactNode }) {
       {drawerOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-black/50"
             onClick={() => setDrawerOpen(false)}
           />
           <div className="relative w-72 bg-sidebar h-full flex flex-col">
-            <div className="flex items-center justify-between h-14 px-4 border-b border-border shrink-0">
+            <div className="flex items-center justify-between h-14 px-4 border-b border-[#7A0501] shrink-0">
               <div className="flex items-center gap-2.5">
-                <img
-                  src="/assets/logo/logo site.webp"
-                  alt="Splash Creators"
-                  className="h-7 w-7 object-contain rounded-md shrink-0"
-                />
-                <span className="font-semibold text-sm text-sidebar-foreground">Splash Creators</span>
+                <img src={LOGO} alt="Splash Creators" className="h-7 w-7 object-contain rounded-md shrink-0" />
+                <span className="font-semibold text-sm text-white">Splash Creators</span>
               </div>
               <button
                 onClick={() => setDrawerOpen(false)}
-                className="p-1.5 rounded-md text-muted-foreground hover:bg-accent"
+                className="p-1.5 rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -94,10 +92,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                     to={item.to}
                     onClick={() => setDrawerOpen(false)}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                      "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
                       active
-                        ? "bg-white/10 text-white font-semibold"
-                        : "text-sidebar-foreground hover:bg-accent"
+                        ? "bg-[#FAA613]/20 text-[#FAA613] font-semibold"
+                        : "text-white/75 hover:bg-white/10 hover:text-white"
                     )}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
@@ -107,14 +105,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               })}
             </nav>
 
-            <div className="border-t border-border p-3 shrink-0">
+            <div className="border-t border-[#7A0501] p-3 shrink-0">
               <div className="px-3 py-2">
-                <p className="text-sm font-medium text-sidebar-foreground">{profile?.nome}</p>
-                <p className="text-xs text-muted-foreground truncate">{profile?.email}</p>
+                <p className="text-sm font-medium text-white truncate">{profile?.nome}</p>
+                <p className="text-xs text-white/50 truncate">{profile?.email}</p>
               </div>
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/60 hover:bg-white/10 hover:text-white transition-colors"
               >
                 <LogOut className="h-4 w-4" />
                 Sair da conta
@@ -136,11 +134,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
 
           <div className="flex items-center gap-1.5 min-w-0">
-            <img
-              src="/assets/logo/logo site.webp"
-              alt="Splash Creators"
-              className="h-6 w-6 object-contain rounded shrink-0"
-            />
+            <img src={LOGO} alt="Splash Creators" className="h-6 w-6 object-contain rounded shrink-0" />
             <span className="text-sm font-semibold text-foreground truncate">
               {currentPage?.label ?? "Splash Creators"}
             </span>
@@ -170,15 +164,11 @@ function SidebarContent({
 }) {
   return (
     <>
-      <div className="h-16 flex items-center gap-3 px-5 border-b border-border shrink-0">
-        <img
-          src="/assets/logo/logo site.webp"
-          alt="Splash Creators"
-          className="h-9 w-9 object-contain rounded-lg shrink-0"
-        />
+      <div className="h-16 flex items-center gap-3 px-5 border-b border-[#7A0501] shrink-0">
+        <img src={LOGO} alt="Splash Creators" className="h-9 w-9 object-contain rounded-lg shrink-0" />
         <div className="flex flex-col">
-          <span className="font-bold leading-tight text-sidebar-foreground">Splash Creators</span>
-          <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50">
+          <span className="font-bold leading-tight text-white">Splash Creators</span>
+          <span className="text-[10px] uppercase tracking-wider text-white/50">
             {profile?.role === "admin" ? "Administração" : "Colaborador"}
           </span>
         </div>
@@ -195,8 +185,8 @@ function SidebarContent({
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors",
                 active
-                  ? "bg-white/10 text-white font-semibold"
-                  : "text-neutral-400 hover:bg-white/5 hover:text-white"
+                  ? "bg-[#FAA613]/20 text-[#FAA613] font-semibold"
+                  : "text-white/70 hover:bg-white/10 hover:text-white"
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
@@ -206,14 +196,14 @@ function SidebarContent({
         })}
       </nav>
 
-      <div className="border-t border-border p-3 shrink-0">
-        <div className="px-3 py-2 text-xs text-muted-foreground">
-          <p className="font-medium text-sidebar-foreground truncate">{profile?.nome}</p>
-          <p className="text-[11px] truncate mt-0.5">{profile?.email}</p>
+      <div className="border-t border-[#7A0501] p-3 shrink-0">
+        <div className="px-3 py-2">
+          <p className="font-semibold text-sm text-white truncate">{profile?.nome}</p>
+          <p className="text-[11px] text-white/50 truncate mt-0.5">{profile?.email}</p>
         </div>
         <button
           onClick={onLogout}
-          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:bg-white/5 hover:text-white transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-white/60 hover:bg-white/10 hover:text-white transition-colors"
         >
           <LogOut className="h-4 w-4" />
           Sair

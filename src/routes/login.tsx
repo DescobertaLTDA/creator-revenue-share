@@ -43,7 +43,7 @@ function LoginPage() {
       <div className="hidden lg:flex flex-col justify-between p-12" style={{ backgroundColor: "#A10702" }}>
         <div className="flex items-center gap-3">
           <img
-            src="/assets/logo/logo site.webp"
+            src="/assets/logo/logo%20site.webp"
             alt="Splash Creators"
             className="h-10 w-10 object-contain rounded-lg"
           />
@@ -83,7 +83,7 @@ function LoginPage() {
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-10">
             <img
-              src="/assets/logo/logo site.webp"
+              src="/assets/logo/logo%20site.webp"
               alt="Splash Creators"
               className="h-9 w-9 object-contain rounded-lg"
             />
