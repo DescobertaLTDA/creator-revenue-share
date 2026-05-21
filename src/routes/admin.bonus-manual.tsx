@@ -38,6 +38,10 @@ interface DayEntry {
   saved: boolean;
   updater_nome: string | null;
   updater_avatar: string | null;
+  // snapshot of DB values at load time — used as before_json in audit log
+  _db_views: number | null;
+  _db_followers: number | null;
+  _db_revenue: number | null;
 }
 
 interface AuditEntry {
@@ -319,6 +323,9 @@ function BonusManualPage() {
           saved: false,
           updater_nome: updater?.nome ?? null,
           updater_avatar: updater?.avatar ?? null,
+          _db_views: db?.actual_views ?? null,
+          _db_followers: db?.actual_followers ?? null,
+          _db_revenue: db?.actual_revenue_usd ?? null,
         };
       });
     },
@@ -404,9 +411,7 @@ function BonusManualPage() {
       .from("audit_logs")
       .select("id, created_at, actor_profile_id, before_json, after_json, entity_id")
       .eq("action", "update_daily_revenue")
-      .like("entity_id", `%:${pageId}`)
-      .gte("created_at", from + "T00:00:00Z")
-      .lte("created_at", to + "T23:59:59Z")
+      .like("entity_id", `${ref}-%:${pageId}`)
       .order("created_at", { ascending: false });
 
     if (!logs || logs.length === 0) { setAuditLogs([]); setAuditLoading(false); return; }
@@ -447,9 +452,9 @@ function BonusManualPage() {
     setRows((prev) => prev.map((r) => r.date === row.date ? { ...r, saving: true } : r));
 
     const before = {
-      actual_views: row.actual_views,
-      actual_followers: row.actual_followers,
-      actual_revenue_usd: row.actual_revenue,
+      actual_views: row._db_views,
+      actual_followers: row._db_followers,
+      actual_revenue_usd: row._db_revenue,
     };
 
     const payload = {
@@ -497,6 +502,9 @@ function BonusManualPage() {
         saved: true,
         updater_nome: profile.nome,
         updater_avatar: null,
+        _db_views: row.actual_views,
+        _db_followers: row.actual_followers,
+        _db_revenue: row.actual_revenue,
       } : r));
       setTimeout(() => setRows((prev) => prev.map((r) => r.date === row.date ? { ...r, saved: false } : r)), 2000);
     }
@@ -810,13 +818,12 @@ function BonusManualPage() {
                   <table className="w-full text-sm">
                     <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                       <tr>
-                        <th className="text-left px-4 py-3 font-medium w-24">Dia</th>
+                        <th className="text-left px-4 py-3 font-medium w-36">Dia</th>
                         <th className="text-right px-4 py-3 font-medium">Views CSV</th>
                         <th className="text-right px-4 py-3 font-medium text-[#F44708]">Views manuais</th>
                         <th className="text-right px-4 py-3 font-medium text-emerald-600">Seguidores</th>
                         <th className="text-right px-4 py-3 font-medium">Posts (USD)</th>
                         <th className="text-right px-4 py-3 font-medium">Real recebido (USD)</th>
-                        <th className="w-24 px-4 py-3 font-medium text-muted-foreground">Editado por</th>
                         <th className="w-8 px-4 py-3" />
                       </tr>
                     </thead>
@@ -827,8 +834,23 @@ function BonusManualPage() {
                         return (
                           <tr key={row.date} className={`hover:bg-muted/20 ${isWeekend ? "bg-muted/10" : ""} ${isFuture ? "opacity-40" : ""}`}>
                             <td className="px-4 py-2.5">
-                              <span className="font-semibold tabular-nums">{row.label}</span>
-                              <span className="text-[10px] text-muted-foreground ml-1.5">{row.weekday}</span>
+                              <div className="flex items-center gap-2">
+                                <div>
+                                  <span className="font-semibold tabular-nums">{row.label}</span>
+                                  <span className="text-[10px] text-muted-foreground ml-1.5">{row.weekday}</span>
+                                </div>
+                                {row.updater_nome && (
+                                  <div className="flex items-center gap-1" title={`Editado por ${row.updater_nome}`}>
+                                    {row.updater_avatar ? (
+                                      <img src={row.updater_avatar} alt={row.updater_nome} className="h-5 w-5 rounded-full object-cover shrink-0" />
+                                    ) : (
+                                      <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center shrink-0 text-[9px] font-bold text-muted-foreground">
+                                        {row.updater_nome[0].toUpperCase()}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
                               {row.views > 0 ? fmtViews(row.views) : <span className="text-muted-foreground/40">—</span>}
@@ -876,20 +898,6 @@ function BonusManualPage() {
                                 className="w-28 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-30"
                               />
                             </td>
-                            <td className="px-4 py-2.5">
-                              {row.updater_nome && (
-                                <div className="flex items-center gap-1.5" title={row.updater_nome}>
-                                  {row.updater_avatar ? (
-                                    <img src={row.updater_avatar} alt={row.updater_nome} className="h-5 w-5 rounded-full object-cover shrink-0" />
-                                  ) : (
-                                    <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center shrink-0">
-                                      <UserCircle className="h-4 w-4 text-muted-foreground" />
-                                    </div>
-                                  )}
-                                  <span className="text-xs text-muted-foreground truncate max-w-[60px]">{row.updater_nome.split(" ")[0]}</span>
-                                </div>
-                              )}
-                            </td>
                             <td className="px-2 py-2.5 w-8">
                               {row.saving ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
                                 : row.saved ? <Check className="h-3.5 w-3.5 text-[#16a34a]" />
@@ -914,7 +922,7 @@ function BonusManualPage() {
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">${totalPosts.toFixed(2)}</td>
                         <td className="px-4 py-3 text-right tabular-nums">${totalActual.toFixed(2)}</td>
-                        <td /><td />
+                        <td />
                       </tr>
                     </tfoot>
                   </table>
