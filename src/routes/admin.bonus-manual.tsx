@@ -420,7 +420,8 @@ function BonusManualPage() {
   const handleViewsKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, date: string) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      const inputs = Array.from(document.querySelectorAll<HTMLInputElement>("[data-views-input]"));
+      const inputs = Array.from(document.querySelectorAll<HTMLInputElement>("[data-views-input]"))
+        .filter((el) => el.offsetParent !== null);
       const idx = inputs.findIndex((el) => el.dataset.viewsInput === date);
       if (idx >= 0 && idx < inputs.length - 1) inputs[idx + 1].focus();
     }
