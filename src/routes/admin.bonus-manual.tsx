@@ -227,7 +227,7 @@ function PageSelect({
 
 function BonusManualPage() {
   const { profile } = useAuth();
-  const { guard, WriteGuardDialog } = useWriteGuard();
+  const { guard, canWrite, WriteGuardDialog } = useWriteGuard();
   const todayMonth = new Date().toISOString().slice(0, 7);
   const [monthRef, setMonthRef] = useState(todayMonth);
   const [pages, setPages] = useState<PageOption[]>([]);
@@ -565,7 +565,7 @@ function BonusManualPage() {
                       {" · "}
                     </span>
                   )}
-                  Digite o valor real do Facebook em cada dia. Salvo automaticamente.
+                  {canWrite ? "Digite o valor real do Facebook em cada dia. Salvo automaticamente." : "Somente leitura — seu perfil não tem permissão para editar."}
                 </p>
               </div>
             </div>
@@ -606,7 +606,7 @@ function BonusManualPage() {
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-[#F44708] font-semibold mb-1">Views manuais</p>
                             <input
-                              type="text" inputMode="numeric" disabled={isFuture}
+                              type="text" inputMode="numeric" disabled={isFuture || !canWrite}
                               data-views-input={row.date}
                               placeholder="0"
                               value={viewsFocusDate === row.date
@@ -622,7 +622,7 @@ function BonusManualPage() {
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-emerald-600 font-semibold mb-1">Seguidores</p>
                             <input
-                              type="text" inputMode="numeric" disabled={isFuture}
+                              type="text" inputMode="numeric" disabled={isFuture || !canWrite}
                               data-followers-input={row.date}
                               placeholder="0"
                               value={followersFocusDate === row.date
@@ -638,7 +638,7 @@ function BonusManualPage() {
                           <div className="col-span-2">
                             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Real recebido (USD)</p>
                             <input
-                              type="number" min="0" step="0.01" disabled={isFuture}
+                              type="number" min="0" step="0.01" disabled={isFuture || !canWrite}
                               placeholder="0.00"
                               value={row.actual_revenue ?? ""}
                               onChange={(e) => handleActualChange(row, e.target.value)}
@@ -659,7 +659,7 @@ function BonusManualPage() {
                         )}
                         {row.actual_revenue != null && (
                           <input
-                            type="text" disabled={isFuture}
+                            type="text" disabled={isFuture || !canWrite}
                             placeholder="Observação (opcional)"
                             value={row.note}
                             onChange={(e) => updateRow(row.date, "note", e.target.value)}
@@ -708,7 +708,7 @@ function BonusManualPage() {
                             </td>
                             <td className="px-4 py-2.5 text-right">
                               <input
-                                type="text" inputMode="numeric" disabled={isFuture}
+                                type="text" inputMode="numeric" disabled={isFuture || !canWrite}
                                 data-views-input={row.date}
                                 placeholder="0"
                                 value={viewsFocusDate === row.date
@@ -723,7 +723,7 @@ function BonusManualPage() {
                             </td>
                             <td className="px-4 py-2.5 text-right">
                               <input
-                                type="text" inputMode="numeric" disabled={isFuture}
+                                type="text" inputMode="numeric" disabled={isFuture || !canWrite}
                                 data-followers-input={row.date}
                                 placeholder="0"
                                 value={followersFocusDate === row.date
@@ -741,7 +741,7 @@ function BonusManualPage() {
                             </td>
                             <td className="px-4 py-2.5 text-right">
                               <input
-                                type="number" min="0" step="0.01" disabled={isFuture}
+                                type="number" min="0" step="0.01" disabled={isFuture || !canWrite}
                                 placeholder="0.00"
                                 value={row.actual_revenue ?? ""}
                                 onChange={(e) => handleActualChange(row, e.target.value)}
