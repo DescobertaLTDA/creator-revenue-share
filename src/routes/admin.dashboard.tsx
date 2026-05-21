@@ -1509,8 +1509,6 @@ function AdminDashboard() {
                   fmtDelta={(n) => fmt(Math.abs(n))}
                   icon={Eye}
                 />
-              </div>
-
                 {/* Score Médio — com velocímetro */}
                 <div className="bg-white border border-[#E0E0E0] rounded-2xl p-5 transition-colors flex flex-col">
                   <div className="flex items-center justify-between mb-1">
