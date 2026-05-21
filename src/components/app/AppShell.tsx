@@ -168,7 +168,7 @@ function SidebarContent({
         <div className="flex flex-col">
           <span className="font-bold leading-tight text-white">Splash Creators</span>
           <span className="text-[10px] uppercase tracking-wider text-white/50">
-            {profile?.role === "admin" ? "Administração" : "Colaborador"}
+            {profile?.role === "admin" ? "Administração" : profile?.role === "leitor" ? "Leitor" : "Colaborador"}
           </span>
         </div>
       </div>
