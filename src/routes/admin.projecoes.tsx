@@ -117,7 +117,8 @@ export default function ProjecoesPage() {
         const totalRev   = data.reduce((s, p) => s + (p.estimated_usd ?? 0), 0);
         const totalViews = data.reduce((s, p) => s + (p.views ?? 0), 0);
         const postCount  = data.length;
-        const realRpm    = totalViews > 5_000 && totalRev > 0 ? (totalRev / totalViews) * 1000 : 0;
+        const calcRpm    = totalViews > 5_000 && totalRev > 0 ? (totalRev / totalViews) * 1000 : null;
+        const realRpm    = calcRpm ?? rpm;
         const realPpd    = Math.max(1, Math.round(postCount / 30));
         const realAvg    = postCount > 0 ? Math.round(totalViews / postCount) : 0;
         setRealStats({ postsPerDay: realPpd, avgViews: realAvg, rpm: realRpm });
@@ -256,10 +257,6 @@ function ControlsPanel({
   rpm: number; setRpm: (v: number) => void;
   realStats: { postsPerDay: number; avgViews: number; rpm: number } | null;
 }) {
-  const realDaily   = realStats ? realStats.postsPerDay * (realStats.avgViews / 1_000) * realStats.rpm : null;
-  const realWeekly  = realDaily !== null ? realDaily * 7 : null;
-  const realMonthly = realDaily !== null ? realDaily * 30 : null;
-
   return (
     <div className="bg-white rounded-2xl border border-border p-5 space-y-5 lg:sticky lg:top-4">
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Parâmetros</p>
@@ -290,27 +287,20 @@ function ControlsPanel({
       </div>
 
       {/* Quick estimates — based on real page data */}
-      <div className="border-t border-border pt-4 space-y-1.5">
+      <div className="border-t border-border pt-4">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Estimativa rápida</p>
         <div className="grid grid-cols-3 gap-2">
           {[
-            { label: "Por dia",    value: realDaily },
-            { label: "Por semana", value: realWeekly },
-            { label: "Por mês",    value: realMonthly },
+            { label: "Views/post", value: realStats ? fmtViewsPt(realStats.avgViews) : "—" },
+            { label: "Posts/dia",  value: realStats ? String(realStats.postsPerDay) : "—" },
+            { label: "RPM",        value: realStats ? `$${realStats.rpm.toFixed(2)}` : "—" },
           ].map(({ label, value }) => (
             <div key={label} className="bg-[#FFF0E8] rounded-xl p-3 text-center">
               <p className="text-[10px] text-muted-foreground font-medium mb-1">{label}</p>
-              <p className="text-sm font-black text-foreground">
-                {value !== null && value > 0 ? fmtUSD(value) : "—"}
-              </p>
+              <p className="text-sm font-black text-foreground">{value}</p>
             </div>
           ))}
         </div>
-        {realStats && (
-          <p className="text-[10px] text-muted-foreground text-center pt-1">
-            {realStats.postsPerDay} posts/dia · {fmtViewsPt(realStats.avgViews)} views/post · RPM ${realStats.rpm.toFixed(2)}
-          </p>
-        )}
       </div>
     </div>
   );
