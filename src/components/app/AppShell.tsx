@@ -6,8 +6,7 @@ import {
   LayoutDashboard, FileSpreadsheet, FileText, Percent,
   CalendarCheck, Users, HandCoins, LogOut, Menu, X, UserCog, Target, TrendingUp, BarChart3,
 } from "lucide-react";
-
-const LOGO = "/assets/logo/logo.webp";
+import LOGO from "@/assets/logo.webp";
 
 interface NavItem {
   to: string;

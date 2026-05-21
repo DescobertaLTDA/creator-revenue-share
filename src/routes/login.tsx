@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import LOGO from "@/assets/logo.webp";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -43,7 +44,7 @@ function LoginPage() {
       <div className="hidden lg:flex flex-col justify-between p-12" style={{ backgroundColor: "#A10702" }}>
         <div className="flex items-center gap-3">
           <img
-            src="/assets/logo/logo.webp"
+            src={LOGO}
             alt="Splash Creators"
             className="h-10 w-10 object-contain rounded-lg"
           />
@@ -83,7 +84,7 @@ function LoginPage() {
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-10">
             <img
-              src="/assets/logo/logo.webp"
+              src={LOGO}
               alt="Splash Creators"
               className="h-9 w-9 object-contain rounded-lg"
             />
