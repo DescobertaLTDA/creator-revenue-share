@@ -10,10 +10,11 @@ export function useWriteGuard() {
   const { profile } = useAuth();
   const [blocked, setBlocked] = useState(false);
   const isAdmin = profile?.role === "admin";
+  const canWrite = profile?.role === "admin" || profile?.role === "colaborador";
 
   function guard<T extends (...args: any[]) => any>(fn: T): T {
     return ((...args: Parameters<T>) => {
-      if (!isAdmin) {
+      if (!canWrite) {
         setBlocked(true);
         return;
       }
@@ -24,7 +25,7 @@ export function useWriteGuard() {
   function guardSubmit(fn: (e: React.FormEvent) => void) {
     return (e: React.FormEvent) => {
       e.preventDefault();
-      if (!isAdmin) {
+      if (!canWrite) {
         setBlocked(true);
         return;
       }
@@ -57,5 +58,5 @@ export function useWriteGuard() {
     );
   }
 
-  return { isAdmin, guard, guardSubmit, WriteGuardDialog };
+  return { isAdmin, canWrite, guard, guardSubmit, WriteGuardDialog };
 }

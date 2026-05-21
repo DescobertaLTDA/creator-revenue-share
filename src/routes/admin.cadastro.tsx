@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger,
 } from "@/components/ui/select";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -16,22 +16,24 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Users, Plus, Loader2, Trash2, Shield, Eye, UserCheck, User } from "lucide-react";
+import { Users, Plus, Loader2, Trash2, Shield, Eye, UserCheck } from "lucide-react";
 
 export const Route = createFileRoute("/admin/cadastro")({
   head: () => ({ meta: [{ title: "Cadastro de Usuários — Splash Creators" }] }),
   component: Page,
 });
 
+type Role = "admin" | "colaborador" | "leitor";
+
 interface UserProfile {
   id: string;
   nome: string;
   email: string | null;
-  role: "admin" | "colaborador" | "leitor";
+  role: Role;
   created_at: string;
 }
 
-const ROLE_LABEL: Record<string, string> = {
+const ROLE_LABEL: Record<Role, string> = {
   admin: "Administrador",
   colaborador: "Colaborador",
   leitor: "Leitor",
@@ -46,11 +48,12 @@ function Page() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UserProfile | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [updatingRole, setUpdatingRole] = useState<Set<string>>(new Set());
 
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"admin" | "colaborador" | "leitor">("colaborador");
+  const [role, setRole] = useState<Role>("colaborador");
 
   useEffect(() => {
     if (profile?.role !== "admin") {
@@ -92,6 +95,24 @@ function Page() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const changeRole = async (userId: string, newRole: Role) => {
+    setUpdatingRole((prev) => new Set(prev).add(userId));
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-user", {
+        body: { action: "update_role", userId, role: newRole },
+      });
+      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, role: newRole } : u));
+      toast.success("Função atualizada");
+    } catch (err) {
+      toast.error("Erro ao atualizar função", {
+        description: err instanceof Error ? err.message : "Erro desconhecido",
+      });
+    } finally {
+      setUpdatingRole((prev) => { const s = new Set(prev); s.delete(userId); return s; });
     }
   };
 
@@ -168,40 +189,7 @@ function Page() {
             </div>
             <div className="space-y-1.5">
               <Label>Função</Label>
-              <Select value={role} onValueChange={(v) => setRole(v as "admin" | "colaborador" | "leitor")}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="colaborador">
-                    <div className="flex items-center gap-2">
-                      <UserCheck className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium">Colaborador</p>
-                        <p className="text-xs text-muted-foreground">Acessa o próprio painel e posts vinculados</p>
-                      </div>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="leitor">
-                    <div className="flex items-center gap-2">
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium">Leitor</p>
-                        <p className="text-xs text-muted-foreground">Vê todos os dados, sem editar</p>
-                      </div>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="admin">
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium">Administrador</p>
-                        <p className="text-xs text-muted-foreground">Acesso total ao sistema</p>
-                      </div>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+              <RoleSelect value={role} onChange={setRole} />
             </div>
           </div>
           <div className="flex gap-2">
@@ -230,31 +218,45 @@ function Page() {
             {/* Mobile list */}
             <div className="sm:hidden divide-y divide-border">
               {users.map((u) => (
-                <div key={u.id} className="px-4 py-4 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium truncate">{u.nome}</p>
-                      {u.id === profile?.id && (
-                        <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">Você</span>
-                      )}
+                <div key={u.id} className="px-4 py-4 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium truncate">{u.nome}</p>
+                        {u.id === profile?.id && (
+                          <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">Você</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">{u.email}</p>
-                    <span className={`inline-flex items-center gap-1 mt-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+                    {u.id !== profile?.id && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setDeleteTarget(u)}
+                        className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  {u.id === profile?.id ? (
+                    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
                       u.role === "admin" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                     }`}>
-                      {u.role === "admin" ? <Shield className="h-3 w-3" /> : u.role === "leitor" ? <Eye className="h-3 w-3" /> : <UserCheck className="h-3 w-3" />}
+                      <RoleIcon role={u.role} className="h-3 w-3" />
                       {ROLE_LABEL[u.role]}
                     </span>
-                  </div>
-                  {u.id !== profile?.id && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setDeleteTarget(u)}
-                      className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      {updatingRole.has(u.id) && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                      <RoleSelect
+                        value={u.role}
+                        onChange={(r) => changeRole(u.id, r)}
+                        disabled={updatingRole.has(u.id)}
+                        compact
+                      />
+                    </div>
                   )}
                 </div>
               ))}
@@ -285,12 +287,24 @@ function Page() {
                       </td>
                       <td className="px-5 py-3 text-muted-foreground">{u.email}</td>
                       <td className="px-5 py-3">
-                        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-                          u.role === "admin" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-                        }`}>
-                          {u.role === "admin" ? <Shield className="h-3 w-3" /> : u.role === "leitor" ? <Eye className="h-3 w-3" /> : <UserCheck className="h-3 w-3" />}
-                          {ROLE_LABEL[u.role]}
-                        </span>
+                        {u.id === profile?.id ? (
+                          <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+                            u.role === "admin" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                          }`}>
+                            <RoleIcon role={u.role} className="h-3 w-3" />
+                            {ROLE_LABEL[u.role]}
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            {updatingRole.has(u.id) && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground shrink-0" />}
+                            <RoleSelect
+                              value={u.role}
+                              onChange={(r) => changeRole(u.id, r)}
+                              disabled={updatingRole.has(u.id)}
+                              compact
+                            />
+                          </div>
+                        )}
                       </td>
                       <td className="px-5 py-3 text-muted-foreground">
                         {new Date(u.created_at).toLocaleDateString("pt-BR")}
@@ -331,18 +345,76 @@ function Page() {
             <UserCheck className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
             <div>
               <p className="font-medium">Colaborador</p>
-              <p className="text-xs text-muted-foreground">Acessa o próprio painel com seus posts e receitas vinculadas.</p>
+              <p className="text-xs text-muted-foreground">Vê e edita todos os dados. Não pode criar nem remover usuários.</p>
             </div>
           </div>
           <div className="flex items-start gap-2 sm:ml-4">
             <Eye className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
             <div>
               <p className="font-medium">Leitor</p>
-              <p className="text-xs text-muted-foreground">Vê todos os dashboards, posts e fechamentos. Não pode criar nem editar nada.</p>
+              <p className="text-xs text-muted-foreground">Somente leitura: vê todos os painéis mas não pode criar nem editar nada.</p>
             </div>
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+function RoleSelect({
+  value,
+  onChange,
+  disabled,
+  compact,
+}: {
+  value: Role;
+  onChange: (r: Role) => void;
+  disabled?: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <Select value={value} onValueChange={(v) => onChange(v as Role)} disabled={disabled}>
+      <SelectTrigger className={compact ? "h-7 text-xs px-2 w-auto min-w-[130px]" : undefined}>
+        <span className="flex items-center gap-1.5">
+          <RoleIcon role={value} className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
+          {ROLE_LABEL[value]}
+        </span>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="colaborador">
+          <div className="flex items-center gap-2 py-0.5">
+            <UserCheck className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div>
+              <p className="font-medium leading-none">Colaborador</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Vê e edita dados, não gerencia usuários</p>
+            </div>
+          </div>
+        </SelectItem>
+        <SelectItem value="leitor">
+          <div className="flex items-center gap-2 py-0.5">
+            <Eye className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div>
+              <p className="font-medium leading-none">Leitor</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Somente leitura — não pode criar nem editar</p>
+            </div>
+          </div>
+        </SelectItem>
+        <SelectItem value="admin">
+          <div className="flex items-center gap-2 py-0.5">
+            <Shield className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div>
+              <p className="font-medium leading-none">Administrador</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Acesso total, incluindo gerenciar usuários</p>
+            </div>
+          </div>
+        </SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function RoleIcon({ role, className }: { role: Role; className?: string }) {
+  if (role === "admin") return <Shield className={className ?? "h-3.5 w-3.5"} />;
+  if (role === "leitor") return <Eye className={className ?? "h-3.5 w-3.5"} />;
+  return <UserCheck className={className ?? "h-3.5 w-3.5"} />;
 }
