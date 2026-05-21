@@ -1,6 +1,7 @@
 ﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useMemo, lazy, Suspense, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { EmptyState } from "@/components/app/EmptyState";
 import { KpiCard } from "@/components/app/KpiCard";
@@ -565,6 +566,7 @@ function PageSelect({
 
 function AdminDashboard() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   // Initialise directly from cache so there is zero loading flash on re-navigation
   const [loading, setLoading] = useState(() => !(_dashCache && Date.now() - _dashCache.ts < CACHE_TTL));
   const [allPosts, setAllPosts] = useState<RawPost[]>(() => _dashCache?.posts ?? []);
@@ -1433,7 +1435,9 @@ function AdminDashboard() {
       {/* ── Tab header ── */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
+          <h1 className="text-xl font-semibold tracking-tight">
+            Bem-vindo, {profile?.nome?.split(" ")[0] ?? "usuário"} 👋
+          </h1>
           <p className="text-sm text-[#6B6B6B] mt-0.5">
             {activeMonthRef ? formatMonth(activeMonthRef) : "—"}
             {usdBrl && <span className="ml-2 text-[#6B6B6B]">· USD 1 = {formatBRL(usdBrl)}</span>}
