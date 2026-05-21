@@ -1545,7 +1545,12 @@ function AdminDashboard() {
                         <Line type="monotone" dataKey="actual" stroke="#16a34a" strokeWidth={2.5} strokeDasharray="6 3" dot={false} connectNulls={false} legendType="none" />
                       </AreaChart>
                     ) : singlePageMetricData && singlePageMetricData.length > 0 ? (
-                      <AreaChart data={singlePageMetricData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                      <ComposedChart
+                        data={chartMetric === "views"
+                          ? singlePageMetricData.map((row) => ({ ...row, actual: dailyActualViewsByDia.get(row.dia) ?? null }))
+                          : singlePageMetricData}
+                        margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+                      >
                         <defs>
                           <linearGradient id="gradSingle" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#F44708" stopOpacity={0.3} />
@@ -1555,12 +1560,20 @@ function AdminDashboard() {
                         <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#6B6B6B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
                         <YAxis hide />
                         <Tooltip
-                          formatter={(v: any) => [fmtMetricVal(Number(v)), METRIC_TABS.find((t) => t.key === chartMetric)?.label ?? chartMetric]}
+                          formatter={(v: any, name: string) => {
+                            if (v === null) return null as any;
+                            const label = name === "actual" ? "Views Manuais" : (METRIC_TABS.find((t) => t.key === chartMetric)?.label ?? chartMetric);
+                            return [fmtMetricVal(Number(v)), label];
+                          }}
                           labelStyle={{ color: "#1A0A00", fontSize: 11 }}
                           contentStyle={{ border: "1px solid #E0E0E0", borderRadius: 10, fontSize: 11 }}
                         />
-                        <Area type="monotone" dataKey="value" stroke="#F44708" strokeWidth={2} fill="url(#gradSingle)" dot={false} connectNulls />
-                      </AreaChart>
+                        <Legend content={() => null} />
+                        <Area type="monotone" dataKey="value" stroke="#F44708" strokeWidth={2} fill="url(#gradSingle)" dot={false} connectNulls legendType="none" />
+                        {chartMetric === "views" && (
+                          <Line type="monotone" dataKey="actual" stroke="#16a34a" strokeWidth={2.5} strokeDasharray="6 3" dot={false} connectNulls legendType="none" />
+                        )}
+                      </ComposedChart>
                     ) : (
                       <AreaChart data={[]} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                         <XAxis tick={{ fontSize: 10, fill: "#6B6B6B" }} axisLine={false} tickLine={false} />
