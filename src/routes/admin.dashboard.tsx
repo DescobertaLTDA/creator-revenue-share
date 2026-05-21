@@ -7,8 +7,8 @@ import { KpiCard } from "@/components/app/KpiCard";
 import { formatBRL, formatDateTime, formatMonth } from "@/lib/format";
 import {
   DollarSign, Eye, TrendingUp, Upload, ArrowRight,
-  FileSpreadsheet, CheckCircle2, Clock, ChevronRight,
-  Target, Zap, Coins, ChevronDown,
+  FileSpreadsheet, CheckCircle2, Clock, ChevronRight, ChevronLeft,
+  Target, Zap, Coins, ChevronDown, Users,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -1024,6 +1024,24 @@ function AdminDashboard() {
       if (daysAgo < 14) arr[13 - daysAgo] += val;
     }
 
+    // Sparkline per collaborator (last 14 days of revenue share)
+    const sparklineByColab = new Map<string, number[]>();
+    for (const p of filtered) {
+      if (!p.published_at) continue;
+      const day = p.published_at.slice(0, 10);
+      const daysAgo = Math.floor((new Date(today).getTime() - new Date(day).getTime()) / 86400000);
+      if (daysAgo >= 14) continue;
+      const val = getPostUsd(p);
+      const collaboratorIds = Array.from(postToCollabs.get(p.id) ?? []);
+      const targets = collaboratorIds.length > 0 ? collaboratorIds : [SEM_COLAB_ID];
+      const colabPct = getCollaboratorPct(p, rulesByPage);
+      const share = (val * colabPct) / targets.length;
+      for (const cid of targets) {
+        if (!sparklineByColab.has(cid)) sparklineByColab.set(cid, Array(14).fill(0));
+        sparklineByColab.get(cid)![13 - daysAgo] += share;
+      }
+    }
+
     return {
       kpis: {
         totalMonth: geralUsd,
@@ -1049,12 +1067,13 @@ function AdminDashboard() {
         days28: avgDaily * 28,
       },
       sparklineByPage,
+      sparklineByColab,
     };
   }, [allPosts, postAuthors, splitRules, colabs, manualBonuses, dailyEntries, filterPage, filterColab, filterFrom, filterTo, pages]);
 
   const {
     kpis, chartData, chartDataCsv, activeMonthRef, collabCards,
-    rulesByPage, postToCollabs, pageStats, projections, sparklineByPage,
+    rulesByPage, postToCollabs, pageStats, projections, sparklineByPage, sparklineByColab,
   } = computed;
 
   const { totalMonth: correctedTotalMonth, totalMonthCsv, totalViews: csvTotalViews, avgRpm: csvAvgRpm, avgScore } = kpis;
@@ -1542,6 +1561,19 @@ function AdminDashboard() {
             );
           })()}
 
+          {/* ── Colaboradores ── */}
+          {!loading && collabCards.filter((c) => c.posts > 0).length > 0 && (() => {
+            const visibleCards = collabCards.filter((c) => c.posts > 0);
+            return (
+              <ColabSection
+                cards={visibleCards}
+                sparklineByColab={sparklineByColab}
+                usdBrl={usdBrl}
+                onCardClick={(id) => setAuditColabId(id)}
+              />
+            );
+          })()}
+
           {/* ── Gráfico com abas de métricas ── */}
           {(() => {
             const METRIC_TABS = METRIC_TABS_DEF;
@@ -1750,42 +1782,6 @@ function AdminDashboard() {
             );
           })()}
 
-          {/* ── Colaboradores ── */}
-          {!loading && collabCards.filter((c) => c.id !== SEM_COLAB_ID && c.posts > 0).length > 0 && (
-            <div className="bg-white border border-[#E0E0E0] rounded-xl overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-[#F0E0D0]">
-                <h2 className="text-sm font-semibold">Colaboradores</h2>
-              </div>
-              <div className="divide-y divide-[#FFF0E8]">
-                {collabCards.filter((c) => c.posts > 0).slice(0, 10).map((item) => (
-                  <div key={item.id} className="px-5 py-3 flex items-center justify-between gap-4 hover:bg-[#FFF0E8]/50 transition-colors">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">{item.nome}</p>
-                      <p className="text-xs text-[#6B6B6B]">
-                        {item.hashtag ? `#${item.hashtag} · ` : ""}{item.posts.toLocaleString("pt-BR")} posts · {fmt(item.views)} views
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="text-right">
-                        {usdBrl ? (
-                          <>
-                            <p className="text-sm font-semibold tabular-nums">{formatBRL(item.receita * usdBrl)}</p>
-                            <p className="text-xs text-[#6B6B6B] tabular-nums">${item.receita.toFixed(2)}</p>
-                          </>
-                        ) : (
-                          <p className="text-sm font-semibold tabular-nums">${item.receita.toFixed(2)}</p>
-                        )}
-                      </div>
-                      <button onClick={() => setAuditColabId(item.id)}
-                        className="px-2.5 py-1.5 rounded-lg bg-[#F44708] text-white text-xs font-medium hover:bg-[#D93D07] transition-colors">
-                        Ver
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </>
       )}
 
@@ -1882,3 +1878,161 @@ function AdminDashboard() {
   );
 }
 
+// ─── Colaboradores Section ────────────────────────────────────────────────────
+
+const AVATAR_GRADIENTS = [
+  ["#F44708", "#FAA613"],
+  ["#8B5CF6", "#C084FC"],
+  ["#0EA5E9", "#38BDF8"],
+  ["#10B981", "#34D399"],
+  ["#F59E0B", "#FCD34D"],
+  ["#EF4444", "#FC8181"],
+  ["#6366F1", "#A5B4FC"],
+];
+
+function ColabInitials({ nome, idx, size = 44 }: { nome: string; idx: number; size?: number }) {
+  const [a, b] = AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length];
+  const initials = nome
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("");
+  const gid = `ag-${idx}`;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ borderRadius: "50%", display: "block", flexShrink: 0 }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={a} />
+          <stop offset="100%" stopColor={b} />
+        </linearGradient>
+      </defs>
+      <circle cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#${gid})`} />
+      <text
+        x={size / 2} y={size / 2 + size * 0.14}
+        textAnchor="middle" fontSize={size * 0.32}
+        fontWeight="700" fill="white" fontFamily="system-ui, sans-serif"
+      >{initials}</text>
+    </svg>
+  );
+}
+
+function ColabSparkline({ data, idx }: { data: number[]; idx: number }) {
+  const w = 172; const h = 36;
+  if (!data || data.every((v) => v === 0)) return <div style={{ width: w, height: h }} />;
+  const max = Math.max(...data, 0.001);
+  const points = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - 2 - ((v / max) * (h - 4));
+    return [x, y] as [number, number];
+  });
+  const polyPts = points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const [lx, ly] = points[points.length - 1];
+  const [fx] = points[0];
+  const areaD = `M${polyPts.split(" ").join(" L")} L${lx.toFixed(1)},${h} L${fx.toFixed(1)},${h} Z`;
+  const gid2 = `csg-${idx}`;
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
+      <defs>
+        <linearGradient id={gid2} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#F44708" stopOpacity={0.2} />
+          <stop offset="100%" stopColor="#F44708" stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <path d={areaD} fill={`url(#${gid2})`} />
+      <polyline points={polyPts} fill="none" stroke="#F44708" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function RankBadge({ rank }: { rank: number }) {
+  const bg = rank === 1 ? "bg-amber-400" : rank === 2 ? "bg-slate-400" : rank === 3 ? "bg-orange-400" : "bg-[#E0E0E0]";
+  const text = rank <= 3 ? "text-white" : "text-[#6B6B6B]";
+  return (
+    <span className={`absolute -top-1.5 -left-1.5 h-5 w-5 rounded-full ${bg} border-2 border-white flex items-center justify-center text-[9px] font-black ${text} z-10 shadow-sm`}>
+      {rank}
+    </span>
+  );
+}
+
+function ColaboradorCard({ item, rank, sparkline, usdBrl, onClick, idx }: {
+  item: ColabCard; rank: number; sparkline: number[];
+  usdBrl: number | null; onClick: () => void; idx: number;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="group flex-none w-[172px] bg-white border border-[#EAEAEA] rounded-2xl overflow-hidden hover:border-[#F44708]/40 hover:shadow-[0_4px_20px_rgba(244,71,8,0.10)] transition-all duration-200 text-left"
+    >
+      <div className="px-4 pt-5 pb-3">
+        <div className="relative inline-block mb-3">
+          <RankBadge rank={rank} />
+          <ColabInitials nome={item.nome} idx={idx} size={44} />
+        </div>
+        <p className="text-[13px] font-semibold text-[#1A0A00] leading-tight truncate mb-0.5">{item.nome}</p>
+        <p className="text-[11px] text-[#9B9B9B] tabular-nums">
+          {item.posts} posts · {fmt(item.views)} views
+        </p>
+        <div className="mt-3">
+          <p className="text-[17px] font-black text-[#1A0A00] tabular-nums leading-none">
+            {usdBrl ? formatBRL(item.receita * usdBrl) : `$${item.receita.toFixed(2)}`}
+          </p>
+          <p className="text-[11px] text-[#9B9B9B] tabular-nums mt-0.5">${item.receita.toFixed(2)}</p>
+        </div>
+      </div>
+      <ColabSparkline data={sparkline} idx={idx} />
+    </button>
+  );
+}
+
+function ColabSection({ cards, sparklineByColab, usdBrl, onCardClick }: {
+  cards: ColabCard[];
+  sparklineByColab: Map<string, number[]>;
+  usdBrl: number | null;
+  onCardClick: (id: string) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scroll = (dir: "left" | "right") => {
+    scrollRef.current?.scrollBy({ left: dir === "right" ? 220 : -220, behavior: "smooth" });
+  };
+  return (
+    <div className="bg-white border border-[#E0E0E0] rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#FFF0E8] to-[#FFD9C0] flex items-center justify-center shrink-0">
+            <Users className="h-4 w-4 text-[#F44708]" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-[#1A0A00]">Colaboradores</h2>
+            <p className="text-[11px] text-[#9B9B9B]">Performance dos colaboradores no período</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => onCardClick(cards[0]?.id ?? "")}
+            className="hidden sm:flex items-center gap-1 text-xs text-[#F44708] font-medium border border-[#F44708]/30 rounded-lg px-3 py-1.5 hover:bg-[#FFF0E8] transition-colors"
+          >
+            Ver todos
+          </button>
+          <button onClick={() => scroll("left")}
+            className="h-7 w-7 rounded-lg border border-[#E0E0E0] flex items-center justify-center text-[#9B9B9B] hover:text-[#F44708] hover:border-[#F44708]/40 transition-colors">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button onClick={() => scroll("right")}
+            className="h-7 w-7 rounded-lg border border-[#E0E0E0] flex items-center justify-center text-[#9B9B9B] hover:text-[#F44708] hover:border-[#F44708]/40 transition-colors">
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+      <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+        {cards.map((card, i) => (
+          <ColaboradorCard
+            key={card.id} item={card} rank={i + 1}
+            sparkline={sparklineByColab.get(card.id) ?? Array(14).fill(0)}
+            usdBrl={usdBrl} onClick={() => onCardClick(card.id)} idx={i}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
