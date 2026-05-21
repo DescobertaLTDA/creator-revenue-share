@@ -909,9 +909,6 @@ function BonusManualPage() {
                             </td>
                             <td className="px-4 py-2.5 text-right">
                               <div className="flex items-center justify-end gap-1.5">
-                                {row.updater_nome && row.last_edited_field === "followers" && (
-                                  <UpdaterAvatar nome={row.updater_nome} avatar={row.updater_avatar} />
-                                )}
                                 <input
                                   type="text" inputMode="numeric" disabled={isFuture || !canWrite}
                                   data-followers-input={row.date}
@@ -925,6 +922,9 @@ function BonusManualPage() {
                                   onKeyDown={(e) => handleFollowersKeyDown(e, row.date)}
                                   className="w-24 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums text-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/40 disabled:opacity-30"
                                 />
+                                {row.updater_nome && row.last_edited_field === "followers" && (
+                                  <UpdaterAvatar nome={row.updater_nome} avatar={row.updater_avatar} />
+                                )}
                               </div>
                             </td>
                             <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
