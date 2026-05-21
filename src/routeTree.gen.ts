@@ -15,16 +15,16 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ColaboradorDashboardRouteImport } from './routes/colaborador.dashboard'
 import { Route as AdminRegrasSplitRouteImport } from './routes/admin.regras-split'
+import { Route as AdminProjecoesRouteImport } from './routes/admin.projecoes'
 import { Route as AdminPostsRouteImport } from './routes/admin.posts'
+import { Route as AdminMonetizacaoRouteImport } from './routes/admin.monetizacao'
+import { Route as AdminMetasRouteImport } from './routes/admin.metas'
 import { Route as AdminImportacoesRouteImport } from './routes/admin.importacoes'
 import { Route as AdminFechamentosRouteImport } from './routes/admin.fechamentos'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 import { Route as AdminColaboradoresRouteImport } from './routes/admin.colaboradores'
-import { Route as AdminMetasRouteImport } from './routes/admin.metas'
-import { Route as AdminMonetizacaoRouteImport } from './routes/admin.monetizacao'
-import { Route as AdminProjecoesRouteImport } from './routes/admin.projecoes'
-import { Route as AdminBonusManualRouteImport } from './routes/admin.bonus-manual'
 import { Route as AdminCadastroRouteImport } from './routes/admin.cadastro'
+import { Route as AdminBonusManualRouteImport } from './routes/admin.bonus-manual'
 import { Route as AdminImportacoesIdRouteImport } from './routes/admin.importacoes.$id'
 import { Route as AdminFechamentosIdRouteImport } from './routes/admin.fechamentos.$id'
 
@@ -58,9 +58,24 @@ const AdminRegrasSplitRoute = AdminRegrasSplitRouteImport.update({
   path: '/regras-split',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminProjecoesRoute = AdminProjecoesRouteImport.update({
+  id: '/projecoes',
+  path: '/projecoes',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminPostsRoute = AdminPostsRouteImport.update({
   id: '/posts',
   path: '/posts',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminMonetizacaoRoute = AdminMonetizacaoRouteImport.update({
+  id: '/monetizacao',
+  path: '/monetizacao',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminMetasRoute = AdminMetasRouteImport.update({
+  id: '/metas',
+  path: '/metas',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminImportacoesRoute = AdminImportacoesRouteImport.update({
@@ -83,29 +98,14 @@ const AdminColaboradoresRoute = AdminColaboradoresRouteImport.update({
   path: '/colaboradores',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminMetasRoute = AdminMetasRouteImport.update({
-  id: '/metas',
-  path: '/metas',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminMonetizacaoRoute = AdminMonetizacaoRouteImport.update({
-  id: '/monetizacao',
-  path: '/monetizacao',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminProjecoesRoute = AdminProjecoesRouteImport.update({
-  id: '/projecoes',
-  path: '/projecoes',
+const AdminCadastroRoute = AdminCadastroRouteImport.update({
+  id: '/cadastro',
+  path: '/cadastro',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminBonusManualRoute = AdminBonusManualRouteImport.update({
   id: '/bonus-manual',
   path: '/bonus-manual',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminCadastroRoute = AdminCadastroRouteImport.update({
-  id: '/cadastro',
-  path: '/cadastro',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminImportacoesIdRoute = AdminImportacoesIdRouteImport.update({
@@ -126,14 +126,14 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/admin/bonus-manual': typeof AdminBonusManualRoute
   '/admin/cadastro': typeof AdminCadastroRoute
-  '/admin/metas': typeof AdminMetasRoute
-  '/admin/monetizacao': typeof AdminMonetizacaoRoute
-  '/admin/projecoes': typeof AdminProjecoesRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/fechamentos': typeof AdminFechamentosRouteWithChildren
   '/admin/importacoes': typeof AdminImportacoesRouteWithChildren
+  '/admin/metas': typeof AdminMetasRoute
+  '/admin/monetizacao': typeof AdminMonetizacaoRoute
   '/admin/posts': typeof AdminPostsRoute
+  '/admin/projecoes': typeof AdminProjecoesRoute
   '/admin/regras-split': typeof AdminRegrasSplitRoute
   '/colaborador/dashboard': typeof ColaboradorDashboardRoute
   '/admin/fechamentos/$id': typeof AdminFechamentosIdRoute
@@ -146,14 +146,14 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/admin/bonus-manual': typeof AdminBonusManualRoute
   '/admin/cadastro': typeof AdminCadastroRoute
-  '/admin/metas': typeof AdminMetasRoute
-  '/admin/monetizacao': typeof AdminMonetizacaoRoute
-  '/admin/projecoes': typeof AdminProjecoesRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/fechamentos': typeof AdminFechamentosRouteWithChildren
   '/admin/importacoes': typeof AdminImportacoesRouteWithChildren
+  '/admin/metas': typeof AdminMetasRoute
+  '/admin/monetizacao': typeof AdminMonetizacaoRoute
   '/admin/posts': typeof AdminPostsRoute
+  '/admin/projecoes': typeof AdminProjecoesRoute
   '/admin/regras-split': typeof AdminRegrasSplitRoute
   '/colaborador/dashboard': typeof ColaboradorDashboardRoute
   '/admin/fechamentos/$id': typeof AdminFechamentosIdRoute
@@ -167,14 +167,14 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/admin/bonus-manual': typeof AdminBonusManualRoute
   '/admin/cadastro': typeof AdminCadastroRoute
-  '/admin/metas': typeof AdminMetasRoute
-  '/admin/monetizacao': typeof AdminMonetizacaoRoute
-  '/admin/projecoes': typeof AdminProjecoesRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/fechamentos': typeof AdminFechamentosRouteWithChildren
   '/admin/importacoes': typeof AdminImportacoesRouteWithChildren
+  '/admin/metas': typeof AdminMetasRoute
+  '/admin/monetizacao': typeof AdminMonetizacaoRoute
   '/admin/posts': typeof AdminPostsRoute
+  '/admin/projecoes': typeof AdminProjecoesRoute
   '/admin/regras-split': typeof AdminRegrasSplitRoute
   '/colaborador/dashboard': typeof ColaboradorDashboardRoute
   '/admin/fechamentos/$id': typeof AdminFechamentosIdRoute
@@ -189,14 +189,14 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/bonus-manual'
     | '/admin/cadastro'
-    | '/admin/metas'
-    | '/admin/monetizacao'
-    | '/admin/projecoes'
     | '/admin/colaboradores'
     | '/admin/dashboard'
     | '/admin/fechamentos'
     | '/admin/importacoes'
+    | '/admin/metas'
+    | '/admin/monetizacao'
     | '/admin/posts'
+    | '/admin/projecoes'
     | '/admin/regras-split'
     | '/colaborador/dashboard'
     | '/admin/fechamentos/$id'
@@ -209,14 +209,14 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/bonus-manual'
     | '/admin/cadastro'
-    | '/admin/metas'
-    | '/admin/monetizacao'
-    | '/admin/projecoes'
     | '/admin/colaboradores'
     | '/admin/dashboard'
     | '/admin/fechamentos'
     | '/admin/importacoes'
+    | '/admin/metas'
+    | '/admin/monetizacao'
     | '/admin/posts'
+    | '/admin/projecoes'
     | '/admin/regras-split'
     | '/colaborador/dashboard'
     | '/admin/fechamentos/$id'
@@ -229,14 +229,14 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/bonus-manual'
     | '/admin/cadastro'
-    | '/admin/metas'
-    | '/admin/monetizacao'
-    | '/admin/projecoes'
     | '/admin/colaboradores'
     | '/admin/dashboard'
     | '/admin/fechamentos'
     | '/admin/importacoes'
+    | '/admin/metas'
+    | '/admin/monetizacao'
     | '/admin/posts'
+    | '/admin/projecoes'
     | '/admin/regras-split'
     | '/colaborador/dashboard'
     | '/admin/fechamentos/$id'
@@ -294,11 +294,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRegrasSplitRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/projecoes': {
+      id: '/admin/projecoes'
+      path: '/projecoes'
+      fullPath: '/admin/projecoes'
+      preLoaderRoute: typeof AdminProjecoesRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/posts': {
       id: '/admin/posts'
       path: '/posts'
       fullPath: '/admin/posts'
       preLoaderRoute: typeof AdminPostsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/monetizacao': {
+      id: '/admin/monetizacao'
+      path: '/monetizacao'
+      fullPath: '/admin/monetizacao'
+      preLoaderRoute: typeof AdminMonetizacaoRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/metas': {
+      id: '/admin/metas'
+      path: '/metas'
+      fullPath: '/admin/metas'
+      preLoaderRoute: typeof AdminMetasRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/importacoes': {
@@ -329,39 +350,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminColaboradoresRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/bonus-manual': {
-      id: '/admin/bonus-manual'
-      path: '/bonus-manual'
-      fullPath: '/admin/bonus-manual'
-      preLoaderRoute: typeof AdminBonusManualRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/metas': {
-      id: '/admin/metas'
-      path: '/metas'
-      fullPath: '/admin/metas'
-      preLoaderRoute: typeof AdminMetasRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/monetizacao': {
-      id: '/admin/monetizacao'
-      path: '/monetizacao'
-      fullPath: '/admin/monetizacao'
-      preLoaderRoute: typeof AdminMonetizacaoRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/projecoes': {
-      id: '/admin/projecoes'
-      path: '/projecoes'
-      fullPath: '/admin/projecoes'
-      preLoaderRoute: typeof AdminProjecoesRouteImport
-      parentRoute: typeof AdminRoute
-    }
     '/admin/cadastro': {
       id: '/admin/cadastro'
       path: '/cadastro'
       fullPath: '/admin/cadastro'
       preLoaderRoute: typeof AdminCadastroRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/bonus-manual': {
+      id: '/admin/bonus-manual'
+      path: '/bonus-manual'
+      fullPath: '/admin/bonus-manual'
+      preLoaderRoute: typeof AdminBonusManualRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/importacoes/$id': {
@@ -406,28 +406,28 @@ const AdminImportacoesRouteWithChildren =
 interface AdminRouteChildren {
   AdminBonusManualRoute: typeof AdminBonusManualRoute
   AdminCadastroRoute: typeof AdminCadastroRoute
-  AdminMetasRoute: typeof AdminMetasRoute
-  AdminMonetizacaoRoute: typeof AdminMonetizacaoRoute
-  AdminProjecoesRoute: typeof AdminProjecoesRoute
   AdminColaboradoresRoute: typeof AdminColaboradoresRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminFechamentosRoute: typeof AdminFechamentosRouteWithChildren
   AdminImportacoesRoute: typeof AdminImportacoesRouteWithChildren
+  AdminMetasRoute: typeof AdminMetasRoute
+  AdminMonetizacaoRoute: typeof AdminMonetizacaoRoute
   AdminPostsRoute: typeof AdminPostsRoute
+  AdminProjecoesRoute: typeof AdminProjecoesRoute
   AdminRegrasSplitRoute: typeof AdminRegrasSplitRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminBonusManualRoute: AdminBonusManualRoute,
   AdminCadastroRoute: AdminCadastroRoute,
-  AdminMetasRoute: AdminMetasRoute,
-  AdminMonetizacaoRoute: AdminMonetizacaoRoute,
-  AdminProjecoesRoute: AdminProjecoesRoute,
   AdminColaboradoresRoute: AdminColaboradoresRoute,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminFechamentosRoute: AdminFechamentosRouteWithChildren,
   AdminImportacoesRoute: AdminImportacoesRouteWithChildren,
+  AdminMetasRoute: AdminMetasRoute,
+  AdminMonetizacaoRoute: AdminMonetizacaoRoute,
   AdminPostsRoute: AdminPostsRoute,
+  AdminProjecoesRoute: AdminProjecoesRoute,
   AdminRegrasSplitRoute: AdminRegrasSplitRoute,
 }
 

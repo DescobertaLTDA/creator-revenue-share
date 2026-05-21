@@ -254,7 +254,7 @@ function saveGoals(g: Goals) {
 // ─── Sparkline component ──────────────────────────────────────────────────────
 
 function MiniSparkline({ data }: { data: number[] }) {
-  if (data.length < 2) return <span className="text-xs text-[#9d8fb0]">—</span>;
+  if (data.length < 2) return <span className="text-xs text-[#6B6B6B]">—</span>;
   const max = Math.max(...data, 1);
   const w = 48; const h = 20;
   const pts = data.map((v, i) => {
@@ -282,19 +282,19 @@ function GoalBar({ label, current, target, formatVal }: {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-sm">
-        <span className="text-[#4a3560]">{label}</span>
+        <span className="text-[#1A0A00]">{label}</span>
         <span className="tabular-nums font-medium">
           {formatVal(current)}
-          <span className="text-[#9d8fb0] font-normal"> / {formatVal(target)}</span>
+          <span className="text-[#6B6B6B] font-normal"> / {formatVal(target)}</span>
         </span>
       </div>
-      <div className="h-1.5 bg-[#f3e8ff] rounded-full overflow-hidden">
+      <div className="h-1.5 bg-[#FFF0E8] rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all ${ok ? "bg-emerald-500" : "bg-gradient-to-r from-[#6200b3] to-[#b43e8f]"}`}
+          className={`h-full rounded-full transition-all ${ok ? "bg-emerald-500" : "bg-gradient-to-r from-[#F44708] to-[#FAA613]"}`}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <p className="text-xs text-[#9d8fb0]">{pct.toFixed(0)}% da meta</p>
+      <p className="text-xs text-[#6B6B6B]">{pct.toFixed(0)}% da meta</p>
     </div>
   );
 }
@@ -365,7 +365,7 @@ function DashSpeedometer({ score }: { score: number }) {
   }, [score, runAnimation]);
 
   const pct = Math.min(Math.max(display, 0), 100);
-  const color = pct >= 75 ? "#16a34a" : pct >= 50 ? "#f59e0b" : pct >= 25 ? "#f97316" : "#7c3aed";
+  const color = pct >= 75 ? "#16a34a" : pct >= 50 ? "#f59e0b" : pct >= 25 ? "#f97316" : "#F44708";
   const cx = 52, cy = 48, r = 36, sw = 8;
   const arcLen = Math.PI * r;
   const fillLen = (pct / 100) * arcLen;
@@ -381,14 +381,14 @@ function DashSpeedometer({ score }: { score: number }) {
   });
   return (
     <svg width="104" height="64" viewBox="0 0 104 64">
-      <path d={bgPath} fill="none" stroke="#f3e8ff" strokeWidth={sw} strokeLinecap="round" />
+      <path d={bgPath} fill="none" stroke="#FFF0E8" strokeWidth={sw} strokeLinecap="round" />
       <path d={bgPath} fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round"
         strokeDasharray={`${fillLen} ${arcLen}`} />
       {ticks.map((t, i) => (
-        <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} stroke="#ddd6fe" strokeWidth="1.5" />
+        <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} stroke="#FFD9C0" strokeWidth="1.5" />
       ))}
-      <text x={cx - r - 1} y={cy + 13} fontSize="8" fill="#9d8fb0" textAnchor="middle">0</text>
-      <text x={cx + r + 1} y={cy + 13} fontSize="8" fill="#9d8fb0" textAnchor="middle">100</text>
+      <text x={cx - r - 1} y={cy + 13} fontSize="8" fill="#6B6B6B" textAnchor="middle">0</text>
+      <text x={cx + r + 1} y={cy + 13} fontSize="8" fill="#6B6B6B" textAnchor="middle">100</text>
       <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={color} strokeWidth="2.5" strokeLinecap="round" />
       <circle cx={cx} cy={cy} r="5" fill={color} />
       <circle cx={cx} cy={cy} r="2.5" fill="white" />
@@ -460,8 +460,8 @@ function PageSelect({
         onClick={() => { onChange(page.id); setOpen(false); }}
         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
           active
-            ? "bg-[#6200b3] text-white"
-            : "text-[#2a1a4a] hover:bg-[#f3e8ff]"
+            ? "bg-[#F44708] text-white"
+            : "text-[#1A0A00] hover:bg-[#FFF0E8]"
         }`}
       >
         <Coins className={`h-3.5 w-3.5 shrink-0 ${active ? "text-white/80" : isM ? "text-emerald-500" : "text-red-400"}`} />
@@ -479,19 +479,19 @@ function PageSelect({
         onClick={openDrop}
         className={`w-full h-8 flex items-center gap-2 px-3 rounded-lg border text-sm transition-all bg-white ${
           open
-            ? "border-[#6200b3] ring-2 ring-[#6200b3]/15 shadow-sm"
-            : "border-[#e8e0f5] hover:border-[#b89fd8] hover:shadow-sm"
+            ? "border-[#F44708] ring-2 ring-[#F44708]/15"
+            : "border-[#E0E0E0] hover:border-[#FAA613]"
         }`}
       >
         {selected ? (
           <>
             <Coins className={`h-3.5 w-3.5 shrink-0 ${monetizedIds.has(selected.id) ? "text-emerald-500" : "text-red-400"}`} />
-            <span className="flex-1 truncate text-left font-medium text-[#2a1a4a]">{selected.name}</span>
+            <span className="flex-1 truncate text-left font-medium text-[#1A0A00]">{selected.name}</span>
           </>
         ) : (
-          <span className="flex-1 text-left text-[#7c6f8e]">Todas as páginas</span>
+          <span className="flex-1 text-left text-[#6B6B6B]">Todas as páginas</span>
         )}
-        <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[#9d8fb0] transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[#6B6B6B] transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
 
       {/* Dropdown — fixed to escape overflow:hidden parents */}
@@ -499,16 +499,16 @@ function PageSelect({
         <div
           ref={dropRef}
           style={{ position: "fixed", top: dropPos.top, left: dropPos.left, minWidth: dropPos.width, zIndex: 9999 }}
-          className="bg-white border border-[#e8e0f5] rounded-2xl shadow-xl overflow-hidden"
+          className="bg-white border border-[#E0E0E0] rounded-2xl overflow-hidden"
         >
           {/* "Todas as páginas" option */}
-          <div className="p-2 border-b border-[#f3e8ff]">
+          <div className="p-2 border-b border-[#FFF0E8]">
             <button
               onClick={() => { onChange("all"); setOpen(false); }}
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
                 value === "all"
-                  ? "bg-[#6200b3] text-white"
-                  : "text-[#2a1a4a] hover:bg-[#f3e8ff]"
+                  ? "bg-[#F44708] text-white"
+                  : "text-[#1A0A00] hover:bg-[#FFF0E8]"
               }`}
             >
               <span className="h-3.5 w-3.5 shrink-0" />
@@ -1056,8 +1056,8 @@ function AdminDashboard() {
 
   // Paleta de cores para múltiplas páginas
   const PAGE_COLORS = [
-    "#6200b3", "#b43e8f", "#ea7af4", "#e11d48", "#d97706",
-    "#16a34a", "#0284c7", "#7c3aed", "#db2777", "#059669",
+    "#F44708", "#FAA613", "#FAC46A", "#e11d48", "#d97706",
+    "#16a34a", "#0284c7", "#0ea5e9", "#db2777", "#059669",
   ];
 
   // All multi-page metrics computed in a single loop
@@ -1248,24 +1248,24 @@ function AdminDashboard() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-[#7c6f8e] mt-0.5">
+          <p className="text-sm text-[#6B6B6B] mt-0.5">
             {activeMonthRef ? formatMonth(activeMonthRef) : "—"}
-            {usdBrl && <span className="ml-2 text-[#9d8fb0]">· USD 1 = {formatBRL(usdBrl)}</span>}
+            {usdBrl && <span className="ml-2 text-[#6B6B6B]">· USD 1 = {formatBRL(usdBrl)}</span>}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-[#e8e0f5] overflow-hidden text-sm">
+          <div className="flex rounded-lg border border-[#E0E0E0] overflow-hidden text-sm">
             <button onClick={() => setActiveTab("overview")}
-              className={`px-3 py-1.5 font-medium transition-colors ${activeTab === "overview" ? "bg-[#6200b3] text-white" : "text-[#7c6f8e] hover:bg-[#f3e8ff]"}`}>
+              className={`px-3 py-1.5 font-medium transition-colors ${activeTab === "overview" ? "bg-[#F44708] text-white" : "text-[#6B6B6B] hover:bg-[#FFF0E8]"}`}>
               Visão Geral
             </button>
             <button onClick={() => setActiveTab("charts")}
-              className={`px-3 py-1.5 font-medium transition-colors ${activeTab === "charts" ? "bg-[#6200b3] text-white" : "text-[#7c6f8e] hover:bg-[#f3e8ff]"}`}>
+              className={`px-3 py-1.5 font-medium transition-colors ${activeTab === "charts" ? "bg-[#F44708] text-white" : "text-[#6B6B6B] hover:bg-[#FFF0E8]"}`}>
               Gráficos
             </button>
           </div>
           <button onClick={() => navigate({ to: "/admin/importacoes" })}
-            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#6200b3] to-[#b43e8f] text-white text-sm font-medium rounded-xl hover:from-[#3b0086] hover:to-[#8f2d6f] transition-all shadow-sm hover:shadow-md">
+            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#F44708] to-[#FAA613] text-white text-sm font-medium rounded-xl hover:from-[#D93D07] hover:to-[#E09010] transition-all">
             <Upload className="h-3.5 w-3.5" />
             Importar CSV
           </button>
@@ -1273,10 +1273,10 @@ function AdminDashboard() {
       </div>
 
       {/* ── Filtros ── */}
-      <div className="border border-[#e8e0f5] rounded-xl px-4 py-3 bg-white">
+      <div className="border border-[#E0E0E0] rounded-xl px-4 py-3 bg-white">
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end">
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-medium uppercase tracking-wider text-[#9d8fb0]">Página</label>
+            <label className="text-[10px] font-medium uppercase tracking-wider text-[#6B6B6B]">Página</label>
             <PageSelect
               pages={pages}
               value={filterPage}
@@ -1285,27 +1285,27 @@ function AdminDashboard() {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-medium uppercase tracking-wider text-[#9d8fb0]">Colaborador</label>
+            <label className="text-[10px] font-medium uppercase tracking-wider text-[#6B6B6B]">Colaborador</label>
             <select value={filterColab} onChange={(e) => setFilterColab(e.target.value)}
-              className="h-8 rounded-lg border border-[#e8e0f5] bg-white px-2 text-sm w-full sm:min-w-[160px]">
+              className="h-8 rounded-lg border border-[#E0E0E0] bg-white px-2 text-sm w-full sm:min-w-[160px]">
               <option value="all">Todos</option>
               <option value={SEM_COLAB_ID}>Sem colaborador</option>
               {colabs.map((c) => <option key={c.id} value={c.id}>{c.nome}{c.hashtag ? ` (#${c.hashtag})` : ""}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-medium uppercase tracking-wider text-[#9d8fb0]">De</label>
+            <label className="text-[10px] font-medium uppercase tracking-wider text-[#6B6B6B]">De</label>
             <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
-              className="h-8 rounded-lg border border-[#e8e0f5] bg-white px-2 text-sm" />
+              className="h-8 rounded-lg border border-[#E0E0E0] bg-white px-2 text-sm" />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-medium uppercase tracking-wider text-[#9d8fb0]">Até</label>
+            <label className="text-[10px] font-medium uppercase tracking-wider text-[#6B6B6B]">Até</label>
             <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
-              className="h-8 rounded-lg border border-[#e8e0f5] bg-white px-2 text-sm" />
+              className="h-8 rounded-lg border border-[#E0E0E0] bg-white px-2 text-sm" />
           </div>
           {(filterPage !== "all" || filterColab !== "all") && (
             <button onClick={() => { setFilterPage("all"); setFilterColab("all"); }}
-              className="h-8 px-3 rounded-lg text-xs text-[#7c6f8e] border border-[#e8e0f5] hover:bg-[#f3e8ff] transition-colors">
+              className="h-8 px-3 rounded-lg text-xs text-[#6B6B6B] border border-[#E0E0E0] hover:bg-[#FFF0E8] transition-colors">
               Limpar
             </button>
           )}
@@ -1313,7 +1313,7 @@ function AdminDashboard() {
       </div>
 
       {activeTab === "charts" && !loading && chartData.length > 0 && (
-        <Suspense fallback={<div className="h-48 bg-[#f3e8ff] rounded-xl animate-pulse" />}>
+        <Suspense fallback={<div className="h-48 bg-[#FFF0E8] rounded-xl animate-pulse" />}>
           <DashboardCharts data={chartData} />
         </Suspense>
       )}
@@ -1325,7 +1325,7 @@ function AdminDashboard() {
             const avgScore = !loading && pageStatsWithGlobalScores.length > 0
               ? Math.round(pageStatsWithGlobalScores.reduce((s, p) => s + p.score, 0) / pageStatsWithGlobalScores.length)
               : 0;
-            const scoreColor = avgScore >= 75 ? "#16a34a" : avgScore >= 50 ? "#f59e0b" : avgScore >= 25 ? "#f97316" : "#7c3aed";
+            const scoreColor = avgScore >= 75 ? "#16a34a" : avgScore >= 50 ? "#f59e0b" : avgScore >= 25 ? "#f97316" : "#F44708";
             return (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
@@ -1348,34 +1348,34 @@ function AdminDashboard() {
                     icon: Eye,
                   },
                 ].map(({ label, value, sub, icon: Icon }) => (
-                  <div key={label} className="bg-white border border-[#e8e0f5] rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                  <div key={label} className="bg-white border border-[#E0E0E0] rounded-2xl p-5 transition-colors">
                     <div className="flex items-center justify-between mb-3">
-                      <p className="text-xs font-medium text-[#9d8fb0] uppercase tracking-wider">{label}</p>
-                      <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#f3e8ff] to-[#e8d5ff] flex items-center justify-center">
-                        <Icon className="h-4 w-4 text-[#6200b3]" />
+                      <p className="text-xs font-medium text-[#6B6B6B] uppercase tracking-wider">{label}</p>
+                      <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#FFF0E8] to-[#FFD9C0] flex items-center justify-center">
+                        <Icon className="h-4 w-4 text-[#F44708]" />
                       </div>
                     </div>
-                    <p className="text-2xl font-bold tracking-tight tabular-nums text-[#1a0533]">{value}</p>
-                    {sub && <p className="text-xs text-[#9d8fb0] mt-1">{sub}</p>}
+                    <p className="text-2xl font-bold tracking-tight tabular-nums text-[#1A0A00]">{value}</p>
+                    {sub && <p className="text-xs text-[#6B6B6B] mt-1">{sub}</p>}
                   </div>
                 ))}
 
                 {/* Score Médio — com velocímetro */}
-                <div className="bg-white border border-[#e8e0f5] rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col">
+                <div className="bg-white border border-[#E0E0E0] rounded-2xl p-5 transition-colors flex flex-col">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-xs font-medium text-[#9d8fb0] uppercase tracking-wider">Score Médio</p>
-                    <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#f3e8ff] to-[#e8d5ff] flex items-center justify-center">
-                      <TrendingUp className="h-4 w-4 text-[#6200b3]" />
+                    <p className="text-xs font-medium text-[#6B6B6B] uppercase tracking-wider">Score Médio</p>
+                    <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#FFF0E8] to-[#FFD9C0] flex items-center justify-center">
+                      <TrendingUp className="h-4 w-4 text-[#F44708]" />
                     </div>
                   </div>
                   {loading ? (
-                    <p className="text-2xl font-bold text-[#1a0533] mt-2">—</p>
+                    <p className="text-2xl font-bold text-[#1A0A00] mt-2">—</p>
                   ) : (
                     <div className="flex items-end gap-3">
                       <DashSpeedometer score={avgScore} />
                       <div className="pb-1">
-                        <p className="text-2xl font-bold tabular-nums" style={{ color: scoreColor }}>{avgScore}<span className="text-sm font-normal text-[#9d8fb0]">/100</span></p>
-                        <p className="text-xs text-[#9d8fb0] mt-0.5">{pageStatsWithGlobalScores.length} páginas</p>
+                        <p className="text-2xl font-bold tabular-nums" style={{ color: scoreColor }}>{avgScore}<span className="text-sm font-normal text-[#6B6B6B]">/100</span></p>
+                        <p className="text-xs text-[#6B6B6B] mt-0.5">{pageStatsWithGlobalScores.length} páginas</p>
                       </div>
                     </div>
                   )}
@@ -1406,14 +1406,14 @@ function AdminDashboard() {
               : null;
 
             return (
-              <div className="bg-white border border-[#e8e0f5] rounded-2xl p-5 shadow-sm">
+              <div className="bg-white border border-[#E0E0E0] rounded-2xl p-5">
                 {/* Header: title + tabs */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                   <div>
                     <h2 className="text-sm font-semibold">
                       {filterPage === "all" ? "Métricas por Página" : "Métricas" + (chartMetric === "receita" ? " + Projeção" : "")}
                     </h2>
-                    <p className="text-xs text-[#9d8fb0] mt-0.5">
+                    <p className="text-xs text-[#6B6B6B] mt-0.5">
                       {filterPage === "all" ? "Uma área por página" : chartMetric === "receita" ? "Histórico real e projeção 28 dias" : "Histórico do período"}
                     </p>
                   </div>
@@ -1425,8 +1425,8 @@ function AdminDashboard() {
                         onClick={() => setChartMetric(key)}
                         className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
                           chartMetric === key
-                            ? "bg-[#6200b3] text-white"
-                            : "text-[#7c6f8e] border border-[#e8e0f5] hover:bg-[#f3e8ff]"
+                            ? "bg-[#F44708] text-white"
+                            : "text-[#6B6B6B] border border-[#E0E0E0] hover:bg-[#FFF0E8]"
                         }`}
                       >
                         {label}
@@ -1452,15 +1452,15 @@ function AdminDashboard() {
                             </linearGradient>
                           ))}
                         </defs>
-                        <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9d8fb0" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
+                        <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#6B6B6B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
                         <YAxis hide />
                         <Tooltip
                           formatter={(v: any, name: string) => {
                             if (v === null || Number(v) === 0) return null as any;
                             return [fmtMetricVal(Number(v)), name];
                           }}
-                          labelStyle={{ color: "#1a0533", fontSize: 11, fontWeight: 600 }}
-                          contentStyle={{ border: "1px solid #e8e0f5", borderRadius: 12, fontSize: 11, boxShadow: "0 4px 16px #6200b315" }}
+                          labelStyle={{ color: "#1A0A00", fontSize: 11, fontWeight: 600 }}
+                          contentStyle={{ border: "1px solid #E0E0E0", borderRadius: 12, fontSize: 11, boxShadow: "none" }}
                         />
                         <Legend
                           formatter={(value) => {
@@ -1508,45 +1508,45 @@ function AdminDashboard() {
                       >
                         <defs>
                           <linearGradient id="gradReal" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#6200b3" stopOpacity={0.25} />
-                            <stop offset="95%" stopColor="#6200b3" stopOpacity={0} />
+                            <stop offset="5%" stopColor="#F44708" stopOpacity={0.25} />
+                            <stop offset="95%" stopColor="#F44708" stopOpacity={0} />
                           </linearGradient>
                           <linearGradient id="gradProj" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#ea7af4" stopOpacity={0.15} />
-                            <stop offset="95%" stopColor="#ea7af4" stopOpacity={0} />
+                            <stop offset="5%" stopColor="#FAC46A" stopOpacity={0.15} />
+                            <stop offset="95%" stopColor="#FAC46A" stopOpacity={0} />
                           </linearGradient>
                         </defs>
-                        <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9d8fb0" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
+                        <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#6B6B6B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
                         <YAxis hide />
                         <Tooltip
                           formatter={(v: any) => v !== null ? (usdBrl ? formatBRL(Number(v) * usdBrl) : `$${Number(v).toFixed(4)}`) : "—"}
-                          labelStyle={{ color: "#1a0533", fontSize: 11 }}
-                          contentStyle={{ border: "1px solid #e8e0f5", borderRadius: 10, fontSize: 11 }}
+                          labelStyle={{ color: "#1A0A00", fontSize: 11 }}
+                          contentStyle={{ border: "1px solid #E0E0E0", borderRadius: 10, fontSize: 11 }}
                         />
-                        <Area type="monotone" dataKey="real" stroke="#6200b3" strokeWidth={2} fill="url(#gradReal)" dot={false} connectNulls={false} name="CSV" />
-                        <Area type="monotone" dataKey="proj" stroke="#ea7af4" strokeWidth={1.5} strokeDasharray="4 3" fill="url(#gradProj)" dot={false} connectNulls={false} name="Projeção" />
+                        <Area type="monotone" dataKey="real" stroke="#F44708" strokeWidth={2} fill="url(#gradReal)" dot={false} connectNulls={false} name="CSV" />
+                        <Area type="monotone" dataKey="proj" stroke="#FAC46A" strokeWidth={1.5} strokeDasharray="4 3" fill="url(#gradProj)" dot={false} connectNulls={false} name="Projeção" />
                         <Line type="monotone" dataKey="actual" stroke="#16a34a" strokeWidth={2.5} strokeDasharray="6 3" dot={false} connectNulls={false} name="Real Recebido" legendType="plainline" />
                       </AreaChart>
                     ) : singlePageMetricData && singlePageMetricData.length > 0 ? (
                       <AreaChart data={singlePageMetricData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                         <defs>
                           <linearGradient id="gradSingle" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#6200b3" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#6200b3" stopOpacity={0} />
+                            <stop offset="5%" stopColor="#F44708" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#F44708" stopOpacity={0} />
                           </linearGradient>
                         </defs>
-                        <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9d8fb0" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
+                        <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#6B6B6B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
                         <YAxis hide />
                         <Tooltip
                           formatter={(v: any) => [fmtMetricVal(Number(v)), METRIC_TABS.find((t) => t.key === chartMetric)?.label ?? chartMetric]}
-                          labelStyle={{ color: "#1a0533", fontSize: 11 }}
-                          contentStyle={{ border: "1px solid #e8e0f5", borderRadius: 10, fontSize: 11 }}
+                          labelStyle={{ color: "#1A0A00", fontSize: 11 }}
+                          contentStyle={{ border: "1px solid #E0E0E0", borderRadius: 10, fontSize: 11 }}
                         />
-                        <Area type="monotone" dataKey="value" stroke="#6200b3" strokeWidth={2} fill="url(#gradSingle)" dot={false} connectNulls />
+                        <Area type="monotone" dataKey="value" stroke="#F44708" strokeWidth={2} fill="url(#gradSingle)" dot={false} connectNulls />
                       </AreaChart>
                     ) : (
                       <AreaChart data={[]} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                        <XAxis tick={{ fontSize: 10, fill: "#9d8fb0" }} axisLine={false} tickLine={false} />
+                        <XAxis tick={{ fontSize: 10, fill: "#6B6B6B" }} axisLine={false} tickLine={false} />
                         <YAxis hide />
                       </AreaChart>
                     )}
@@ -1554,7 +1554,7 @@ function AdminDashboard() {
                 </div>
 
                 {filterPage === "all" && !activeDataset && (
-                  <p className="text-center text-xs text-[#9d8fb0] mt-2">Nenhum dado para esta métrica no período</p>
+                  <p className="text-center text-xs text-[#6B6B6B] mt-2">Nenhum dado para esta métrica no período</p>
                 )}
               </div>
             );
@@ -1562,16 +1562,16 @@ function AdminDashboard() {
 
           {/* ── Colaboradores ── */}
           {!loading && collabCards.filter((c) => c.id !== SEM_COLAB_ID && c.posts > 0).length > 0 && (
-            <div className="bg-white border border-[#e8e0f5] rounded-xl overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-[#f0ebfa]">
+            <div className="bg-white border border-[#E0E0E0] rounded-xl overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-[#F0E0D0]">
                 <h2 className="text-sm font-semibold">Colaboradores</h2>
               </div>
-              <div className="divide-y divide-[#f8f5ff]">
+              <div className="divide-y divide-[#FFF0E8]">
                 {collabCards.filter((c) => c.posts > 0).slice(0, 10).map((item) => (
-                  <div key={item.id} className="px-5 py-3 flex items-center justify-between gap-4 hover:bg-[#f3e8ff]/50 transition-colors">
+                  <div key={item.id} className="px-5 py-3 flex items-center justify-between gap-4 hover:bg-[#FFF0E8]/50 transition-colors">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium">{item.nome}</p>
-                      <p className="text-xs text-[#9d8fb0]">
+                      <p className="text-xs text-[#6B6B6B]">
                         {item.hashtag ? `#${item.hashtag} · ` : ""}{item.posts.toLocaleString("pt-BR")} posts · {fmt(item.views)} views
                       </p>
                     </div>
@@ -1580,14 +1580,14 @@ function AdminDashboard() {
                         {usdBrl ? (
                           <>
                             <p className="text-sm font-semibold tabular-nums">{formatBRL(item.receita * usdBrl)}</p>
-                            <p className="text-xs text-[#9d8fb0] tabular-nums">${item.receita.toFixed(2)}</p>
+                            <p className="text-xs text-[#6B6B6B] tabular-nums">${item.receita.toFixed(2)}</p>
                           </>
                         ) : (
                           <p className="text-sm font-semibold tabular-nums">${item.receita.toFixed(2)}</p>
                         )}
                       </div>
                       <button onClick={() => setAuditColabId(item.id)}
-                        className="px-2.5 py-1.5 rounded-lg bg-[#6200b3] text-white text-xs font-medium hover:bg-[#4a0090] transition-colors">
+                        className="px-2.5 py-1.5 rounded-lg bg-[#F44708] text-white text-xs font-medium hover:bg-[#D93D07] transition-colors">
                         Ver
                       </button>
                     </div>
@@ -1606,10 +1606,10 @@ function AdminDashboard() {
             <DialogTitle className="flex items-center gap-2">
               {auditData?.colab?.nome ?? "—"}
               {auditData?.colab?.hashtag && (
-                <span className="text-xs font-normal text-[#9d8fb0] font-mono">#{auditData.colab.hashtag}</span>
+                <span className="text-xs font-normal text-[#6B6B6B] font-mono">#{auditData.colab.hashtag}</span>
               )}
             </DialogTitle>
-            <p className="text-xs text-[#9d8fb0]">
+            <p className="text-xs text-[#6B6B6B]">
               {filterFrom && filterTo ? `${filterFrom} → ${filterTo}` : "Todos os períodos"} · {auditData?.posts.length ?? 0} posts
             </p>
           </DialogHeader>
@@ -1621,33 +1621,33 @@ function AdminDashboard() {
                   { label: "Views", value: fmt(auditData.posts.reduce((s, p) => s + Number(p.views ?? 0), 0)) },
                   { label: "Total (USD)", value: `$${(auditData.card?.receita ?? 0).toFixed(2)}` },
                 ].map(({ label, value }) => (
-                  <div key={label} className="border border-[#e8e0f5] rounded-xl p-3 text-center">
-                    <p className="text-[10px] uppercase tracking-wider text-[#9d8fb0] font-medium">{label}</p>
+                  <div key={label} className="border border-[#E0E0E0] rounded-xl p-3 text-center">
+                    <p className="text-[10px] uppercase tracking-wider text-[#6B6B6B] font-medium">{label}</p>
                     <p className="text-lg font-semibold tabular-nums mt-0.5">{value}</p>
                   </div>
                 ))}
               </div>
               {Object.keys(auditData.typeBreakdown).length > 0 && (
-                <div className="border border-[#e8e0f5] rounded-xl p-3">
-                  <p className="text-[10px] uppercase tracking-wider text-[#9d8fb0] font-medium mb-2">Por tipo</p>
+                <div className="border border-[#E0E0E0] rounded-xl p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-[#6B6B6B] font-medium mb-2">Por tipo</p>
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(auditData.typeBreakdown).map(([type, info]) => (
-                      <span key={type} className="inline-flex items-center gap-1.5 text-xs bg-[#f8f5ff] rounded-lg px-2.5 py-1">
+                      <span key={type} className="inline-flex items-center gap-1.5 text-xs bg-[#FFF0E8] rounded-lg px-2.5 py-1">
                         <span className="font-medium capitalize">{type}</span>
-                        <span className="text-[#c4b5d4]">·</span>
+                        <span className="text-[#6B6B6B]">·</span>
                         <span>{info.count} posts</span>
-                        <span className="text-[#c4b5d4]">·</span>
+                        <span className="text-[#6B6B6B]">·</span>
                         <span>{fmt(info.views)} views</span>
-                        <span className="text-[#c4b5d4]">·</span>
+                        <span className="text-[#6B6B6B]">·</span>
                         <span className="font-semibold">${info.share.toFixed(2)}</span>
                       </span>
                     ))}
                   </div>
                 </div>
               )}
-              <div className="border border-[#e8e0f5] rounded-xl overflow-hidden">
+              <div className="border border-[#E0E0E0] rounded-xl overflow-hidden">
                 <table className="w-full text-xs">
-                  <thead className="bg-[#f8f5ff] text-[10px] uppercase text-[#9d8fb0]">
+                  <thead className="bg-[#FFF0E8] text-[10px] uppercase text-[#6B6B6B]">
                     <tr>
                       <th className="text-left px-3 py-2 font-medium">Data</th>
                       <th className="text-left px-3 py-2 font-medium">Título / Tipo</th>
@@ -1658,21 +1658,21 @@ function AdminDashboard() {
                       <th className="text-right px-3 py-2 font-medium">Sua parte</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#f0ebfa]">
+                  <tbody className="divide-y divide-[#F0E0D0]">
                     {auditData.posts.map((p) => (
-                      <tr key={p.id} className="hover:bg-[#f3e8ff]">
-                        <td className="px-3 py-2 text-[#9d8fb0] whitespace-nowrap">{p.published_at ? p.published_at.slice(0, 10) : "—"}</td>
+                      <tr key={p.id} className="hover:bg-[#FFF0E8]">
+                        <td className="px-3 py-2 text-[#6B6B6B] whitespace-nowrap">{p.published_at ? p.published_at.slice(0, 10) : "—"}</td>
                         <td className="px-3 py-2 max-w-[200px]">
                           {p.permalink ? (
                             <a href={p.permalink} target="_blank" rel="noopener noreferrer"
-                              className="truncate block underline underline-offset-2 text-[#3b0086] hover:text-[#9d8fb0] transition-colors"
+                              className="truncate block underline underline-offset-2 text-[#F44708] hover:text-[#6B6B6B] transition-colors"
                               onClick={(e) => e.stopPropagation()}>
                               {p.title ?? p.id.slice(0, 8)}
                             </a>
                           ) : (
                             <span className="truncate block">{p.title ?? p.id.slice(0, 8)}</span>
                           )}
-                          {p.post_type && <span className="text-[10px] text-[#9d8fb0] capitalize">{p.post_type}</span>}
+                          {p.post_type && <span className="text-[10px] text-[#6B6B6B] capitalize">{p.post_type}</span>}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">{fmt(Number(p.views ?? 0))}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{Number(p.reactions ?? 0).toLocaleString("pt-BR")}</td>

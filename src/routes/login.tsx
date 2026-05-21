@@ -39,12 +39,14 @@ function LoginPage() {
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-white">
-      {/* Left branding column — dark */}
-      <div className="hidden lg:flex flex-col justify-between p-12 bg-[#0a0a0a]">
+      {/* Left branding column */}
+      <div className="hidden lg:flex flex-col justify-between p-12" style={{ backgroundColor: "#A10702" }}>
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-white/10 flex items-center justify-center">
-            <span className="text-white font-bold text-base leading-none">S</span>
-          </div>
+          <img
+            src="/assets/logo/logo site.webp"
+            alt="Splash Creators"
+            className="h-10 w-10 object-contain rounded-lg"
+          />
           <span className="text-white font-semibold text-base tracking-tight">Splash Creators</span>
         </div>
 
@@ -52,27 +54,27 @@ function LoginPage() {
           <h2 className="text-3xl font-bold tracking-tight text-white mb-4 leading-tight">
             Gestão de receita por post, sem planilha.
           </h2>
-          <p className="text-white/50 leading-relaxed text-sm">
+          <p className="text-white/60 leading-relaxed text-sm">
             Importe o CSV do Facebook, defina regras de split por página, feche o mês e
             gere comprovantes em PDF. Tudo auditado e organizado.
           </p>
-          <ul className="mt-8 space-y-3 text-sm text-white/40">
+          <ul className="mt-8 space-y-3 text-sm text-white/50">
             <li className="flex items-center gap-2.5">
-              <span className="h-1 w-1 rounded-full bg-white/30 shrink-0" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#FAA613] shrink-0" />
               Importação idempotente com histórico
             </li>
             <li className="flex items-center gap-2.5">
-              <span className="h-1 w-1 rounded-full bg-white/30 shrink-0" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#FAA613] shrink-0" />
               Fechamento mensal congelado (snapshot)
             </li>
             <li className="flex items-center gap-2.5">
-              <span className="h-1 w-1 rounded-full bg-white/30 shrink-0" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#FAA613] shrink-0" />
               Comprovante em PDF por colaborador
             </li>
           </ul>
         </div>
 
-        <p className="text-xs text-white/20">© {new Date().getFullYear()} Splash Creators</p>
+        <p className="text-xs text-white/30">© {new Date().getFullYear()} Splash Creators</p>
       </div>
 
       {/* Right login column */}
@@ -80,13 +82,15 @@ function LoginPage() {
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-10">
-            <div className="h-9 w-9 rounded-lg bg-[#0a0a0a] flex items-center justify-center">
-              <span className="text-white font-bold text-base leading-none">S</span>
-            </div>
-            <span className="font-semibold text-base tracking-tight text-[#0a0a0a]">Splash Creators</span>
+            <img
+              src="/assets/logo/logo site.webp"
+              alt="Splash Creators"
+              className="h-9 w-9 object-contain rounded-lg"
+            />
+            <span className="font-semibold text-base tracking-tight" style={{ color: "#A10702" }}>Splash Creators</span>
           </div>
 
-          <h1 className="text-2xl font-bold tracking-tight text-[#0a0a0a]">Entrar</h1>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: "#1A0A00" }}>Entrar</h1>
           <p className="text-sm text-neutral-500 mt-1.5 mb-8">
             Acesse com o e-mail e senha cadastrados pelo administrador.
           </p>
@@ -104,7 +108,8 @@ function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="voce@empresa.com"
-                className="h-11 border-neutral-200 focus-visible:ring-neutral-900 rounded-lg"
+                className="h-11 border-neutral-200 rounded-lg"
+                style={{ "--tw-ring-color": "#F44708" } as React.CSSProperties}
               />
             </div>
             <div className="space-y-1.5">
@@ -119,12 +124,13 @@ function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="h-11 border-neutral-200 focus-visible:ring-neutral-900 rounded-lg"
+                className="h-11 border-neutral-200 rounded-lg"
               />
             </div>
             <Button
               type="submit"
-              className="w-full h-11 bg-[#0a0a0a] hover:bg-neutral-800 text-white rounded-lg font-medium"
+              className="w-full h-11 text-white rounded-lg font-medium"
+              style={{ backgroundColor: "#F44708" }}
               disabled={submitting}
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}

@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import {
   LayoutDashboard, FileSpreadsheet, FileText, Percent,
-  CalendarCheck, Users, HandCoins, LogOut, Wallet, Menu, X, UserCog, Target, TrendingUp, BarChart3,
+  CalendarCheck, Users, HandCoins, LogOut, Menu, X, UserCog, Target, TrendingUp, BarChart3,
 } from "lucide-react";
 
 interface NavItem {
@@ -64,12 +64,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             className="absolute inset-0 bg-black/40"
             onClick={() => setDrawerOpen(false)}
           />
-          <div className="relative w-72 bg-sidebar h-full shadow-xl flex flex-col">
+          <div className="relative w-72 bg-sidebar h-full flex flex-col">
             <div className="flex items-center justify-between h-14 px-4 border-b border-border shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="h-7 w-7 rounded-lg bg-white/10 flex items-center justify-center">
-                  <Wallet className="h-3.5 w-3.5 text-white" />
-                </div>
+                <img
+                  src="/assets/logo/logo site.webp"
+                  alt="Splash Creators"
+                  className="h-7 w-7 object-contain rounded-md shrink-0"
+                />
                 <span className="font-semibold text-sm text-sidebar-foreground">Splash Creators</span>
               </div>
               <button
@@ -134,9 +136,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
 
           <div className="flex items-center gap-1.5 min-w-0">
-            <div className="h-6 w-6 rounded-md bg-white/10 flex items-center justify-center shrink-0">
-              <Wallet className="h-3 w-3 text-white" />
-            </div>
+            <img
+              src="/assets/logo/logo site.webp"
+              alt="Splash Creators"
+              className="h-6 w-6 object-contain rounded shrink-0"
+            />
             <span className="text-sm font-semibold text-foreground truncate">
               {currentPage?.label ?? "Splash Creators"}
             </span>
@@ -166,10 +170,12 @@ function SidebarContent({
 }) {
   return (
     <>
-      <div className="h-16 flex items-center gap-2.5 px-5 border-b border-border shrink-0">
-        <div className="h-8 w-8 rounded-xl bg-white/10 flex items-center justify-center shadow-sm">
-          <Wallet className="h-4 w-4 text-white" />
-        </div>
+      <div className="h-16 flex items-center gap-3 px-5 border-b border-border shrink-0">
+        <img
+          src="/assets/logo/logo site.webp"
+          alt="Splash Creators"
+          className="h-9 w-9 object-contain rounded-lg shrink-0"
+        />
         <div className="flex flex-col">
           <span className="font-bold leading-tight text-sidebar-foreground">Splash Creators</span>
           <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50">
