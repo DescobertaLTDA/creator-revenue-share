@@ -12,8 +12,8 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { useWriteGuard } from "@/hooks/use-write-guard";
-import { Users, Plus, Loader2, Hash, Trash2, Camera, UserCircle } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { Users, Plus, Loader2, Hash, Trash2, Camera, UserCircle, Lock } from "lucide-react";
 
 export const Route = createFileRoute("/admin/colaboradores")({
   head: () => ({ meta: [{ title: "Colaboradores - Splash Creators" }] }),
@@ -116,7 +116,8 @@ async function rematchCollaboratorPosts(collaboratorId: string, hashtag: string)
 }
 
 function Page() {
-  const { guard, guardSubmit, WriteGuardDialog } = useWriteGuard();
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === "admin";
   const [rows, setRows] = useState<Col[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -296,9 +297,22 @@ function Page() {
     }
   };
 
+  if (!isAdmin && profile !== null) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
+        <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
+          <Lock className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <div>
+          <p className="font-semibold text-lg">Acesso restrito</p>
+          <p className="text-sm text-muted-foreground mt-1">Você não tem permissão para acessar essa área.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <WriteGuardDialog />
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -324,11 +338,11 @@ function Page() {
       <PageHeader
         title="Colaboradores"
         description="Cadastre hashtags e o sistema vincula posts antigos e novos automaticamente."
-        actions={<Button onClick={guard(openNew)}><Plus className="h-4 w-4 mr-2" />Novo</Button>}
+        actions={<Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Novo</Button>}
       />
 
       {showForm && (
-        <form onSubmit={guardSubmit(onSubmit)} className="bg-card border border-border rounded-lg p-5 mb-6 space-y-4">
+        <form onSubmit={onSubmit} className="bg-card border border-border rounded-lg p-5 mb-6 space-y-4">
           <h3 className="font-medium">{editId ? "Editar colaborador" : "Novo colaborador"}</h3>
 
           {/* Avatar upload */}
@@ -445,11 +459,11 @@ function Page() {
                     </span>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={guard(() => openEdit(r))} className="flex-1 h-10">Editar</Button>
-                    <Button size="sm" variant="ghost" onClick={guard(() => toggleAtivo(r))} className="flex-1 h-10">
+                    <Button size="sm" variant="outline" onClick={() => openEdit(r)} className="flex-1 h-10">Editar</Button>
+                    <Button size="sm" variant="ghost" onClick={() => toggleAtivo(r)} className="flex-1 h-10">
                       {r.ativo ? "Desativar" : "Ativar"}
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={guard(() => setDeleteTarget(r))} className="h-10 text-destructive hover:text-destructive hover:bg-destructive/10">
+                    <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(r)} className="h-10 text-destructive hover:text-destructive hover:bg-destructive/10">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -489,11 +503,11 @@ function Page() {
                         </span>
                       </td>
                       <td className="px-5 py-3 flex gap-2">
-                        <Button size="sm" variant="outline" onClick={guard(() => openEdit(r))}>Editar</Button>
-                        <Button size="sm" variant="ghost" onClick={guard(() => toggleAtivo(r))}>
+                        <Button size="sm" variant="outline" onClick={() => openEdit(r)}>Editar</Button>
+                        <Button size="sm" variant="ghost" onClick={() => toggleAtivo(r)}>
                           {r.ativo ? "Desativar" : "Ativar"}
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={guard(() => setDeleteTarget(r))} className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                        <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(r)} className="text-destructive hover:text-destructive hover:bg-destructive/10">
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </td>
