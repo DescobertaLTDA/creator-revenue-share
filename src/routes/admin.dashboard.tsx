@@ -1581,6 +1581,7 @@ function AdminDashboard() {
                 onCardClick={(id) => setAuditColabId(id)}
                 receitaOnById={receitaOnById}
                 receitaOffById={receitaOffById}
+                showDelta={showManual}
               />
             );
           })()}
@@ -1977,12 +1978,12 @@ function RankBadge({ rank }: { rank: number }) {
   );
 }
 
-function ColaboradorCard({ item, rank, sparkline, usdBrl, onClick, idx, receitaOn, receitaOff }: {
+function ColaboradorCard({ item, rank, sparkline, usdBrl, onClick, idx, receitaOn, receitaOff, showDelta }: {
   item: ColabCard; rank: number; sparkline: number[];
   usdBrl: number | null; onClick: () => void; idx: number;
-  receitaOn: number; receitaOff: number;
+  receitaOn: number; receitaOff: number; showDelta: boolean;
 }) {
-  const delta = receitaOff > 0.001 ? ((receitaOn - receitaOff) / receitaOff) * 100 : null;
+  const delta = showDelta && receitaOff > 0.001 ? ((receitaOn - receitaOff) / receitaOff) * 100 : null;
 
   return (
     <button
@@ -2017,13 +2018,14 @@ function ColaboradorCard({ item, rank, sparkline, usdBrl, onClick, idx, receitaO
   );
 }
 
-function ColabSection({ cards, sparklineByColab, usdBrl, onCardClick, receitaOnById, receitaOffById }: {
+function ColabSection({ cards, sparklineByColab, usdBrl, onCardClick, receitaOnById, receitaOffById, showDelta }: {
   cards: ColabCard[];
   sparklineByColab: Map<string, number[]>;
   usdBrl: number | null;
   onCardClick: (id: string) => void;
   receitaOnById: Map<string, number>;
   receitaOffById: Map<string, number>;
+  showDelta: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -2067,6 +2069,7 @@ function ColabSection({ cards, sparklineByColab, usdBrl, onCardClick, receitaOnB
             usdBrl={usdBrl} onClick={() => onCardClick(card.id)} idx={i}
             receitaOn={receitaOnById.get(card.id) ?? card.receita}
             receitaOff={receitaOffById.get(card.id) ?? card.receita}
+            showDelta={showDelta}
           />
         ))}
       </div>
