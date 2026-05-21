@@ -1431,14 +1431,17 @@ function AdminDashboard() {
             <label className="text-[10px] font-medium uppercase tracking-wider text-[#6B6B6B]">Dados manuais</label>
             <button
               onClick={() => setShowManual((v) => !v)}
-              className={`h-8 flex items-center gap-2 px-3 rounded-lg border text-xs font-semibold transition-all ${
-                showManual
-                  ? "bg-[#F44708] border-[#F44708] text-white"
-                  : "bg-white border-[#E0E0E0] text-[#6B6B6B]"
-              }`}
+              className="h-8 flex items-center focus:outline-none"
+              aria-pressed={showManual}
             >
-              <span className={`h-3.5 w-3.5 rounded-full border-2 transition-all ${showManual ? "bg-white border-white" : "border-[#6B6B6B]"}`} />
-              {showManual ? "Ativado" : "Desativado"}
+              <div className={`relative flex items-center h-8 w-[72px] rounded-full px-1 transition-colors duration-200 ${showManual ? "bg-[#F44708]" : "bg-[#D0D0D0]"}`}>
+                {/* track label */}
+                <span className={`absolute text-[10px] font-bold text-white tracking-wide transition-all duration-200 ${showManual ? "right-2.5" : "left-2.5"}`}>
+                  {showManual ? "ON" : "OFF"}
+                </span>
+                {/* thumb */}
+                <span className={`h-6 w-6 rounded-full bg-white shadow-md transition-all duration-200 shrink-0 ${showManual ? "translate-x-[36px]" : "translate-x-0"}`} />
+              </div>
             </button>
           </div>
         </div>
