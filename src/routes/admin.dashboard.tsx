@@ -701,6 +701,20 @@ function AdminDashboard() {
     return () => { if (timer) clearTimeout(timer); supabase.removeChannel(channel); };
   }, []);
 
+  // ─── Manual KPI totals (must be before `computed` destructuring) ────────────
+
+  const manualKpiTotals = useMemo(() => {
+    let revenue = 0; let views = 0;
+    for (const e of dailyEntries) {
+      if (filterPage !== "all" && e.page_id !== filterPage) continue;
+      if (filterFrom && e.entry_date < filterFrom) continue;
+      if (filterTo && e.entry_date > filterTo) continue;
+      if (e.actual_revenue_usd != null) revenue += Number(e.actual_revenue_usd);
+      if (e.actual_views != null) views += Number(e.actual_views);
+    }
+    return { revenue, views };
+  }, [dailyEntries, filterPage, filterFrom, filterTo]);
+
   // ─── Computations ──────────────────────────────────────────────────────────
 
   const computed = useMemo(() => {
@@ -1280,19 +1294,6 @@ function AdminDashboard() {
     });
     return { data, pageIds, pageNameById, pageTotal };
   }, [dailyActualFollowersByPage, filterPage, pages]);
-
-  // Manual KPI totals — sum of actual_revenue_usd / actual_views filtered by page + date
-  const manualKpiTotals = useMemo(() => {
-    let revenue = 0; let views = 0;
-    for (const e of dailyEntries) {
-      if (filterPage !== "all" && e.page_id !== filterPage) continue;
-      if (filterFrom && e.entry_date < filterFrom) continue;
-      if (filterTo && e.entry_date > filterTo) continue;
-      if (e.actual_revenue_usd != null) revenue += Number(e.actual_revenue_usd);
-      if (e.actual_views != null) views += Number(e.actual_views);
-    }
-    return { revenue, views };
-  }, [dailyEntries, filterPage, filterFrom, filterTo]);
 
   // Scores always computed across ALL pages (date-filtered only, never page-filtered)
   // so a single-page view doesn't self-normalize to 100.
