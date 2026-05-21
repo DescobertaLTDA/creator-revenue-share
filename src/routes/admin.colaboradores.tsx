@@ -111,10 +111,14 @@ function Page() {
 
   const load = async () => {
     setLoading(true);
-    const { data: cols } = await supabase
+    const colsRes = await supabase
       .from("collaborators")
       .select("id, nome, email, hashtag, avatar_url, ativo")
       .order("nome");
+    // Fallback if avatar_url column doesn't exist yet
+    const cols = colsRes.error
+      ? (await supabase.from("collaborators").select("id, nome, email, hashtag, ativo").order("nome")).data
+      : colsRes.data;
 
     if (!cols) {
       setLoading(false);
@@ -190,16 +194,22 @@ function Page() {
 
       if (!collaboratorId) throw new Error("Colaborador invalido");
 
-      // Upload avatar if a new file was selected
+      // Upload avatar if a new file was selected (non-blocking — collaborator is saved regardless)
       if (avatarFile) {
-        const ext = avatarFile.name.split(".").pop()?.toLowerCase() || "jpg";
-        const path = `collaborators/${collaboratorId}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from("avatars")
-          .upload(path, avatarFile, { upsert: true, contentType: avatarFile.type });
-        if (!uploadError) {
-          const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
-          await supabase.from("collaborators").update({ avatar_url: publicUrl }).eq("id", collaboratorId);
+        try {
+          const ext = avatarFile.name.split(".").pop()?.toLowerCase() || "jpg";
+          const path = `collaborators/${collaboratorId}.${ext}`;
+          const { error: uploadError } = await supabase.storage
+            .from("avatars")
+            .upload(path, avatarFile, { upsert: true, contentType: avatarFile.type });
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+            await supabase.from("collaborators").update({ avatar_url: publicUrl }).eq("id", collaboratorId);
+          } else {
+            toast.warning("Foto não salva", { description: "Bucket de avatars não configurado ainda. Colaborador salvo sem foto." });
+          }
+        } catch {
+          toast.warning("Foto não salva", { description: "Erro ao fazer upload. Colaborador salvo sem foto." });
         }
       }
 
