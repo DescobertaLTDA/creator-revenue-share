@@ -16,7 +16,7 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Users, Plus, Loader2, Trash2, Shield, Eye, UserCheck } from "lucide-react";
+import { Users, Plus, Loader2, Trash2, Shield, Eye, UserCheck, User } from "lucide-react";
 
 export const Route = createFileRoute("/admin/cadastro")({
   head: () => ({ meta: [{ title: "Cadastro de Usuários — Splash Creators" }] }),
@@ -27,13 +27,14 @@ interface UserProfile {
   id: string;
   nome: string;
   email: string | null;
-  role: "admin" | "colaborador";
+  role: "admin" | "colaborador" | "leitor";
   created_at: string;
 }
 
 const ROLE_LABEL: Record<string, string> = {
-  admin: "Admin",
+  admin: "Administrador",
   colaborador: "Colaborador",
+  leitor: "Leitor",
 };
 
 function Page() {
@@ -49,7 +50,7 @@ function Page() {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"admin" | "colaborador">("colaborador");
+  const [role, setRole] = useState<"admin" | "colaborador" | "leitor">("colaborador");
 
   useEffect(() => {
     if (profile?.role !== "admin") {
@@ -167,7 +168,7 @@ function Page() {
             </div>
             <div className="space-y-1.5">
               <Label>Função</Label>
-              <Select value={role} onValueChange={(v) => setRole(v as "admin" | "colaborador")}>
+              <Select value={role} onValueChange={(v) => setRole(v as "admin" | "colaborador" | "leitor")}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -177,7 +178,16 @@ function Page() {
                       <UserCheck className="h-4 w-4 text-muted-foreground" />
                       <div>
                         <p className="font-medium">Colaborador</p>
-                        <p className="text-xs text-muted-foreground">Vê dados do período, sem editar</p>
+                        <p className="text-xs text-muted-foreground">Acessa o próprio painel e posts vinculados</p>
+                      </div>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="leitor">
+                    <div className="flex items-center gap-2">
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">Leitor</p>
+                        <p className="text-xs text-muted-foreground">Vê todos os dados, sem editar</p>
                       </div>
                     </div>
                   </SelectItem>
@@ -185,7 +195,7 @@ function Page() {
                     <div className="flex items-center gap-2">
                       <Shield className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <p className="font-medium">Admin</p>
+                        <p className="font-medium">Administrador</p>
                         <p className="text-xs text-muted-foreground">Acesso total ao sistema</p>
                       </div>
                     </div>
@@ -232,7 +242,7 @@ function Page() {
                     <span className={`inline-flex items-center gap-1 mt-1 text-xs font-medium px-2 py-0.5 rounded-full ${
                       u.role === "admin" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                     }`}>
-                      {u.role === "admin" ? <Shield className="h-3 w-3" /> : <UserCheck className="h-3 w-3" />}
+                      {u.role === "admin" ? <Shield className="h-3 w-3" /> : u.role === "leitor" ? <Eye className="h-3 w-3" /> : <UserCheck className="h-3 w-3" />}
                       {ROLE_LABEL[u.role]}
                     </span>
                   </div>
@@ -278,7 +288,7 @@ function Page() {
                         <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
                           u.role === "admin" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                         }`}>
-                          {u.role === "admin" ? <Shield className="h-3 w-3" /> : <UserCheck className="h-3 w-3" />}
+                          {u.role === "admin" ? <Shield className="h-3 w-3" /> : u.role === "leitor" ? <Eye className="h-3 w-3" /> : <UserCheck className="h-3 w-3" />}
                           {ROLE_LABEL[u.role]}
                         </span>
                       </td>
@@ -309,19 +319,26 @@ function Page() {
       {/* Role legend */}
       <div className="mt-4 p-4 bg-muted/30 rounded-lg border border-border space-y-2">
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Níveis de acesso</p>
-        <div className="flex flex-col sm:flex-row gap-3 text-sm">
+        <div className="flex flex-col sm:flex-row gap-4 text-sm">
           <div className="flex items-start gap-2">
             <Shield className="h-4 w-4 text-primary mt-0.5 shrink-0" />
             <div>
-              <p className="font-medium">Admin</p>
+              <p className="font-medium">Administrador</p>
               <p className="text-xs text-muted-foreground">Acesso total: cria fechamentos, importa CSVs, edita regras e gerencia usuários.</p>
             </div>
           </div>
-          <div className="flex items-start gap-2 sm:ml-6">
+          <div className="flex items-start gap-2 sm:ml-4">
             <UserCheck className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
             <div>
               <p className="font-medium">Colaborador</p>
-              <p className="text-xs text-muted-foreground">Vê todos os dashboards, posts, fechamentos e colaboradores. Não pode criar nem editar nada.</p>
+              <p className="text-xs text-muted-foreground">Acessa o próprio painel com seus posts e receitas vinculadas.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2 sm:ml-4">
+            <Eye className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium">Leitor</p>
+              <p className="text-xs text-muted-foreground">Vê todos os dashboards, posts e fechamentos. Não pode criar nem editar nada.</p>
             </div>
           </div>
         </div>

@@ -1,5 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const VALID_ROLES = ["admin", "colaborador", "leitor"];
+
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -66,11 +68,12 @@ Deno.serve(async (req) => {
       });
       if (error) return json({ error: error.message }, 400);
 
+      const safeRole = VALID_ROLES.includes(role) ? role : "colaborador";
       await supabaseAdmin.from("profiles").upsert({
         id: data.user.id,
         nome,
         email: email.trim().toLowerCase(),
-        role: role === "admin" ? "admin" : "colaborador",
+        role: safeRole,
       });
 
       return json({ user: { id: data.user.id, email: data.user.email } });
@@ -96,9 +99,10 @@ Deno.serve(async (req) => {
       if (!userId || !role) return json({ error: "userId e role obrigatórios" }, 400);
       if (userId === caller.id) return json({ error: "Não é possível alterar sua própria função" }, 400);
 
+      const safeRole = VALID_ROLES.includes(role) ? role : "colaborador";
       await supabaseAdmin
         .from("profiles")
-        .update({ role: role === "admin" ? "admin" : "colaborador" })
+        .update({ role: safeRole })
         .eq("id", userId);
 
       return json({ ok: true });
