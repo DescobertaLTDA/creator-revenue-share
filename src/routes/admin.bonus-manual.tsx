@@ -27,6 +27,7 @@ interface DayEntry {
   weekday: string;
   posts_revenue: number;
   views: number;
+  actual_views: number | null;
   actual_revenue: number | null;
   distribution_mode: string;
   note: string;
@@ -276,7 +277,7 @@ function BonusManualPage() {
       days: string[],
       postsByDay: Record<string, number>,
       viewsByDay: Record<string, number>,
-      dbEntries: Record<string, { id: string; actual_revenue_usd: number | null; distribution_mode: string; note: string | null }>
+      dbEntries: Record<string, { id: string; actual_revenue_usd: number | null; actual_views: number | null; distribution_mode: string; note: string | null }>
     ): DayEntry[] => {
       return days.map((date) => {
         const d = new Date(date + "T00:00:00");
@@ -287,6 +288,7 @@ function BonusManualPage() {
           weekday: WEEKDAYS_SHORT[d.getDay()],
           posts_revenue: postsByDay[date] ?? 0,
           views: viewsByDay[date] ?? 0,
+          actual_views: db?.actual_views ?? null,
           actual_revenue: db?.actual_revenue_usd ?? null,
           distribution_mode: db?.distribution_mode ?? "hybrid",
           note: db?.note ?? "",
@@ -316,7 +318,7 @@ function BonusManualPage() {
         .lte("published_at", to + "T23:59:59"),
       (supabase as any)
         .from("daily_revenue_entries")
-        .select("id, entry_date, actual_revenue_usd, distribution_mode, note")
+        .select("id, entry_date, actual_revenue_usd, actual_views, distribution_mode, note")
         .eq("page_id", pageId)
         .gte("entry_date", from)
         .lte("entry_date", to),
@@ -366,6 +368,7 @@ function BonusManualPage() {
       entry_date: row.date,
       page_id: selectedPageId,
       actual_revenue_usd: row.actual_revenue,
+      actual_views: row.actual_views,
       distribution_mode: row.distribution_mode,
       note: row.note.trim() || null,
       updated_at: new Date().toISOString(),
@@ -399,19 +402,28 @@ function BonusManualPage() {
     }, 800);
   };
 
+  const handleViewsChange = (row: DayEntry, raw: string) => {
+    const val = raw === "" ? null : parseInt(raw, 10);
+    updateRow(row.date, "actual_views", Number.isFinite(val) && val !== null ? val : null);
+    clearTimeout(saveTimers.current[row.date + "_views"]);
+    saveTimers.current[row.date + "_views"] = setTimeout(() => {
+      setRows((prev) => {
+        const updated = prev.find((r) => r.date === row.date);
+        if (updated) saveRow(updated);
+        return prev;
+      });
+    }, 800);
+  };
+
   const handleFieldBlur = guard((row: DayEntry) => { if (row.dirty) saveRow(row); });
 
   const totalPosts = rows.reduce((s, r) => s + r.posts_revenue, 0);
   const totalActual = rows.reduce((s, r) => s + (r.actual_revenue ?? 0), 0);
   const totalBonus = totalActual - totalPosts;
-  const totalViews = rows.reduce((s, r) => s + r.views, 0);
+  const totalViews = rows.reduce((s, r) => s + (r.actual_views ?? r.views), 0);
   const filledDays = rows.filter((r) => r.actual_revenue != null).length;
 
-  function fmtViews(n: number) {
-    return n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M`
-      : n >= 1_000 ? `${Math.round(n / 1_000)}k`
-      : String(n);
-  }
+  const fmtViews = (n: number) => n.toLocaleString("pt-BR");
 
   const distWithBonus: ColabDist[] = useMemo(() => {
     if (totalBonus <= 0) return colabDist.map((c) => ({ ...c, bonus_estimated: 0 }));
@@ -544,6 +556,17 @@ function BonusManualPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="flex-1">
+                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Views reais</p>
+                            <input
+                              type="number" min="0" step="1" disabled={isFuture}
+                              placeholder="0"
+                              value={row.actual_views ?? ""}
+                              onChange={(e) => handleViewsChange(row, e.target.value)}
+                              onBlur={() => handleFieldBlur(row)}
+                              className="w-full h-10 rounded-lg border border-input bg-background px-3 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-[#F44708]/40 disabled:opacity-30"
+                            />
+                          </div>
+                          <div className="flex-1">
                             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Real recebido (USD)</p>
                             <input
                               type="number" min="0" step="0.01" disabled={isFuture}
@@ -591,7 +614,7 @@ function BonusManualPage() {
                     <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                       <tr>
                         <th className="text-left px-4 py-3 font-medium w-24">Dia</th>
-                        <th className="text-right px-4 py-3 font-medium text-[#F44708]">Views</th>
+                        <th className="text-right px-4 py-3 font-medium text-[#F44708]">Views reais</th>
                         <th className="text-right px-4 py-3 font-medium">Posts (USD)</th>
                         <th className="text-right px-4 py-3 font-medium">Real recebido (USD)</th>
                         <th className="w-8 px-4 py-3" />
@@ -607,8 +630,15 @@ function BonusManualPage() {
                               <span className="font-semibold tabular-nums">{row.label}</span>
                               <span className="text-[10px] text-muted-foreground ml-1.5">{row.weekday}</span>
                             </td>
-                            <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#F44708]">
-                              {row.views > 0 ? fmtViews(row.views) : <span className="text-muted-foreground/40">—</span>}
+                            <td className="px-4 py-2.5 text-right">
+                              <input
+                                type="number" min="0" step="1" disabled={isFuture}
+                                placeholder={row.views > 0 ? fmtViews(row.views) : "0"}
+                                value={row.actual_views ?? ""}
+                                onChange={(e) => handleViewsChange(row, e.target.value)}
+                                onBlur={() => handleFieldBlur(row)}
+                                className="w-32 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums text-[#F44708] focus:outline-none focus:ring-1 focus:ring-[#F44708]/40 disabled:opacity-30"
+                              />
                             </td>
                             <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
                               {row.posts_revenue > 0 ? `$${row.posts_revenue.toFixed(2)}` : <span className="text-muted-foreground/40">—</span>}
@@ -636,6 +666,7 @@ function BonusManualPage() {
                     <tfoot>
                       <tr className="border-t-2 border-border bg-muted/30 font-semibold text-sm">
                         <td className="px-4 py-3 text-muted-foreground">Total</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-[#F44708]">{totalViews > 0 ? fmtViews(totalViews) : "—"}</td>
                         <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">${totalPosts.toFixed(2)}</td>
                         <td className="px-4 py-3 text-right tabular-nums">${totalActual.toFixed(2)}</td>
                         <td />
@@ -689,7 +720,7 @@ function BonusManualPage() {
                         </div>
                         <span className="text-xs font-semibold w-12 text-right tabular-nums">{formatPct(c.pct * 100)}</span>
                         <span className="text-xs text-muted-foreground">
-                          {c.views >= 1_000_000 ? `${(c.views / 1_000_000).toFixed(1)}M` : c.views >= 1_000 ? `${(c.views / 1_000).toFixed(1)}k` : c.views.toLocaleString("pt-BR")} views
+                          {c.views.toLocaleString("pt-BR")} views
                         </span>
                       </div>
                     </div>
@@ -715,7 +746,7 @@ function BonusManualPage() {
                             {c.hashtag && <p className="text-xs text-muted-foreground">#{c.hashtag}</p>}
                           </td>
                           <td className="px-5 py-3 text-right tabular-nums">
-                            {c.views >= 1_000_000 ? `${(c.views / 1_000_000).toFixed(1)}M` : c.views >= 1_000 ? `${(c.views / 1_000).toFixed(1)}k` : c.views.toLocaleString("pt-BR")}
+                            {c.views.toLocaleString("pt-BR")}
                           </td>
                           <td className="px-5 py-3 text-right tabular-nums font-semibold">{formatPct(c.pct * 100)}</td>
                           <td className={`px-5 py-3 text-right tabular-nums font-semibold ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
@@ -736,7 +767,7 @@ function BonusManualPage() {
                       <tr className="border-t-2 border-border bg-muted/30 font-semibold text-sm">
                         <td className="px-5 py-3">Total</td>
                         <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">
-                          {(() => { const t = distWithBonus.reduce((s, c) => s + c.views, 0); return t >= 1_000_000 ? `${(t / 1_000_000).toFixed(1)}M` : t >= 1_000 ? `${(t / 1_000).toFixed(1)}k` : t.toLocaleString("pt-BR"); })()}
+                          {distWithBonus.reduce((s, c) => s + c.views, 0).toLocaleString("pt-BR")}
                         </td>
                         <td className="px-5 py-3 text-right">100%</td>
                         <td className={`px-5 py-3 text-right tabular-nums ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
