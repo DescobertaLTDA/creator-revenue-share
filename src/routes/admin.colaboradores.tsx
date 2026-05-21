@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { useWriteGuard } from "@/hooks/use-write-guard";
-import { Users, Plus, Loader2, Hash, Trash2, Camera } from "lucide-react";
+import { Users, Plus, Loader2, Hash, Trash2, Camera, UserCircle } from "lucide-react";
 
 export const Route = createFileRoute("/admin/colaboradores")({
   head: () => ({ meta: [{ title: "Colaboradores - Splash Creators" }] }),
@@ -40,17 +40,7 @@ function normalizeHashtag(raw: string): string {
   return raw.replace(/^#+/, "").trim().toLowerCase();
 }
 
-const AVATAR_COLORS = [
-  ["#F44708", "#FAA613"],
-  ["#8B5CF6", "#C084FC"],
-  ["#0EA5E9", "#38BDF8"],
-  ["#10B981", "#34D399"],
-  ["#F59E0B", "#FCD34D"],
-  ["#EF4444", "#FC8181"],
-  ["#6366F1", "#A5B4FC"],
-];
-
-function ColabAvatar({ nome, avatarUrl, size = 36, idx }: { nome: string; avatarUrl?: string | null; size?: number; idx: number }) {
+function ColabAvatar({ nome, avatarUrl, size = 36 }: { nome: string; avatarUrl?: string | null; size?: number; idx?: number }) {
   if (avatarUrl) {
     return (
       <img
@@ -62,22 +52,13 @@ function ColabAvatar({ nome, avatarUrl, size = 36, idx }: { nome: string; avatar
       />
     );
   }
-  const [a, b] = AVATAR_COLORS[idx % AVATAR_COLORS.length];
-  const initials = nome.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
-  const gid = `ca-${idx}`;
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ borderRadius: "50%", display: "block", flexShrink: 0 }}>
-      <defs>
-        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor={a} />
-          <stop offset="100%" stopColor={b} />
-        </linearGradient>
-      </defs>
-      <circle cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#${gid})`} />
-      <text x={size / 2} y={size / 2 + size * 0.14} textAnchor="middle" fontSize={size * 0.35} fontWeight="700" fill="white" fontFamily="system-ui, sans-serif">
-        {initials}
-      </text>
-    </svg>
+    <div
+      style={{ width: size, height: size, flexShrink: 0 }}
+      className="rounded-full bg-muted flex items-center justify-center shrink-0"
+    >
+      <UserCircle className="text-muted-foreground" style={{ width: size * 0.7, height: size * 0.7 }} />
+    </div>
   );
 }
 
