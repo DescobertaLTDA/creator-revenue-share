@@ -16,7 +16,7 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Users, Plus, Loader2, Trash2, Shield, Eye } from "lucide-react";
+import { Users, Plus, Loader2, Trash2, Shield, Eye, UserCheck } from "lucide-react";
 
 export const Route = createFileRoute("/admin/cadastro")({
   head: () => ({ meta: [{ title: "Cadastro de Usuários — Splash Creators" }] }),
@@ -33,7 +33,7 @@ interface UserProfile {
 
 const ROLE_LABEL: Record<string, string> = {
   admin: "Admin",
-  colaborador: "Leitor",
+  colaborador: "Colaborador",
 };
 
 function Page() {
@@ -174,10 +174,10 @@ function Page() {
                 <SelectContent>
                   <SelectItem value="colaborador">
                     <div className="flex items-center gap-2">
-                      <Eye className="h-4 w-4 text-muted-foreground" />
+                      <UserCheck className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <p className="font-medium">Leitor</p>
-                        <p className="text-xs text-muted-foreground">Vê todos os dados, sem editar</p>
+                        <p className="font-medium">Colaborador</p>
+                        <p className="text-xs text-muted-foreground">Vê dados do período, sem editar</p>
                       </div>
                     </div>
                   </SelectItem>
@@ -232,7 +232,7 @@ function Page() {
                     <span className={`inline-flex items-center gap-1 mt-1 text-xs font-medium px-2 py-0.5 rounded-full ${
                       u.role === "admin" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                     }`}>
-                      {u.role === "admin" ? <Shield className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                      {u.role === "admin" ? <Shield className="h-3 w-3" /> : <UserCheck className="h-3 w-3" />}
                       {ROLE_LABEL[u.role]}
                     </span>
                   </div>
@@ -278,7 +278,7 @@ function Page() {
                         <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
                           u.role === "admin" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                         }`}>
-                          {u.role === "admin" ? <Shield className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                          {u.role === "admin" ? <Shield className="h-3 w-3" /> : <UserCheck className="h-3 w-3" />}
                           {ROLE_LABEL[u.role]}
                         </span>
                       </td>
@@ -318,9 +318,9 @@ function Page() {
             </div>
           </div>
           <div className="flex items-start gap-2 sm:ml-6">
-            <Eye className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+            <UserCheck className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
             <div>
-              <p className="font-medium">Leitor</p>
+              <p className="font-medium">Colaborador</p>
               <p className="text-xs text-muted-foreground">Vê todos os dashboards, posts, fechamentos e colaboradores. Não pode criar nem editar nada.</p>
             </div>
           </div>
