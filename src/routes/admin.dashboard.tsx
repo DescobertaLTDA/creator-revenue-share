@@ -1652,7 +1652,7 @@ function AdminDashboard() {
                         ))}
                       </ComposedChart>
                     ) : filterPage !== "all" && chartMetric === "receita" ? (
-                      <AreaChart
+                      <ComposedChart
                         data={showManual ? projectionChartData.map((row) => ({ ...row, actual: dailyActualByDia.get(row.dia) ?? null })) : projectionChartData}
                         margin={{ top: 4, right: 0, left: 0, bottom: 0 }}
                       >
@@ -1677,7 +1677,7 @@ function AdminDashboard() {
                         <Area type="monotone" dataKey="real" stroke="#F44708" strokeWidth={2} fill="url(#gradReal)" dot={false} connectNulls={false} legendType="none" />
                         <Area type="monotone" dataKey="proj" stroke="#FAC46A" strokeWidth={1.5} strokeDasharray="4 3" fill="url(#gradProj)" dot={false} connectNulls={false} legendType="none" />
                         {showManual && <Line type="monotone" dataKey="actual" stroke="#16a34a" strokeWidth={2.5} strokeDasharray="6 3" dot={false} connectNulls={false} legendType="none" />}
-                      </AreaChart>
+                      </ComposedChart>
                     ) : singlePageMetricData && singlePageMetricData.length > 0 ? (
                       <ComposedChart
                         data={chartMetric === "views" && showManual
