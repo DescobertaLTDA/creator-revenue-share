@@ -28,6 +28,7 @@ interface DayEntry {
   posts_revenue: number;
   views: number;
   actual_views: number | null;
+  actual_followers: number | null;
   actual_revenue: number | null;
   distribution_mode: string;
   note: string;
@@ -236,6 +237,7 @@ function BonusManualPage() {
   const [colabDist, setColabDist] = useState<ColabDist[]>([]);
   const [distLoading, setDistLoading] = useState(false);
   const [viewsFocusDate, setViewsFocusDate] = useState<string | null>(null);
+  const [followersFocusDate, setFollowersFocusDate] = useState<string | null>(null);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // Load pages list once
@@ -278,7 +280,7 @@ function BonusManualPage() {
       days: string[],
       postsByDay: Record<string, number>,
       viewsByDay: Record<string, number>,
-      dbEntries: Record<string, { id: string; actual_revenue_usd: number | null; actual_views: number | null; distribution_mode: string; note: string | null }>
+      dbEntries: Record<string, { id: string; actual_revenue_usd: number | null; actual_views: number | null; actual_followers: number | null; distribution_mode: string; note: string | null }>
     ): DayEntry[] => {
       return days.map((date) => {
         const d = new Date(date + "T00:00:00");
@@ -290,6 +292,7 @@ function BonusManualPage() {
           posts_revenue: postsByDay[date] ?? 0,
           views: viewsByDay[date] ?? 0,
           actual_views: db?.actual_views ?? null,
+          actual_followers: db?.actual_followers ?? null,
           actual_revenue: db?.actual_revenue_usd ?? null,
           distribution_mode: db?.distribution_mode ?? "hybrid",
           note: db?.note ?? "",
@@ -319,7 +322,7 @@ function BonusManualPage() {
         .lte("published_at", to + "T23:59:59"),
       (supabase as any)
         .from("daily_revenue_entries")
-        .select("id, entry_date, actual_revenue_usd, actual_views, distribution_mode, note")
+        .select("id, entry_date, actual_revenue_usd, actual_views, actual_followers, distribution_mode, note")
         .eq("page_id", pageId)
         .gte("entry_date", from)
         .lte("entry_date", to),
@@ -370,6 +373,7 @@ function BonusManualPage() {
       page_id: selectedPageId,
       actual_revenue_usd: row.actual_revenue,
       actual_views: row.actual_views,
+      actual_followers: row.actual_followers,
       distribution_mode: row.distribution_mode,
       note: row.note.trim() || null,
       updated_at: new Date().toISOString(),
@@ -415,6 +419,30 @@ function BonusManualPage() {
         return prev;
       });
     }, 800);
+  };
+
+  const handleFollowersChange = (row: DayEntry, raw: string) => {
+    const digits = raw.replace(/\D/g, "");
+    const val = digits === "" ? null : parseInt(digits, 10);
+    updateRow(row.date, "actual_followers", val);
+    clearTimeout(saveTimers.current[row.date + "_followers"]);
+    saveTimers.current[row.date + "_followers"] = setTimeout(() => {
+      setRows((prev) => {
+        const updated = prev.find((r) => r.date === row.date);
+        if (updated) saveRow(updated);
+        return prev;
+      });
+    }, 800);
+  };
+
+  const handleFollowersKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, date: string) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const inputs = Array.from(document.querySelectorAll<HTMLInputElement>("[data-followers-input]"))
+        .filter((el) => el.offsetParent !== null);
+      const idx = inputs.findIndex((el) => el.dataset.followersInput === date);
+      if (idx >= 0 && idx < inputs.length - 1) inputs[idx + 1].focus();
+    }
   };
 
   const handleViewsKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, date: string) => {
@@ -590,6 +618,22 @@ function BonusManualPage() {
                             />
                           </div>
                           <div className="flex-1">
+                            <p className="text-[10px] uppercase tracking-wider text-emerald-600 font-semibold mb-1">Seguidores</p>
+                            <input
+                              type="text" inputMode="numeric" disabled={isFuture}
+                              data-followers-input={row.date}
+                              placeholder="0"
+                              value={followersFocusDate === row.date
+                                ? (row.actual_followers ?? "")
+                                : (row.actual_followers != null ? row.actual_followers.toLocaleString("pt-BR") : "")}
+                              onFocus={() => setFollowersFocusDate(row.date)}
+                              onBlur={() => { setFollowersFocusDate(null); handleFieldBlur(row); }}
+                              onChange={(e) => handleFollowersChange(row, e.target.value)}
+                              onKeyDown={(e) => handleFollowersKeyDown(e, row.date)}
+                              className="w-full h-10 rounded-lg border border-input bg-background px-3 text-right text-sm tabular-nums text-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 disabled:opacity-30"
+                            />
+                          </div>
+                          <div className="flex-1">
                             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Real recebido (USD)</p>
                             <input
                               type="number" min="0" step="0.01" disabled={isFuture}
@@ -639,6 +683,7 @@ function BonusManualPage() {
                         <th className="text-left px-4 py-3 font-medium w-24">Dia</th>
                         <th className="text-right px-4 py-3 font-medium">Views CSV</th>
                         <th className="text-right px-4 py-3 font-medium text-[#F44708]">Views manuais</th>
+                        <th className="text-right px-4 py-3 font-medium text-emerald-600">Seguidores</th>
                         <th className="text-right px-4 py-3 font-medium">Posts (USD)</th>
                         <th className="text-right px-4 py-3 font-medium">Real recebido (USD)</th>
                         <th className="w-8 px-4 py-3" />
@@ -672,6 +717,21 @@ function BonusManualPage() {
                                 className="w-32 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums text-[#F44708] focus:outline-none focus:ring-1 focus:ring-[#F44708]/40 disabled:opacity-30"
                               />
                             </td>
+                            <td className="px-4 py-2.5 text-right">
+                              <input
+                                type="text" inputMode="numeric" disabled={isFuture}
+                                data-followers-input={row.date}
+                                placeholder="0"
+                                value={followersFocusDate === row.date
+                                  ? (row.actual_followers ?? "")
+                                  : (row.actual_followers != null ? row.actual_followers.toLocaleString("pt-BR") : "")}
+                                onFocus={() => setFollowersFocusDate(row.date)}
+                                onBlur={() => { setFollowersFocusDate(null); handleFieldBlur(row); }}
+                                onChange={(e) => handleFollowersChange(row, e.target.value)}
+                                onKeyDown={(e) => handleFollowersKeyDown(e, row.date)}
+                                className="w-24 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums text-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/40 disabled:opacity-30"
+                              />
+                            </td>
                             <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
                               {row.posts_revenue > 0 ? `$${row.posts_revenue.toFixed(2)}` : <span className="text-muted-foreground/40">—</span>}
                             </td>
@@ -703,6 +763,9 @@ function BonusManualPage() {
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums text-[#F44708]">
                           {(() => { const t = rows.reduce((s, r) => s + (r.actual_views ?? 0), 0); return t > 0 ? fmtViews(t) : "—"; })()}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums text-emerald-600">
+                          {(() => { const t = rows.reduce((s, r) => s + (r.actual_followers ?? 0), 0); return t > 0 ? t.toLocaleString("pt-BR") : "—"; })()}
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">${totalPosts.toFixed(2)}</td>
                         <td className="px-4 py-3 text-right tabular-nums">${totalActual.toFixed(2)}</td>
