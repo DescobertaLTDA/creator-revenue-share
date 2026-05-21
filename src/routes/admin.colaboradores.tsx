@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { useWriteGuard } from "@/hooks/use-write-guard";
-import { Users, Plus, Loader2, Hash, Trash2 } from "lucide-react";
+import { Users, Plus, Loader2, Hash, Trash2, Camera } from "lucide-react";
 
 export const Route = createFileRoute("/admin/colaboradores")({
   head: () => ({ meta: [{ title: "Colaboradores - Splash Creators" }] }),
@@ -25,6 +25,7 @@ interface Col {
   nome: string;
   email: string | null;
   hashtag: string | null;
+  avatar_url: string | null;
   ativo: boolean;
   post_count?: number;
 }
@@ -100,6 +101,10 @@ function Page() {
   const [editId, setEditId] = useState<string | null>(null);
   const [nome, setNome] = useState("");
   const [hashtag, setHashtag] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Col | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -108,7 +113,7 @@ function Page() {
     setLoading(true);
     const { data: cols } = await supabase
       .from("collaborators")
-      .select("id, nome, email, hashtag, ativo")
+      .select("id, nome, email, hashtag, avatar_url, ativo")
       .order("nome");
 
     if (!cols) {
@@ -138,6 +143,9 @@ function Page() {
     setEditId(null);
     setNome("");
     setHashtag("");
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    setCurrentAvatarUrl(null);
     setShowForm(true);
   };
 
@@ -145,6 +153,9 @@ function Page() {
     setEditId(r.id);
     setNome(r.nome);
     setHashtag(r.hashtag ?? "");
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    setCurrentAvatarUrl(r.avatar_url ?? null);
     setShowForm(true);
   };
 
@@ -179,6 +190,19 @@ function Page() {
 
       if (!collaboratorId) throw new Error("Colaborador invalido");
 
+      // Upload avatar if a new file was selected
+      if (avatarFile) {
+        const ext = avatarFile.name.split(".").pop()?.toLowerCase() || "jpg";
+        const path = `collaborators/${collaboratorId}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(path, avatarFile, { upsert: true, contentType: avatarFile.type });
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+          await supabase.from("collaborators").update({ avatar_url: publicUrl }).eq("id", collaboratorId);
+        }
+      }
+
       const toastId = toast.loading("Reprocessando posts por hashtag...");
       const linkedCount = await rematchCollaboratorPosts(collaboratorId, tag);
       toast.success("Colaborador salvo", {
@@ -188,6 +212,9 @@ function Page() {
 
       setNome("");
       setHashtag("");
+      setAvatarFile(null);
+      setAvatarPreview(null);
+      setCurrentAvatarUrl(null);
       setShowForm(false);
       setEditId(null);
       await load();
@@ -255,6 +282,58 @@ function Page() {
       {showForm && (
         <form onSubmit={guardSubmit(onSubmit)} className="bg-card border border-border rounded-lg p-5 mb-6 space-y-4">
           <h3 className="font-medium">{editId ? "Editar colaborador" : "Novo colaborador"}</h3>
+
+          {/* Avatar upload */}
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              className="relative group h-16 w-16 rounded-full overflow-hidden border-2 border-dashed border-border hover:border-primary transition-colors bg-muted flex items-center justify-center shrink-0"
+            >
+              {avatarPreview || currentAvatarUrl ? (
+                <img
+                  src={avatarPreview ?? currentAvatarUrl!}
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                  style={{ width: 64, height: 64 }}
+                />
+              ) : (
+                <Camera className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
+              )}
+              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <Camera className="h-5 w-5 text-white" />
+              </div>
+            </button>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setAvatarFile(file);
+                const url = URL.createObjectURL(file);
+                setAvatarPreview(url);
+              }}
+            />
+            <div>
+              <p className="text-sm font-medium">Foto de perfil</p>
+              <p className="text-xs text-muted-foreground">
+                {avatarPreview ? "Nova foto selecionada" : currentAvatarUrl ? "Clique para trocar a foto" : "Clique para adicionar (JPG, PNG ou WebP · máx 5 MB)"}
+              </p>
+              {avatarPreview && (
+                <button
+                  type="button"
+                  className="text-xs text-destructive mt-1 hover:underline"
+                  onClick={() => { setAvatarFile(null); setAvatarPreview(null); if (avatarInputRef.current) avatarInputRef.current.value = ""; }}
+                >
+                  Remover
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label>Nome</Label>
@@ -282,7 +361,7 @@ function Page() {
               {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Salvar
             </Button>
-            <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditId(null); }}>
+            <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditId(null); setAvatarFile(null); setAvatarPreview(null); }}>
               Cancelar
             </Button>
           </div>

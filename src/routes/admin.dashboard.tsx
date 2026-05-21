@@ -86,7 +86,7 @@ interface DailyEntry {
 }
 
 interface PageOption { id: string; name: string }
-interface ColabOption { id: string; nome: string; hashtag: string | null }
+interface ColabOption { id: string; nome: string; hashtag: string | null; avatar_url: string | null }
 
 interface DayData {
   dia: string;
@@ -101,6 +101,7 @@ interface ColabCard {
   id: string;
   nome: string;
   hashtag: string | null;
+  avatar_url: string | null;
   posts: number;
   views: number;
   reacoes: number;
@@ -622,7 +623,7 @@ function AdminDashboard() {
             supabase.from("post_authors").select("post_id, collaborator_id")
           ),
           supabase.from("pages").select("id, nome"),
-          supabase.from("collaborators").select("id, nome, hashtag").eq("ativo", true),
+          supabase.from("collaborators").select("id, nome, hashtag, avatar_url").eq("ativo", true),
           supabase.from("split_rules").select("page_id, effective_from, collaborator_pct, active").eq("active", true),
           supabase.from("csv_imports")
             .select("id, file_name, status, created_at, valid_rows, total_rows, detected_pages_count")
@@ -634,7 +635,7 @@ function AdminDashboard() {
         posts,
         postAuthors: pas,
         pages: (pagesData ?? []).map((p: any) => ({ id: p.id, name: p.nome })),
-        colabs: (colabsData ?? []).map((c: any) => ({ id: c.id, nome: c.nome, hashtag: c.hashtag })),
+        colabs: (colabsData ?? []).map((c: any) => ({ id: c.id, nome: c.nome, hashtag: c.hashtag, avatar_url: c.avatar_url ?? null })),
         splitRules: (rulesData as SplitRule[]) ?? [],
         imports: (imports ?? []) as RecentImport[],
         ts: Date.now(),
@@ -687,8 +688,8 @@ function AdminDashboard() {
   useEffect(() => {
     const channel = supabase.channel("admin-dash-colabs")
       .on("postgres_changes", { event: "*", schema: "public", table: "collaborators" }, async () => {
-        const { data } = await supabase.from("collaborators").select("id, nome, hashtag").eq("ativo", true);
-        setColabs((data ?? []).map((c: any) => ({ id: c.id, nome: c.nome, hashtag: c.hashtag })));
+        const { data } = await supabase.from("collaborators").select("id, nome, hashtag, avatar_url").eq("ativo", true);
+        setColabs((data ?? []).map((c: any) => ({ id: c.id, nome: c.nome, hashtag: c.hashtag, avatar_url: c.avatar_url ?? null })));
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -848,7 +849,7 @@ function AdminDashboard() {
       const collaboratorRevenue = val * collaboratorPct;
 
       if (collaboratorIds.length === 0) {
-        const cur = colabAgg.get(SEM_COLAB_ID) ?? { id: SEM_COLAB_ID, nome: "Sem colaborador", hashtag: null, posts: 0, views: 0, reacoes: 0, receita: 0 };
+        const cur = colabAgg.get(SEM_COLAB_ID) ?? { id: SEM_COLAB_ID, nome: "Sem colaborador", hashtag: null, avatar_url: null, posts: 0, views: 0, reacoes: 0, receita: 0 };
         cur.posts += 1; cur.views += views; cur.reacoes += reacoes; cur.receita += collaboratorRevenue;
         colabAgg.set(SEM_COLAB_ID, cur);
       } else {
@@ -856,7 +857,7 @@ function AdminDashboard() {
         for (const colabId of collaboratorIds) {
           const colab = colabMap.get(colabId);
           const targetId = colab ? colabId : SEM_COLAB_ID;
-          const cur = colabAgg.get(targetId) ?? { id: targetId, nome: colab ? colab.nome : "Sem colaborador", hashtag: colab ? colab.hashtag : null, posts: 0, views: 0, reacoes: 0, receita: 0 };
+          const cur = colabAgg.get(targetId) ?? { id: targetId, nome: colab ? colab.nome : "Sem colaborador", hashtag: colab ? colab.hashtag : null, avatar_url: colab ? colab.avatar_url : null, posts: 0, views: 0, reacoes: 0, receita: 0 };
           cur.posts += 1; cur.views += views; cur.reacoes += reacoes; cur.receita += share;
           colabAgg.set(targetId, cur);
         }
@@ -916,9 +917,9 @@ function AdminDashboard() {
     // Merge colabs
     const merged = new Map(colabAgg);
     for (const c of colabs) {
-      if (!merged.has(c.id)) merged.set(c.id, { id: c.id, nome: c.nome, hashtag: c.hashtag, posts: 0, views: 0, reacoes: 0, receita: 0 });
+      if (!merged.has(c.id)) merged.set(c.id, { id: c.id, nome: c.nome, hashtag: c.hashtag, avatar_url: c.avatar_url, posts: 0, views: 0, reacoes: 0, receita: 0 });
     }
-    if (!merged.has(SEM_COLAB_ID)) merged.set(SEM_COLAB_ID, { id: SEM_COLAB_ID, nome: "Sem colaborador", hashtag: null, posts: 0, views: 0, reacoes: 0, receita: 0 });
+    if (!merged.has(SEM_COLAB_ID)) merged.set(SEM_COLAB_ID, { id: SEM_COLAB_ID, nome: "Sem colaborador", hashtag: null, avatar_url: null, posts: 0, views: 0, reacoes: 0, receita: 0 });
 
     // CSV-only snapshot (before any manual bonus distribution)
     const mergedCsvSnapshot = new Map(Array.from(merged.entries()).map(([k, v]) => [k, { ...v }]));
@@ -1900,7 +1901,18 @@ const AVATAR_GRADIENTS = [
   ["#6366F1", "#A5B4FC"],
 ];
 
-function ColabInitials({ nome, idx, size = 44 }: { nome: string; idx: number; size?: number }) {
+function ColabInitials({ nome, idx, size = 44, avatarUrl }: { nome: string; idx: number; size?: number; avatarUrl?: string | null }) {
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={nome}
+        width={size}
+        height={size}
+        style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", display: "block", flexShrink: 0 }}
+      />
+    );
+  }
   const [a, b] = AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length];
   const initials = nome
     .split(" ")
@@ -1980,7 +1992,7 @@ function ColaboradorCard({ item, rank, sparkline, usdBrl, onClick, idx, receitaO
       <div className="px-4 pt-5 pb-3">
         <div className="relative inline-block mb-3">
           <RankBadge rank={rank} />
-          <ColabInitials nome={item.nome} idx={idx} size={44} />
+          <ColabInitials nome={item.nome} idx={idx} size={44} avatarUrl={item.avatar_url} />
         </div>
         <p className="text-[13px] font-semibold text-[#1A0A00] leading-tight truncate mb-0.5">{item.nome}</p>
         <p className="text-[11px] text-[#9B9B9B] tabular-nums">
