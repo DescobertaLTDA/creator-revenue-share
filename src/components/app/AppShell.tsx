@@ -164,7 +164,7 @@ function SidebarContent({
   return (
     <>
       <div className="h-16 flex items-center gap-3 px-5 border-b border-[#222222] shrink-0">
-        <img src={LOGO} alt="Splash Creators" className="h-9 w-9 object-contain rounded-lg shrink-0" />
+        <img src={LOGO} alt="Splash Creators" className="h-11 w-11 object-contain rounded-lg shrink-0" />
         <div className="flex flex-col">
           <span className="font-bold leading-tight text-white">Splash Creators</span>
           <span className="text-[10px] uppercase tracking-wider text-white/50">
