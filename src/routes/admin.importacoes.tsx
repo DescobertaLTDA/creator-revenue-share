@@ -11,7 +11,22 @@ import { Input } from "@/components/ui/input";
 import { parseFacebookCsv, hashFile } from "@/features/csv/parser";
 import { formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
-import { Upload, FileSpreadsheet, Loader2, Search } from "lucide-react";
+import { Upload, FileSpreadsheet, Loader2, Search, UserCircle } from "lucide-react";
+
+function UploaderChip({ uploader }: { uploader: ImportRow["uploader"] }) {
+  const nome = uploader?.nome ?? "Administrador";
+  const avatar = uploader?.avatar_url ?? null;
+  return (
+    <div className="flex items-center gap-1.5">
+      {avatar ? (
+        <img src={avatar} alt={nome} className="h-5 w-5 rounded-full object-cover shrink-0" />
+      ) : (
+        <UserCircle className="h-5 w-5 text-muted-foreground shrink-0" />
+      )}
+      <span className="text-sm text-muted-foreground truncate max-w-[100px]">{nome}</span>
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/admin/importacoes")({
   head: () => ({ meta: [{ title: "Importações — Splash Creators" }] }),
@@ -32,6 +47,7 @@ interface ImportRow {
   detected_pages_count: number;
   period_start: string | null;
   period_end: string | null;
+  uploader: { nome: string; avatar_url: string | null } | null;
 }
 
 function ImportacoesPage() {
@@ -49,7 +65,7 @@ function ImportacoesPage() {
     setLoading(true);
     let query = supabase
       .from("csv_imports")
-      .select("id, file_name, status, created_at, total_rows, valid_rows, invalid_rows, inserted_rows, updated_rows, duplicated_rows, detected_pages_count, period_start, period_end")
+      .select("id, file_name, status, created_at, total_rows, valid_rows, invalid_rows, inserted_rows, updated_rows, duplicated_rows, detected_pages_count, period_start, period_end, uploader:profiles!uploaded_by(nome, avatar_url)")
       .order("created_at", { ascending: false })
       .limit(100);
     if (statusFilter) query = query.eq("status", statusFilter as "processando" | "concluido" | "falha" | "parcial");
@@ -324,6 +340,7 @@ function ImportacoesPage() {
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {imp.valid_rows} válidas · {imp.invalid_rows > 0 && <span className="text-destructive">{imp.invalid_rows} inv. · </span>}{imp.inserted_rows} novas · {imp.updated_rows} atual.
                     </p>
+                    <div className="mt-1.5"><UploaderChip uploader={imp.uploader} /></div>
                   </div>
                   <StatusBadge status={imp.status} />
                 </Link>
@@ -340,6 +357,7 @@ function ImportacoesPage() {
                     <th className="text-right px-5 py-3 font-medium">Inválidas</th>
                     <th className="text-right px-5 py-3 font-medium">Novas/Atual.</th>
                     <th className="text-right px-5 py-3 font-medium">Páginas</th>
+                    <th className="text-left px-5 py-3 font-medium">Enviado por</th>
                     <th className="text-left px-5 py-3 font-medium">Quando</th>
                   </tr>
                 </thead>
@@ -356,6 +374,7 @@ function ImportacoesPage() {
                       <td className="px-5 py-3 text-right tabular-nums text-destructive">{imp.invalid_rows}</td>
                       <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">{imp.inserted_rows}/{imp.updated_rows}</td>
                       <td className="px-5 py-3 text-right tabular-nums">{imp.detected_pages_count}</td>
+                      <td className="px-5 py-3"><UploaderChip uploader={imp.uploader} /></td>
                       <td className="px-5 py-3 text-muted-foreground">{formatDateTime(imp.created_at)}</td>
                     </tr>
                   ))}
