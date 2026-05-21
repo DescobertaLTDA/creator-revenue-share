@@ -126,6 +126,7 @@ function Page() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(null);
+  const [originalHashtag, setOriginalHashtag] = useState<string>("");
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Col | null>(null);
@@ -169,6 +170,7 @@ function Page() {
     setEditId(null);
     setNome("");
     setHashtag("");
+    setOriginalHashtag("");
     setAvatarFile(null);
     setAvatarPreview(null);
     setCurrentAvatarUrl(null);
@@ -179,6 +181,7 @@ function Page() {
     setEditId(r.id);
     setNome(r.nome);
     setHashtag(r.hashtag ?? "");
+    setOriginalHashtag(r.hashtag ?? "");
     setAvatarFile(null);
     setAvatarPreview(null);
     setCurrentAvatarUrl(r.avatar_url ?? null);
@@ -243,12 +246,17 @@ function Page() {
         }
       }
 
-      const toastId = toast.loading("Reprocessando posts por hashtag...");
-      const linkedCount = await rematchCollaboratorPosts(collaboratorId, tag);
-      toast.success("Colaborador salvo", {
-        id: toastId,
-        description: `${linkedCount.toLocaleString("pt-BR")} posts vinculados por #${tag}`,
-      });
+      const hashtagChanged = !editId || normalizeHashtag(originalHashtag) !== tag;
+      if (hashtagChanged) {
+        const toastId = toast.loading("Reprocessando posts por hashtag...");
+        const linkedCount = await rematchCollaboratorPosts(collaboratorId, tag);
+        toast.success("Colaborador salvo", {
+          id: toastId,
+          description: `${linkedCount.toLocaleString("pt-BR")} posts vinculados por #${tag}`,
+        });
+      } else {
+        toast.success(avatarFile ? "Foto atualizada com sucesso" : "Colaborador atualizado");
+      }
 
       setNome("");
       setHashtag("");
