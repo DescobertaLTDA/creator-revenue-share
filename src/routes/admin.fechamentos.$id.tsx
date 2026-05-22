@@ -176,11 +176,8 @@ function PaymentPanel({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+      <div className="px-5 py-4 border-b border-border shrink-0">
         <h3 className="font-semibold text-sm">{isPago ? "Detalhes do pagamento" : "Registrar pagamento"}</h3>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
-          <X className="h-4 w-4" />
-        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
