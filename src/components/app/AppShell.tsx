@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import {
   LayoutDashboard, FileSpreadsheet, FileText, Percent,
-  CalendarCheck, Users, HandCoins, LogOut, Menu, X, UserCog, Target, TrendingUp, BarChart3,
+  CalendarCheck, Users, HandCoins, LogOut, Menu, X, UserCog, Target, TrendingUp, BarChart3, Coins,
 } from "lucide-react";
 import LOGO from "@/assets/logo.webp";
 
@@ -24,6 +24,7 @@ const allNav: NavItem[] = [
   { to: "/admin/fechamentos", label: "Fechamentos", icon: CalendarCheck },
   { to: "/admin/colaboradores", label: "Equipe", icon: Users },
   { to: "/admin/importacoes", label: "Importações", icon: FileSpreadsheet },
+  { to: "/admin/central-receita", label: "Central de Receita", icon: Coins },
   { to: "/admin/regras-split", label: "Regras de Split", icon: Percent },
   { to: "/admin/bonus-manual", label: "Histórico", icon: HandCoins },
   { to: "/admin/cadastro", label: "Cadastro", icon: UserCog, adminOnly: true },
