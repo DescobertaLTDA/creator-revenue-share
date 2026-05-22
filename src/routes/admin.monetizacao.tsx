@@ -467,18 +467,6 @@ export default function MonetizacaoPage() {
         </div>
       </div>
 
-      {/* ── Pattern Discovery Cards ── */}
-      {patterns.length > 0 && (
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">
-            Padrões descobertos — o que funcionou
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {patterns.map((p, i) => <PatternCardComp key={i} pattern={p} />)}
-          </div>
-        </div>
-      )}
-
       {/* ── Champion Table ── */}
       <div>
         <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
@@ -548,30 +536,6 @@ export default function MonetizacaoPage() {
           <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <CumulativeChart data={cumulativeData} pageName={gpsStat.name} />
             <VelocityChart data={velocityData} pageName={gpsStat.name} />
-          </div>
-        </div>
-      )}
-
-      {/* ── Auto Insights ── */}
-      {insights.length > 0 && (
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="h-8 w-8 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: "linear-gradient(135deg, #F44708, #FAA613)" }}>
-              <Lightbulb className="h-4 w-4 text-white" />
-            </div>
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#F44708]">Insights automáticos</p>
-              <p className="text-xs text-muted-foreground">Gerado com base nos dados reais das páginas</p>
-            </div>
-          </div>
-          <div className="space-y-2.5">
-            {insights.map((ins, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-[#FAA613] shrink-0" />
-                <p className="text-sm text-foreground leading-relaxed">{ins}</p>
-              </div>
-            ))}
           </div>
         </div>
       )}

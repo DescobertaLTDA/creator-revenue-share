@@ -512,9 +512,6 @@ export default function ForecastPage() {
         />
       </div>
 
-      {/* ── Insights ── */}
-      <InsightsBlock insights={insights} />
-
       {/* ── Drawer ── */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto p-0">
@@ -951,30 +948,6 @@ function SliderField({ label, value, min, max, step, display, displayRight, onCh
           onChange={e => onChange(parseFloat(e.target.value))}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         />
-      </div>
-    </div>
-  );
-}
-
-// ─── Insights Block ───────────────────────────────────────────────────────────
-
-function InsightsBlock({ insights }: { insights: Insight[] }) {
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-3">
-        <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: "linear-gradient(135deg, #F44708, #FAA613)" }}>
-          <Sparkles className="h-4 w-4 text-white" />
-        </div>
-        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Insights inteligentes</p>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {insights.map((ins, i) => (
-          <div key={i} className="rounded-2xl border border-border bg-white p-4 flex flex-col gap-2">
-            <span className="text-xl">{ins.icon}</span>
-            <p className="text-xs text-foreground leading-relaxed">{ins.text}</p>
-          </div>
-        ))}
       </div>
     </div>
   );

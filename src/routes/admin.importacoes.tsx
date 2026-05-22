@@ -414,17 +414,6 @@ export default function DataPipelinePage() {
             Suporte a múltiplos arquivos CSV · deduplicação e atualização incremental automáticas
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {[
-            { icon: CheckCircle2, label: "Deduplicação" },
-            { icon: RefreshCw, label: "Incremental" },
-            { icon: Zap, label: "Reconciliação" },
-          ].map(({ icon: Icon, label }) => (
-            <span key={label} className="inline-flex items-center gap-1.5 text-[10px] font-medium text-green-700 bg-green-50 border border-green-100 rounded-full px-2.5 py-1">
-              <Icon className="h-3 w-3" /> {label}
-            </span>
-          ))}
-        </div>
       </div>
 
       {/* ── Pipeline Stepper (full-width) ── */}
