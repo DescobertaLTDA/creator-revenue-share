@@ -16,7 +16,7 @@ const H      = 300;  // svg height
 const PAD_T  = 52;   // top padding (header clearance)
 const PAD_B  = 26;   // bottom padding (labels)
 const N_BIRDS = 7;
-const SCARE_R = 78;  // mouse scare radius (px)
+const SCARE_R = 55;  // mouse scare radius (SVG px)
 const ORANGE  = "#FF6B00";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -140,52 +140,53 @@ function paintBird(g: SVGGElement, bird: Bird) {
   while (g.firstChild) g.removeChild(g.firstChild);
 
   const { wingPhase, state, size } = bird;
-  const flying = state === "flying";
-  const landing = state === "landing";
-  const active = flying || landing;
+  const active = state === "flying" || state === "landing";
 
-  // Wing flap: fast when flying, idle tremor when perched
+  // Wing flap — fast in flight, gentle idle tremor when perched
   const flap = active
-    ? Math.sin(wingPhase * 2.4) * 0.68
-    : Math.sin(wingPhase * 0.9) * 0.10;
+    ? Math.sin(wingPhase * 2.4) * 0.72
+    : Math.sin(wingPhase * 0.9) * 0.12;
 
-  const span = 11 * size;
-  const drop = flap * span * 0.5;
+  // Scaled up: birds need to be ~28-40px wingspan to be visible in this SVG space
+  const span = 18 * size;
+  const drop = flap * span * 0.52;
+  const sw   = (1.8 * size).toFixed(2);
 
-  // Wings
+  // Left wing
   const lw = document.createElementNS(NS, "path");
   lw.setAttribute("d",
-    `M 0 0 Q ${(-span * 0.38).toFixed(1)} ${(drop - 0.5).toFixed(1)} ${(-span * 0.65).toFixed(1)} ${(drop * 0.28).toFixed(1)}`
+    `M 0 0 Q ${(-span * 0.42).toFixed(1)} ${(drop - 1).toFixed(1)} ${(-span * 0.72).toFixed(1)} ${(drop * 0.25).toFixed(1)}`
   );
-  lw.setAttribute("stroke", "rgba(10,10,10,0.85)");
-  lw.setAttribute("stroke-width", `${(1.15 * size).toFixed(2)}`);
+  lw.setAttribute("stroke", "rgba(8,8,8,0.88)");
+  lw.setAttribute("stroke-width", sw);
   lw.setAttribute("fill", "none");
   lw.setAttribute("stroke-linecap", "round");
 
+  // Right wing
   const rw = document.createElementNS(NS, "path");
   rw.setAttribute("d",
-    `M 0 0 Q ${(span * 0.38).toFixed(1)} ${(-drop - 0.5).toFixed(1)} ${(span * 0.65).toFixed(1)} ${(-drop * 0.28).toFixed(1)}`
+    `M 0 0 Q ${(span * 0.42).toFixed(1)} ${(-drop - 1).toFixed(1)} ${(span * 0.72).toFixed(1)} ${(-drop * 0.25).toFixed(1)}`
   );
-  rw.setAttribute("stroke", "rgba(10,10,10,0.85)");
-  rw.setAttribute("stroke-width", `${(1.15 * size).toFixed(2)}`);
+  rw.setAttribute("stroke", "rgba(8,8,8,0.88)");
+  rw.setAttribute("stroke-width", sw);
   rw.setAttribute("fill", "none");
   rw.setAttribute("stroke-linecap", "round");
 
   // Body
   const body = document.createElementNS(NS, "ellipse");
-  body.setAttribute("cx", `${(1.2 * size).toFixed(1)}`);
+  body.setAttribute("cx", `${(2 * size).toFixed(1)}`);
   body.setAttribute("cy", "0");
-  body.setAttribute("rx", `${(2.8 * size).toFixed(1)}`);
-  body.setAttribute("ry", `${(1.1 * size).toFixed(1)}`);
-  body.setAttribute("fill", "rgba(10,10,10,0.72)");
+  body.setAttribute("rx", `${(4 * size).toFixed(1)}`);
+  body.setAttribute("ry", `${(1.6 * size).toFixed(1)}`);
+  body.setAttribute("fill", "rgba(8,8,8,0.70)");
 
   // Head
   const head = document.createElementNS(NS, "circle");
-  head.setAttribute("cx", `${(3.5 * size).toFixed(1)}`);
-  const headBob = active ? 0 : Math.sin(bird.headBobPhase) * 1.2;
-  head.setAttribute("cy", `${(-1.2 * size + headBob).toFixed(1)}`);
-  head.setAttribute("r", `${(1.3 * size).toFixed(1)}`);
-  head.setAttribute("fill", "rgba(10,10,10,0.75)");
+  head.setAttribute("cx", `${(5.5 * size).toFixed(1)}`);
+  const headBob = active ? 0 : Math.sin(bird.headBobPhase) * 1.8;
+  head.setAttribute("cy", `${(-2 * size + headBob).toFixed(1)}`);
+  head.setAttribute("r",  `${(2 * size).toFixed(1)}`);
+  head.setAttribute("fill", "rgba(8,8,8,0.78)");
 
   g.appendChild(body);
   g.appendChild(lw);
@@ -295,7 +296,7 @@ export default function LivingAnalyticsChart({ className = "" }: LivingAnalytics
         wingPhase: Math.random() * Math.PI * 2,
         breathPhase: Math.random() * Math.PI * 2,
         headBobPhase: Math.random() * Math.PI * 2,
-        size: 0.6 + Math.random() * 0.6,
+        size: 1.4 + Math.random() * 1.0,
         cp0: { x: 0, y: 0 }, cp1: { x: 0, y: 0 },
         cp2: { x: 0, y: 0 }, cp3: { x: 0, y: 0 },
         flightT: 0,
