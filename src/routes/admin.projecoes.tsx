@@ -471,8 +471,8 @@ export default function ForecastPage() {
       {/* ── Confidence banner ── */}
       <div className="rounded-2xl border border-border bg-white px-5 py-3.5 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2.5 text-sm">
-          <div className="h-7 w-7 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
-            <Target className="h-3.5 w-3.5 text-amber-500" />
+          <div className="h-7 w-7 rounded-lg bg-[#FFF0E8] flex items-center justify-center shrink-0">
+            <Target className="h-3.5 w-3.5 text-[#F44708]" />
           </div>
           <span className="text-muted-foreground">
             Com base no desempenho atual, sua receita tem{" "}
@@ -658,10 +658,10 @@ function KpiCard({ label, value, sub, trend, highlight, positive, chart }: {
       <div className="flex items-center gap-1">
         {trend !== undefined && (
           trend > 0
-            ? <TrendingUp className="h-3 w-3 text-green-500 shrink-0" />
-            : <TrendingDown className="h-3 w-3 text-red-400 shrink-0" />
+            ? <TrendingUp className="h-3 w-3 text-[#F44708] shrink-0" />
+            : <TrendingDown className="h-3 w-3 text-muted-foreground shrink-0" />
         )}
-        <p className={cn("text-[10px]", highlight ? "text-green-600 font-semibold" : "text-muted-foreground")}>{sub}</p>
+        <p className={cn("text-[10px]", highlight ? "text-[#F44708] font-semibold" : "text-muted-foreground")}>{sub}</p>
       </div>
       {chart && (
         <div className="h-6 mt-1">
@@ -795,7 +795,7 @@ function ScenariosPanel({ scenarios, onOpenDrawer }: { scenarios: Scenario[]; on
 // ─── Factors Card ────────────────────────────────────────────────────────────
 
 function FactorsCard({ factors }: { factors: Factor[] }) {
-  const iconColors = ["#F44708", "#10b981", "#8b5cf6", "#f59e0b"];
+  const iconColors = ["#F44708", "#FAA613", "#F44708", "#FAA613"];
   const icons = [Zap, TrendingUp, BarChart2, Rocket];
   return (
     <div className="rounded-2xl border border-border bg-white p-5 flex flex-col gap-4">
@@ -816,7 +816,7 @@ function FactorsCard({ factors }: { factors: Factor[] }) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-xs font-semibold">{f.label}</p>
-                  <span className="text-xs font-bold text-green-600">↑ {fmtPct(f.pct)}</span>
+                  <span className="text-xs font-bold text-[#F44708]">↑ {fmtPct(f.pct)}</span>
                 </div>
                 <p className="text-[10px] text-muted-foreground">{f.desc}</p>
                 <div className="flex items-center justify-between mt-1">
@@ -824,7 +824,7 @@ function FactorsCard({ factors }: { factors: Factor[] }) {
                     <div className="h-1 rounded-full transition-all"
                       style={{ width: `${Math.min(f.pct * 300, 100)}%`, backgroundColor: color }} />
                   </div>
-                  <span className="text-[10px] font-semibold text-green-600">+{fmtUSD(f.usd, true)}</span>
+                  <span className="text-[10px] font-semibold text-[#F44708]">+{fmtUSD(f.usd, true)}</span>
                 </div>
               </div>
             </div>

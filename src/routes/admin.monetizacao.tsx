@@ -558,11 +558,11 @@ const patternIcons: Record<PatternCard["icon"], React.ComponentType<{ className?
   zap: Zap, flame: Flame, rocket: Rocket, clock: Clock, target: Target,
 };
 const patternColors: Record<PatternCard["icon"], { bg: string; icon: string; badge: string; badgeText: string }> = {
-  zap:    { bg: "bg-purple-50",  icon: "text-purple-500",  badge: "bg-purple-100", badgeText: "text-purple-700" },
-  flame:  { bg: "bg-orange-50",  icon: "text-orange-500",  badge: "bg-orange-100", badgeText: "text-orange-700" },
-  rocket: { bg: "bg-blue-50",    icon: "text-blue-500",    badge: "bg-blue-100",   badgeText: "text-blue-700" },
-  clock:  { bg: "bg-slate-50",   icon: "text-slate-500",   badge: "bg-slate-100",  badgeText: "text-slate-700" },
-  target: { bg: "bg-green-50",   icon: "text-green-500",   badge: "bg-green-100",  badgeText: "text-green-700" },
+  zap:    { bg: "bg-[#FFF0E8]", icon: "text-[#F44708]", badge: "bg-[#FFF0E8]", badgeText: "text-[#F44708]" },
+  flame:  { bg: "bg-[#FFF0E8]", icon: "text-[#F44708]", badge: "bg-[#FFF0E8]", badgeText: "text-[#F44708]" },
+  rocket: { bg: "bg-[#FFF0E8]", icon: "text-[#F44708]", badge: "bg-[#FFF0E8]", badgeText: "text-[#F44708]" },
+  clock:  { bg: "bg-muted",     icon: "text-muted-foreground", badge: "bg-muted", badgeText: "text-muted-foreground" },
+  target: { bg: "bg-[#FFF0E8]", icon: "text-[#FAA613]", badge: "bg-[#FFF8EE]", badgeText: "text-[#FAA613]" },
 };
 
 function PatternCardComp({ pattern }: { pattern: PatternCard }) {
@@ -594,11 +594,11 @@ function ChampionRow({ rank, item, selected, onClick }: {
 }) {
   const { stat, score, days } = item;
   const statusBadge = stat.isMonetized
-    ? { label: "Monetizada", cls: "bg-green-100 text-green-700" }
+    ? { label: "Monetizada", cls: "bg-[#F44708] text-white" }
     : !stat.isActive
-    ? { label: "Inativa", cls: "bg-red-100 text-red-600" }
+    ? { label: "Inativa", cls: "bg-muted text-muted-foreground" }
     : days <= 30
-    ? { label: "~" + days + " dias", cls: "bg-amber-100 text-amber-700" }
+    ? { label: "~" + days + " dias", cls: "bg-[#FAA613]/15 text-[#FAA613]" }
     : { label: "~" + (days === 9999 ? "?" : days) + " dias", cls: "bg-[#FFF0E8] text-[#F44708]" };
 
   return (
@@ -718,7 +718,7 @@ function GpsPanel({ stat, template, pages, allStats, selectedId, onSelect }: {
                 className="h-1.5 rounded-full transition-all"
                 style={{
                   width: `${g.pct}%`,
-                  backgroundColor: g.pct >= 80 ? "#16a34a" : g.pct >= 50 ? "#f59e0b" : "#F44708",
+                  backgroundColor: g.pct >= 80 ? "#F44708" : g.pct >= 50 ? "#FAA613" : "#F44708",
                 }}
               />
             </div>
@@ -727,15 +727,15 @@ function GpsPanel({ stat, template, pages, allStats, selectedId, onSelect }: {
       </div>
 
       {!stat.isMonetized && stat.isActive && stat.currentStreak > 0 && (
-        <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2">
-          <Flame className="h-4 w-4 text-amber-500 shrink-0" />
-          <span className="text-xs font-medium text-amber-700">{stat.currentStreak} dias em sequência</span>
+        <div className="flex items-center gap-2 rounded-xl bg-[#FFF0E8] border border-[#F44708]/20 px-3 py-2">
+          <Flame className="h-4 w-4 text-[#FAA613] shrink-0" />
+          <span className="text-xs font-medium text-[#F44708]">{stat.currentStreak} dias em sequência</span>
         </div>
       )}
       {!stat.isMonetized && !stat.isActive && (
-        <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-100 px-3 py-2">
-          <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
-          <span className="text-xs font-medium text-red-700">
+        <div className="flex items-center gap-2 rounded-xl bg-muted border border-border px-3 py-2">
+          <AlertCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+          <span className="text-xs font-medium text-muted-foreground">
             {stat.daysSinceLastPost}d sem postar — retome a cadência
           </span>
         </div>
@@ -1023,8 +1023,8 @@ function RingProgress({ pct, size = 100, dark = true }: { pct: number; size?: nu
 }
 
 function MilestoneIconComp({ status }: { status: "done" | "progress" | "pending" }) {
-  if (status === "done") return <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />;
-  if (status === "progress") return <div className="h-4 w-4 rounded-full border-2 border-amber-400 bg-amber-50 shrink-0" />;
+  if (status === "done") return <CheckCircle2 className="h-4 w-4 text-[#F44708] shrink-0" />;
+  if (status === "progress") return <div className="h-4 w-4 rounded-full border-2 border-[#FAA613] bg-[#FFF0E8] shrink-0" />;
   return <div className="h-4 w-4 rounded-full border-2 border-border shrink-0" />;
 }
 

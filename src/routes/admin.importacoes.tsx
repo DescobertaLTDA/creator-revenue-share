@@ -368,7 +368,7 @@ export default function DataPipelinePage() {
           label="Última sincronização"
           value={loading ? "—" : (kpis.lastSync ? timeSince(kpis.lastSync) : "Nunca")}
           sub={kpis.lastSync ? formatDateTime(kpis.lastSync) : "—"}
-          icon={Clock} iconBg="#EFF6FF" iconColor="#3b82f6"
+          icon={Clock} iconBg="#FFF0E8" iconColor="#FAA613"
         />
         <PipelineKpi
           label="Linhas importadas"
@@ -380,7 +380,7 @@ export default function DataPipelinePage() {
           label="Integridade dos dados"
           value={loading ? "—" : `${kpis.integrity.toFixed(2)}%`}
           sub={kpis.integrity >= 99 ? "Excelente" : kpis.integrity >= 95 ? "Boa" : "Atenção necessária"}
-          icon={Shield} iconBg="#F5F3FF" iconColor="#8b5cf6" positive={kpis.integrity >= 95}
+          icon={Shield} iconBg="#FFF0E8" iconColor="#F44708" positive={kpis.integrity >= 95}
         />
       </div>
 
@@ -900,7 +900,7 @@ function ImportDrawer({ imp, revenue }: { imp: ImportRow; revenue: number }) {
                 return (
                   <div key={step.label} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-[#F44708] shrink-0" />
                       <span className="text-xs text-muted-foreground">{step.label}</span>
                     </div>
                     <span className="text-[10px] font-mono text-muted-foreground">{timeStr}</span>
