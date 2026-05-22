@@ -510,7 +510,7 @@ export default function DataPipelinePage() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-t border-border bg-muted/20">
-                    {["ARQUIVO", "PERÍODO", "LINHAS PROCESSADAS", "ATUALIZAÇÕES", "NOVOS REGISTROS", "PÁGINAS AFETADAS", "RECEITA RECALCULADA", "STATUS", "DURAÇÃO", "OPERADOR", ""].map(h => (
+                    {["ARQUIVO", "PERÍODO", "LINHAS PROCESSADAS", "ATUALIZAÇÕES", "NOVOS REGISTROS", "PÁGINAS AFETADAS", "ENVIADO POR", "STATUS", "DURAÇÃO", ""].map(h => (
                       <th key={h} className="text-left px-4 py-2.5 font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap first:pl-5">
                         {h}
                       </th>
@@ -546,24 +546,19 @@ export default function DataPipelinePage() {
                         <td className="px-4 py-3 tabular-nums text-muted-foreground">{imp.inserted_rows.toLocaleString()}</td>
                         <td className="px-4 py-3 tabular-nums text-muted-foreground">{imp.detected_pages_count}</td>
                         <td className="px-4 py-3">
-                          {revenue > 0
-                            ? <span className="font-bold text-green-600">+${revenue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            : <span className="text-muted-foreground">—</span>}
+                          <div className="flex items-center gap-2">
+                            {imp.uploader?.avatar_url
+                              ? <img src={imp.uploader.avatar_url} className="h-7 w-7 rounded-full object-cover shrink-0 ring-2 ring-border" alt="" />
+                              : <div className="h-7 w-7 rounded-full bg-[#F44708]/15 flex items-center justify-center shrink-0 ring-2 ring-border">
+                                  <span className="text-[9px] font-bold text-[#F44708]">{(imp.uploader?.nome ?? "A")[0].toUpperCase()}</span>
+                                </div>
+                            }
+                            <span className="text-xs font-medium text-foreground max-w-[100px] truncate">{imp.uploader?.nome ?? "Admin"}</span>
+                          </div>
                         </td>
                         <td className="px-4 py-3"><StatusPill status={imp.status} /></td>
                         <td className="px-4 py-3 text-muted-foreground whitespace-nowrap tabular-nums font-mono text-[10px]">
                           {fmtDuration(imp.valid_rows, imp.status)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1.5">
-                            {imp.uploader?.avatar_url
-                              ? <img src={imp.uploader.avatar_url} className="h-6 w-6 rounded-full object-cover shrink-0" alt="" />
-                              : <div className="h-6 w-6 rounded-full bg-[#F44708]/15 flex items-center justify-center shrink-0">
-                                  <span className="text-[8px] font-bold text-[#F44708]">{(imp.uploader?.nome ?? "A")[0]}</span>
-                                </div>
-                            }
-                            <span className="text-muted-foreground max-w-[60px] truncate">{imp.uploader?.nome ?? "Admin"}</span>
-                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <button className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted transition-colors text-muted-foreground">
