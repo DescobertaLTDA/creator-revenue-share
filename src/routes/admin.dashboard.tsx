@@ -189,7 +189,7 @@ function getPostUsd(post: RawPost): number {
 
 function getCollaboratorPct(post: RawPost, rulesByPage: Map<string, SplitRule[]>): number {
   const rules = rulesByPage.get(post.page_id) ?? [];
-  if (rules.length === 0) return 0;
+  if (rules.length === 0) return 1;
   const publishedDay = (post.published_at ?? "9999-12-31").slice(0, 10);
   for (const rule of rules) {
     const effectiveDay = (rule.effective_from ?? "0000-01-01").slice(0, 10);
