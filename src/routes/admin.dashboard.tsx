@@ -1430,7 +1430,7 @@ function AdminDashboard() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-5 pb-8">
+    <div className="space-y-5">
 
       {/* ── Tab header ── */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
