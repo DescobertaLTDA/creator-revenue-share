@@ -600,12 +600,6 @@ export default function DataPipelinePage() {
         )}
       </div>
 
-      {/* ── Health + Schedule ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <HealthPanel health={health} />
-        <SchedulePanel latestImport={latestImport} />
-      </div>
-
       {/* ── Drawer ── */}
       <Sheet open={!!selectedId} onOpenChange={open => !open && setSelectedId(null)}>
         <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto p-0">
