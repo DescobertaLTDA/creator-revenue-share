@@ -106,7 +106,15 @@ function Page() {
 
         const { data: dailyEntries, error: deErr } = await supabase.from("daily_revenue_entries").select("actual_revenue_usd").eq("page_id", pageId).gte("entry_date", dateFrom).lte("entry_date", dateTo);
         if (deErr) throw deErr;
-        const totalActual = (dailyEntries ?? []).reduce((s: number, e: any) => s + Number(e.actual_revenue_usd ?? 0), 0);
+        const totalManual = (dailyEntries ?? []).reduce((s: number, e: any) => s + Number(e.actual_revenue_usd ?? 0), 0);
+
+        let totalActual = totalManual;
+        if (totalActual === 0) {
+          // Fallback: sem lançamento manual, usa monetization_approx dos posts (CSV)
+          const { data: postRev, error: prErr } = await supabase.from("posts").select("monetization_approx").eq("page_id", pageId).gte("published_at", dateFrom).lte("published_at", `${dateTo}T23:59:59`);
+          if (prErr) throw prErr;
+          totalActual = (postRev ?? []).reduce((s: number, p: any) => s + Number(p.monetization_approx ?? 0), 0);
+        }
 
         const viewsPct = await fetchViewsPctByColabForMonth(formMonth, pageId);
         if (Object.keys(viewsPct).length === 0) { toast.info(`Sem posts/views em ${pageName} para ${formatMonth(formMonth)}`); continue; }
