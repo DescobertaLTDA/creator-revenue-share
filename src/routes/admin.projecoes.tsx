@@ -302,6 +302,44 @@ export default function ForecastPage() {
     return result;
   }, [metrics]);
 
+  // ── Views chart data ──────────────────────────────────────────────────────
+
+  const viewsChartData = useMemo(() => {
+    const { elapsed, totalDays, curMonthKey } = metrics;
+    const now = today();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+
+    const dailyViewsByDay = new Map<string, number>();
+    for (const p of pagePosts) {
+      if (!p.published_at || !p.views) continue;
+      const d = p.published_at.slice(0, 10);
+      dailyViewsByDay.set(d, (dailyViewsByDay.get(d) ?? 0) + Number(p.views));
+    }
+
+    const thisMonthViews = [...dailyViewsByDay.entries()]
+      .filter(([date]) => date.startsWith(curMonthKey))
+      .reduce((s, [, v]) => s + v, 0);
+
+    const actualDailyViews = elapsed > 0 ? thisMonthViews / elapsed : 0;
+
+    let cumRealized = 0;
+    return Array.from({ length: totalDays }, (_, i) => {
+      const day = i + 1;
+      const dateStr = `${year}-${month}-${String(day).padStart(2, "0")}`;
+      if (day <= elapsed) cumRealized += dailyViewsByDay.get(dateStr) ?? 0;
+      const daysFromToday = day - elapsed;
+      return {
+        day, label: String(day),
+        realized: day <= elapsed ? cumRealized : null,
+        projection: day >= elapsed ? thisMonthViews + Math.max(0, daysFromToday) * actualDailyViews : null,
+        optimistic: day >= elapsed ? thisMonthViews + Math.max(0, daysFromToday) * actualDailyViews * 1.5 : null,
+        conservative: day >= elapsed ? thisMonthViews + Math.max(0, daysFromToday) * actualDailyViews * 0.7 : null,
+        isToday: day === elapsed,
+      };
+    });
+  }, [pagePosts, metrics]);
+
   // ── Similar pages ─────────────────────────────────────────────────────────
 
   const similarPages = useMemo((): SimilarPage[] => {
@@ -505,6 +543,9 @@ export default function ForecastPage() {
         <RevenueChart data={chartData} elapsed={metrics.elapsed} />
         <ScenariosPanel scenarios={scenarios} onOpenDrawer={() => setDrawerOpen(true)} />
       </div>
+
+      {/* ── Views chart ── */}
+      <ViewsChart data={viewsChartData} elapsed={metrics.elapsed} />
 
       {/* ── Drawer ── */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
@@ -739,6 +780,74 @@ function RevenueChart({ data, elapsed }: { data: DailyPoint[]; elapsed: number }
             dot={false} connectNulls={false} />
           <Line dataKey="histAvg" stroke="#93c5fd" strokeWidth={1} strokeDasharray="5 3"
             dot={false} connectNulls={false} />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// ─── Views Chart ──────────────────────────────────────────────────────────────
+
+function ViewsChart({ data, elapsed }: { data: { day: number; label: string; realized: number | null; projection: number | null; optimistic: number | null; conservative: number | null; isToday: boolean }[]; elapsed: number }) {
+  const fmtViews = (v: number) =>
+    v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v));
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className="bg-white border border-border rounded-xl shadow-lg px-4 py-3 min-w-[150px]">
+        <p className="text-xs font-bold text-muted-foreground mb-2">Dia {label}</p>
+        {payload.map((p: any) =>
+          p.value != null && (
+            <div key={p.name} className="flex items-center justify-between gap-3 text-xs">
+              <span className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                <span className="text-muted-foreground">
+                  {p.name === "realized" ? "Realizado" : p.name === "projection" ? "Projeção" : p.name === "optimistic" ? "Otimista" : "Conservador"}
+                </span>
+              </span>
+              <span className="font-semibold">{fmtViews(p.value)}</span>
+            </div>
+          )
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-white p-5">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div>
+          <p className="text-sm font-semibold">Projeção de views</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Acumulado no mês</p>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap text-[10px] text-muted-foreground">
+          <span className="flex items-center gap-1.5"><span className="h-0.5 w-5 bg-[#FAA613] inline-block rounded" />Realizado</span>
+          <span className="flex items-center gap-1.5"><span className="h-0.5 w-5 border-t-2 border-dashed border-[#FAA613] inline-block" />Projeção (provável)</span>
+          <span className="flex items-center gap-1.5"><span className="h-0.5 w-5 border-t-2 border-dashed border-emerald-500 inline-block" />Otimista</span>
+          <span className="flex items-center gap-1.5"><span className="h-0.5 w-5 border-t-2 border-dashed border-slate-400 inline-block" />Conservador</span>
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={220}>
+        <ComposedChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 4 }}>
+          <defs>
+            <linearGradient id="viewsFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#FAA613" stopOpacity={0.18} />
+              <stop offset="95%" stopColor="#FAA613" stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#F4F4F4" vertical={false} />
+          <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#aaa" }} axisLine={false} tickLine={false} interval={4} />
+          <YAxis tickFormatter={fmtViews} tick={{ fontSize: 9, fill: "#aaa" }} axisLine={false} tickLine={false} width={40} />
+          <Tooltip content={<CustomTooltip />} />
+          {data.find(d => d.isToday) && (
+            <ReferenceLine x={String(elapsed)} stroke="#888" strokeDasharray="4 2" strokeWidth={1.5}
+              label={{ value: "Hoje", position: "insideTopRight", fontSize: 9, fill: "#888" }} />
+          )}
+          <Area dataKey="realized" stroke="#FAA613" strokeWidth={2.5} fill="url(#viewsFill)" dot={false} connectNulls={false} activeDot={{ r: 4, fill: "#FAA613" }} />
+          <Line dataKey="projection" stroke="#FAA613" strokeWidth={1.5} strokeDasharray="7 4" dot={false} connectNulls={false} />
+          <Line dataKey="optimistic" stroke="#10b981" strokeWidth={1.5} strokeDasharray="7 4" dot={false} connectNulls={false} />
+          <Line dataKey="conservative" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="7 4" dot={false} connectNulls={false} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>
