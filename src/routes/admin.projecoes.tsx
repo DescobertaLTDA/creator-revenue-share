@@ -495,23 +495,6 @@ export default function ForecastPage() {
         <ScenariosPanel scenarios={scenarios} onOpenDrawer={() => setDrawerOpen(true)} />
       </div>
 
-      {/* ── Factors + Similar + Simulator ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <FactorsCard factors={factors} />
-        <SimilarPagesCard pages={similarPages} />
-        <SimulatorCard
-          postsPerDay={metrics.simPostsPerDay}
-          viewsPerPost={metrics.simViewsPerPost}
-          rpm={metrics.simRpm}
-          projection={metrics.simMonthProjection}
-          brl={metrics.simMonthProjection * brlRate}
-          onPostsPerDay={v => { setSimPostsPerDay(v); setSimApplied(false); }}
-          onViewsPerPost={v => { setSimViewsPerPost(v); setSimApplied(false); }}
-          onRpm={v => { setSimRpm(v); setSimApplied(false); }}
-          onApply={() => setSimApplied(true)}
-        />
-      </div>
-
       {/* ── Drawer ── */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto p-0">
