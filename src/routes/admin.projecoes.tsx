@@ -494,6 +494,13 @@ export default function ForecastPage() {
         <ScenariosPanel scenarios={scenarios} onOpenDrawer={() => setDrawerOpen(true)} />
       </div>
 
+      {/* ── Fatores + Similares + Últimos 7 dias ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <FactorsCard factors={factors} />
+        <SimilarPagesCard pages={similarPages} />
+        <Last7DaysCard posts={pagePosts} />
+      </div>
+
       {/* ── Drawer ── */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto p-0">
@@ -919,6 +926,65 @@ function SliderField({ label, value, min, max, step, display, displayRight, onCh
           onChange={e => onChange(parseFloat(e.target.value))}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         />
+      </div>
+    </div>
+  );
+}
+
+// ─── Last 7 Days Card ─────────────────────────────────────────────────────────
+
+function Last7DaysCard({ posts }: { posts: RawPost[] }) {
+  const days = useMemo(() => {
+    const now = today();
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(now); d.setDate(d.getDate() - i);
+      const dk = dayKey(d);
+      const dayPosts = posts.filter(p => p.published_at?.slice(0, 10) === dk);
+      const views = dayPosts.reduce((s, p) => s + Number(p.views ?? 0), 0);
+      const revenue = dayPosts.reduce((s, p) => s + getPostRev(p), 0);
+      return {
+        label: d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" }),
+        count: dayPosts.length,
+        views,
+        revenue,
+        isToday: i === 0,
+      };
+    });
+  }, [posts]);
+
+  const maxRev = Math.max(...days.map(d => d.revenue), 1);
+
+  return (
+    <div className="rounded-2xl border border-border bg-white p-5 flex flex-col gap-4">
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Últimos 7 dias</p>
+        <p className="text-xs text-muted-foreground mt-0.5">Posts · views · receita por dia</p>
+      </div>
+      <div className="space-y-0.5">
+        {days.map((d, i) => (
+          <div key={i} className={cn(
+            "grid items-center gap-2 px-2.5 py-2 rounded-xl text-xs transition-colors",
+            "grid-cols-[1fr_32px_52px_56px]",
+            d.isToday ? "bg-[#FFF0E8]" : "hover:bg-muted/30"
+          )}>
+            <span className={cn("font-medium capitalize truncate", d.isToday && "text-[#F44708] font-semibold")}>
+              {d.label}{d.isToday ? " ·hoje" : ""}
+            </span>
+            <span className="text-muted-foreground text-right">{d.count}p</span>
+            <span className="text-muted-foreground text-right">
+              {d.views >= 1_000_000 ? `${(d.views / 1_000_000).toFixed(1)}M` : d.views >= 1000 ? `${Math.round(d.views / 1000)}k` : String(d.views)}
+            </span>
+            <span className={cn("font-bold text-right tabular-nums", d.revenue > 0 ? "text-[#F44708]" : "text-muted-foreground")}>
+              {d.revenue > 0 ? fmtUSD(d.revenue, true) : "–"}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="pt-1 border-t border-border flex items-center justify-between text-[10px] text-muted-foreground">
+        <span>Total 7 dias</span>
+        <span className="font-bold text-foreground text-xs">
+          {fmtUSD(days.reduce((s, d) => s + d.revenue, 0), true)}
+        </span>
       </div>
     </div>
   );
