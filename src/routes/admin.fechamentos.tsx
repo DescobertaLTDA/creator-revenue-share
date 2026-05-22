@@ -3,12 +3,15 @@ import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useWriteGuard } from "@/hooks/use-write-guard";
-import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { Button } from "@/components/ui/button";
 import { formatMonth } from "@/lib/format";
 import { toast } from "sonner";
-import { CalendarCheck, Plus, Loader2, ChevronRight, Users } from "lucide-react";
+import {
+  CalendarCheck, Plus, Loader2, ChevronRight,
+  Lock, Clock, DollarSign,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin/fechamentos")({
   head: () => ({ meta: [{ title: "Fechamentos — Splash Creators" }] }),
@@ -183,14 +186,12 @@ function Page() {
           .limit(1);
         const collaboratorPct = ((rulesData as SplitRule[]) ?? [])[0]?.collaborator_pct ?? 0;
 
-        // Build post → collaborators map
         const postColabMap: Record<string, string[]> = {};
         for (const pa of postAuthors) {
           if (!postColabMap[pa.post_id]) postColabMap[pa.post_id] = [];
           postColabMap[pa.post_id].push(pa.collaborator_id);
         }
 
-        // Gross per collaborator (proportional share of each post)
         const grossByColab: Record<string, number> = {};
         for (const post of posts) {
           const colabers = postColabMap[post.id] ?? [];
@@ -202,7 +203,6 @@ function Page() {
 
         const totalGross = Object.values(grossByColab).reduce((a, b) => a + b, 0);
 
-        // Fetch daily_revenue_entries for this month to calculate total bonus
         const { data: dailyEntries } = await supabase
           .from("daily_revenue_entries")
           .select("actual_revenue_usd")
@@ -214,7 +214,6 @@ function Page() {
         );
         const totalBonus = totalActual - totalGross;
 
-        // Fetch views % from PREVIOUS month to distribute bonus
         const prevMonthRef = calcPrevMonthRef(formMonth);
         const viewsPct = totalBonus !== 0
           ? await fetchViewsPctByColabForMonth(prevMonthRef)
@@ -233,7 +232,6 @@ function Page() {
           .single();
         if (cErr) throw cErr;
 
-        // All collaborators = those with posts + those only in viewsPct (prev month)
         const allColabIds = [...new Set([
           ...collabs.map((c) => c.id),
           ...Object.keys(viewsPct),
@@ -248,10 +246,8 @@ function Page() {
           .map((c) => {
             const gross = parseFloat((grossByColab[c.id] ?? 0).toFixed(4));
             const amountDue = parseFloat((gross * collaboratorPct / 100).toFixed(4));
-            // Bonus share = totalBonus * (views of this colab / total views prev month)
             const bonusShare = parseFloat(((viewsPct[c.id] ?? 0) * totalBonus).toFixed(4));
             const finalAmount = parseFloat((amountDue + bonusShare).toFixed(4));
-            // Skip colabs with nothing (no posts and no bonus share)
             if (gross === 0 && bonusShare === 0) return null;
             return {
               closing_id: closing.id,
@@ -259,7 +255,7 @@ function Page() {
               gross_revenue: gross,
               collaborator_pct: collaboratorPct,
               amount_due: amountDue,
-              adjustments: bonusShare,  // bonus from daily reconciliation
+              adjustments: bonusShare,
               final_amount: finalAmount,
               payment_status: "a_pagar",
             };
@@ -289,20 +285,28 @@ function Page() {
   return (
     <div className="space-y-6">
       <WriteGuardDialog />
-      <PageHeader
-        title="Fechamentos mensais"
-        description="Cálculo automático de pagamentos por colaborador com base nos posts e regras de split."
-        actions={
-          <Button onClick={guard(() => setShowForm((v) => !v))}>
-            <Plus className="h-4 w-4 mr-2" />
-            Gerar fechamento
-          </Button>
-        }
-      />
 
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Fechamentos</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Cálculo automático de pagamentos por colaborador.
+          </p>
+        </div>
+        <Button onClick={guard(() => setShowForm((v) => !v))} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Gerar fechamento
+        </Button>
+      </div>
+
+      {/* Form */}
       {showForm && (
-        <form onSubmit={guardSubmit(generate)} className="bg-card border border-border rounded-lg p-4 sm:p-5 space-y-4">
-          <h3 className="font-semibold">Novo fechamento</h3>
+        <form
+          onSubmit={guardSubmit(generate)}
+          className="rounded-xl border border-border bg-card p-5 space-y-4"
+        >
+          <h3 className="font-semibold text-sm">Novo fechamento</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mês de referência</label>
@@ -310,7 +314,7 @@ function Page() {
                 type="month"
                 value={formMonth}
                 onChange={(e) => setFormMonth(e.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                className="h-9 rounded-lg border border-input bg-background px-3 text-sm"
                 required
               />
             </div>
@@ -319,7 +323,7 @@ function Page() {
               <select
                 value={formPage}
                 onChange={(e) => setFormPage(e.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                className="h-9 rounded-lg border border-input bg-background px-3 text-sm"
               >
                 <option value="all">Todas as páginas</option>
                 {pages.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
@@ -330,8 +334,8 @@ function Page() {
             O cálculo usa os posts importados do mês, os vínculos por hashtag e as regras de split cadastradas.
           </p>
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => setShowForm(false)} className="flex-1 h-11">Cancelar</Button>
-            <Button type="submit" disabled={generating} className="flex-1 h-11">
+            <Button type="button" variant="outline" onClick={() => setShowForm(false)} className="flex-1 h-10">Cancelar</Button>
+            <Button type="submit" disabled={generating} className="flex-1 h-10">
               {generating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {generating ? "Calculando…" : "Gerar"}
             </Button>
@@ -339,68 +343,100 @@ function Page() {
         </form>
       )}
 
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      {/* List */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
         {loading ? (
-          <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          <div className="flex justify-center py-16">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
         ) : closings.length === 0 ? (
-          <div className="p-6">
-            <EmptyState icon={CalendarCheck} title="Nenhum fechamento ainda" description='Clique em "Gerar fechamento" para calcular os pagamentos do mês.' />
+          <div className="p-8">
+            <EmptyState
+              icon={CalendarCheck}
+              title="Nenhum fechamento ainda"
+              description='Clique em "Gerar fechamento" para calcular os pagamentos do mês.'
+            />
           </div>
         ) : (
           <>
-            {/* Mobile card list */}
+            {/* Mobile */}
             <div className="sm:hidden divide-y divide-border">
               {closings.map((c) => (
-                <Link key={c.id} to="/admin/fechamentos/$id" params={{ id: c.id }} className="flex items-center justify-between gap-3 px-4 py-4 hover:bg-muted/20 active:bg-muted/40 transition-colors">
+                <Link
+                  key={c.id}
+                  to="/admin/fechamentos/$id"
+                  params={{ id: c.id }}
+                  className="flex items-center justify-between gap-3 px-4 py-4 hover:bg-muted/20 transition-colors"
+                >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-sm">{formatMonth(c.month_ref)}</p>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                        c.status === "fechado" ? "bg-[#16a34a]/10 text-[#16a34a]" : "bg-amber-500/10 text-amber-600"
-                      }`}>
-                        {c.status === "fechado" ? "Fechado" : "Em aberto"}
+                      <span className={cn(
+                        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium",
+                        c.status === "fechado"
+                          ? "bg-emerald-500/10 text-emerald-600"
+                          : "bg-amber-500/10 text-amber-600"
+                      )}>
+                        {c.status === "fechado"
+                          ? <><Lock className="h-2.5 w-2.5" />Fechado</>
+                          : <><Clock className="h-2.5 w-2.5" />Em aberto</>}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">{c.pages?.nome ?? "—"} · {c._itemCount ?? 0} colabs</p>
-                    <p className="text-sm font-medium mt-1">${Number(c.total_gross ?? 0).toFixed(2)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {c.pages?.nome ?? "—"} · {c._itemCount ?? 0} colabs
+                    </p>
+                    <p className="text-sm font-medium mt-1 tabular-nums">${Number(c.total_gross ?? 0).toFixed(2)}</p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                 </Link>
               ))}
             </div>
-            {/* Desktop table */}
+
+            {/* Desktop */}
             <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="text-left px-5 py-3 font-medium">Mês</th>
-                    <th className="text-left px-5 py-3 font-medium">Página</th>
-                    <th className="text-left px-5 py-3 font-medium">Status</th>
-                    <th className="text-right px-5 py-3 font-medium">
-                      <span className="inline-flex items-center justify-end gap-1"><Users className="h-3 w-3" />Colabs</span>
-                    </th>
-                    <th className="text-right px-5 py-3 font-medium">Receita bruta (USD)</th>
+                <thead>
+                  <tr className="border-b border-border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <th className="text-left px-5 py-3">Mês</th>
+                    <th className="text-left px-5 py-3">Página</th>
+                    <th className="px-5 py-3">Status</th>
+                    <th className="text-right px-5 py-3">Colaboradores</th>
+                    <th className="text-right px-5 py-3">Receita Bruta (USD)</th>
                     <th className="px-5 py-3" />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody>
                   {closings.map((c) => (
-                    <tr key={c.id} className="hover:bg-muted/20">
-                      <td className="px-5 py-3 font-medium">{formatMonth(c.month_ref)}</td>
-                      <td className="px-5 py-3 text-muted-foreground">{c.pages?.nome ?? "—"}</td>
-                      <td className="px-5 py-3">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    <tr key={c.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                      <td className="px-5 py-3.5 font-semibold">{formatMonth(c.month_ref)}</td>
+                      <td className="px-5 py-3.5 text-muted-foreground">{c.pages?.nome ?? "—"}</td>
+                      <td className="px-5 py-3.5">
+                        <span className={cn(
+                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
                           c.status === "fechado"
-                            ? "bg-[#16a34a]/10 text-[#16a34a]"
+                            ? "bg-emerald-500/10 text-emerald-600"
                             : "bg-amber-500/10 text-amber-600"
-                        }`}>
-                          {c.status === "fechado" ? "Fechado" : "Em aberto"}
+                        )}>
+                          {c.status === "fechado"
+                            ? <><Lock className="h-3 w-3" />Fechado</>
+                            : <><Clock className="h-3 w-3" />Em aberto</>}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">{c._itemCount ?? 0}</td>
-                      <td className="px-5 py-3 text-right tabular-nums font-medium">${Number(c.total_gross ?? 0).toFixed(2)}</td>
-                      <td className="px-5 py-3 text-right">
-                        <Link to="/admin/fechamentos/$id" params={{ id: c.id }} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                      <td className="px-5 py-3.5 text-right tabular-nums text-muted-foreground">
+                        {c._itemCount ?? 0}
+                      </td>
+                      <td className="px-5 py-3.5 text-right tabular-nums font-semibold">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                          {Number(c.total_gross ?? 0).toFixed(2)}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <Link
+                          to="/admin/fechamentos/$id"
+                          params={{ id: c.id }}
+                          className="inline-flex items-center gap-1 text-xs text-orange-500 hover:text-orange-600 font-medium"
+                        >
                           Ver detalhes <ChevronRight className="h-3 w-3" />
                         </Link>
                       </td>
