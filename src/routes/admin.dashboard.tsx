@@ -1102,10 +1102,24 @@ function AdminDashboard() {
 
   const { totalMonth: correctedTotalMonth, totalMonthCsv, totalViews: csvTotalViews, avgRpm: csvAvgRpm, avgScore } = kpis;
 
+  // When a specific collaborator is selected, use their individual card data for KPIs
+  const selectedColabOn = filterColab !== "all" && filterColab !== SEM_COLAB_ID
+    ? collabCards.find(c => c.id === filterColab) ?? null
+    : null;
+  const selectedColabOff = filterColab !== "all" && filterColab !== SEM_COLAB_ID
+    ? collabCardsCsv.find(c => c.id === filterColab) ?? null
+    : null;
+
   // ON = show corrected totals (CSV posts + manual corrections); OFF = pure CSV posts only
-  const totalMonth = showManual ? correctedTotalMonth : totalMonthCsv;
-  const totalViews = showManual && manualKpiTotals.views > 0 ? manualKpiTotals.views : csvTotalViews;
-  const avgRpm = showManual && totalViews > 0 && totalMonth > 0
+  const totalMonth = selectedColabOn
+    ? (showManual ? selectedColabOn.receita : (selectedColabOff?.receita ?? 0))
+    : (showManual ? correctedTotalMonth : totalMonthCsv);
+  const effectiveTotalMonthCsv = selectedColabOff?.receita ?? totalMonthCsv;
+  const totalViews = selectedColabOn
+    ? (showManual ? selectedColabOn.views : (selectedColabOff?.views ?? 0))
+    : (showManual && manualKpiTotals.views > 0 ? manualKpiTotals.views : csvTotalViews);
+  const effectiveCsvTotalViews = selectedColabOff?.views ?? csvTotalViews;
+  const avgRpm = totalViews > 0 && totalMonth > 0
     ? (totalMonth / totalViews) * 1000
     : csvAvgRpm;
 
@@ -1541,7 +1555,7 @@ function AdminDashboard() {
                   label="Receita do Período"
                   value={loading ? "—" : usdBrl ? formatBRL(totalMonth * usdBrl) : `$${totalMonth.toFixed(2)}`}
                   sub={usdBrl && !loading ? `$${totalMonth.toFixed(2)} USD` : null}
-                  delta={showManual && !loading ? totalMonth - totalMonthCsv : 0}
+                  delta={showManual && !loading ? totalMonth - effectiveTotalMonthCsv : 0}
                   fmtDelta={(n) => usdBrl ? formatBRL(Math.abs(n) * usdBrl) : `$${Math.abs(n).toFixed(2)}`}
                   icon={DollarSign}
                 />
@@ -1559,7 +1573,7 @@ function AdminDashboard() {
                   label="Visualizações"
                   value={loading ? "—" : fmt(totalViews)}
                   sub={`${kpis.totalPosts.toLocaleString("pt-BR")} posts`}
-                  delta={showManual && !loading ? totalViews - csvTotalViews : 0}
+                  delta={showManual && !loading ? totalViews - effectiveCsvTotalViews : 0}
                   fmtDelta={(n) => fmt(Math.abs(n))}
                   icon={Eye}
                 />
