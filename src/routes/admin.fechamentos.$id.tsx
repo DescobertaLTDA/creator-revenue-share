@@ -495,6 +495,40 @@ function ClosingDetail() {
     );
   }
 
+  if (previewPdf) {
+    return (
+      <div className="flex flex-col gap-4" style={{ height: "calc(100vh - 6rem)" }}>
+        {/* Toolbar */}
+        <div className="flex items-center justify-between bg-card border border-border rounded-xl px-4 py-2.5 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="text-sm font-medium text-foreground truncate">{previewPdf.filename}</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={previewPdf.blobUrl}
+              download={previewPdf.filename}
+              className="inline-flex items-center gap-2 h-8 px-3 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold transition-colors"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Baixar PDF
+            </a>
+            <button
+              onClick={closePreview}
+              className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        {/* PDF frame */}
+        <div className="flex-1 rounded-xl overflow-hidden border border-border min-h-0">
+          <iframe src={previewPdf.blobUrl} className="w-full h-full" title="Pré-visualização do comprovante" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <WriteGuardDialog />
@@ -874,38 +908,6 @@ function ClosingDetail() {
         </SheetContent>
       </Sheet>
 
-      {/* ── PDF Preview Modal ─────────────────────────────────────────────────── */}
-      {previewPdf && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex flex-col items-center justify-center p-4 gap-3">
-          {/* Toolbar */}
-          <div className="w-full max-w-3xl flex items-center justify-between bg-card border border-border rounded-xl px-4 py-2.5 shrink-0">
-            <div className="flex items-center gap-2 min-w-0">
-              <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className="text-sm font-medium text-foreground truncate">{previewPdf.filename}</span>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <a
-                href={previewPdf.blobUrl}
-                download={previewPdf.filename}
-                className="inline-flex items-center gap-2 h-8 px-3 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold transition-colors"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Baixar PDF
-              </a>
-              <button
-                onClick={closePreview}
-                className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-          {/* PDF frame */}
-          <div className="w-full max-w-3xl flex-1 rounded-xl overflow-hidden border border-border min-h-0" style={{ maxHeight: "80vh" }}>
-            <iframe src={previewPdf.blobUrl} className="w-full h-full" style={{ minHeight: "70vh" }} title="Pré-visualização do comprovante" />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
