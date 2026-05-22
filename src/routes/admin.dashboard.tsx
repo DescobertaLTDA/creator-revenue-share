@@ -779,9 +779,8 @@ function AdminDashboard() {
       const collaboratorIds = Array.from(postToCollabs.get(p.id) ?? []);
       if (collaboratorIds.length === 0) continue;
       const views = Number(p.views ?? 0);
-      const share = views / collaboratorIds.length;
       for (const cid of collaboratorIds) {
-        prevViewsByColab.set(cid, (prevViewsByColab.get(cid) ?? 0) + share);
+        prevViewsByColab.set(cid, (prevViewsByColab.get(cid) ?? 0) + views);
       }
     }
     const totalPrevViews = Array.from(prevViewsByColab.values()).reduce((a, b) => a + b, 0);
