@@ -331,7 +331,7 @@ function ClosingDetail() {
   const [approving, setApproving] = useState(false);
   const [tab, setTab] = useState<Tab>("all");
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-  const [allClosings, setAllClosings] = useState<{ id: string; month_ref: string }[]>([]);
+  const [allClosings, setAllClosings] = useState<{ id: string; month_ref: string; pages: { nome: string } | null }[]>([]);
   const [deleting, setDeleting] = useState(false);
   const [previewPdf, setPreviewPdf] = useState<{ blobUrl: string; filename: string } | null>(null);
   const [generatingPdf, setGeneratingPdf] = useState(false);
@@ -396,8 +396,8 @@ function ClosingDetail() {
 
   useEffect(() => {
     load();
-    supabase.from("monthly_closings").select("id, month_ref").order("month_ref", { ascending: false })
-      .then(({ data }) => setAllClosings((data ?? []) as { id: string; month_ref: string }[]));
+    supabase.from("monthly_closings").select("id, month_ref, pages(nome)").order("month_ref", { ascending: false })
+      .then(({ data }) => setAllClosings((data ?? []) as { id: string; month_ref: string; pages: { nome: string } | null }[]));
   }, [id]);
 
   const isFechado = closing?.status === "fechado";
@@ -499,19 +499,27 @@ function ClosingDetail() {
     <div className="space-y-5">
       <WriteGuardDialog />
 
-      {/* Month navigator */}
-      {allClosings.length > 1 && (() => {
+      {/* Navigator */}
+      {(() => {
         const idx = allClosings.findIndex((c) => c.id === id);
         const prev = allClosings[idx + 1]; // older
         const next = allClosings[idx - 1]; // newer
+        const label = (c: typeof prev) => c ? `${c.pages?.nome ?? "—"} · ${formatMonth(c.month_ref)}` : "—";
         return (
           <div className="flex items-center gap-1">
+            <Link
+              to="/admin/fechamentos"
+              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            >
+              Ver todos
+            </Link>
+            <span className="text-xs text-muted-foreground/40 px-0.5">|</span>
             <button
               onClick={() => prev && navigate({ to: "/admin/fechamentos/$id", params: { id: prev.id } })}
               disabled={!prev}
               className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              <ChevronLeft className="h-3.5 w-3.5" /> {prev ? formatMonth(prev.month_ref) : "—"}
+              <ChevronLeft className="h-3.5 w-3.5" /> {label(prev)}
             </button>
             <span className="text-xs text-muted-foreground px-1">·</span>
             <button
@@ -519,7 +527,7 @@ function ClosingDetail() {
               disabled={!next}
               className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              {next ? formatMonth(next.month_ref) : "—"} <ChevronRight className="h-3.5 w-3.5" />
+              {label(next)} <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
         );

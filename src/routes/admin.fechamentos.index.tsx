@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -6,7 +6,8 @@ import { useWriteGuard } from "@/hooks/use-write-guard";
 import { Button } from "@/components/ui/button";
 import { formatMonth } from "@/lib/format";
 import { toast } from "sonner";
-import { CalendarCheck, Plus, Loader2 } from "lucide-react";
+import { CalendarCheck, Plus, Loader2, Lock, Clock, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin/fechamentos/")({
   head: () => ({ meta: [{ title: "Fechamentos — Splash Creators" }] }),
@@ -17,7 +18,13 @@ interface PageRow { id: string; nome: string }
 interface RawPostViews { id: string; views: number | null }
 interface PostAuthor { post_id: string; collaborator_id: string }
 interface Collab { id: string; nome: string }
-
+interface ClosingRow {
+  id: string;
+  month_ref: string;
+  status: string;
+  total_gross: number;
+  pages: { nome: string } | null;
+}
 
 async function fetchViewsPctByColabForMonth(monthRef: string, pageId?: string): Promise<Record<string, number>> {
   const [y, m] = monthRef.split("-").map(Number);
@@ -47,6 +54,7 @@ function Page() {
   const { guardSubmit, guard, WriteGuardDialog } = useWriteGuard();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [closings, setClosings] = useState<ClosingRow[]>([]);
   const [pages, setPages] = useState<PageRow[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -54,27 +62,24 @@ function Page() {
   const [formMonth, setFormMonth] = useState(thisMonth);
   const [formPage, setFormPage] = useState("all");
 
-  useEffect(() => {
-    (async () => {
-      // Fetch latest closing and redirect immediately
-      const { data: latest } = await supabase
-        .from("monthly_closings")
-        .select("id")
-        .order("month_ref", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+  const loadAll = async () => {
+    const [{ data: cls }, { data: p }] = await Promise.all([
+      supabase.from("monthly_closings").select("id, month_ref, status, total_gross, pages(nome)").order("month_ref", { ascending: false }),
+      supabase.from("pages").select("id, nome").eq("ativo", true).order("nome"),
+    ]);
+    setClosings((cls as unknown as ClosingRow[]) ?? []);
+    setPages((p as PageRow[]) ?? []);
+    setLoading(false);
+  };
 
-      if (latest?.id) {
-        navigate({ to: "/admin/fechamentos/$id", params: { id: latest.id }, replace: true });
-        return;
-      }
+  useEffect(() => { loadAll(); }, []);
 
-      // No closings yet — load pages to show generate form
-      const { data: p } = await supabase.from("pages").select("id, nome").eq("ativo", true).order("nome");
-      setPages((p as PageRow[]) ?? []);
-      setLoading(false);
-    })();
-  }, []);
+  // Group closings by month
+  const grouped = closings.reduce<Record<string, ClosingRow[]>>((acc, c) => {
+    (acc[c.month_ref] = acc[c.month_ref] ?? []).push(c);
+    return acc;
+  }, {});
+  const months = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
 
   const generate = async (e: FormEvent) => {
     e.preventDefault();
@@ -93,11 +98,9 @@ function Page() {
         const dateFrom = `${formMonth}-01`;
         const dateTo = `${formMonth}-${String(lastDay).padStart(2, "0")}`;
 
-        // Total actual revenue for this page from daily_revenue_entries
         const { data: dailyEntries } = await supabase.from("daily_revenue_entries").select("actual_revenue_usd").eq("page_id", pageId).gte("entry_date", dateFrom).lte("entry_date", dateTo);
         const totalActual = (dailyEntries ?? []).reduce((s: number, e: any) => s + Number(e.actual_revenue_usd ?? 0), 0);
 
-        // Views proportion for current month, scoped to this page
         const viewsPct = await fetchViewsPctByColabForMonth(formMonth, pageId);
         if (Object.keys(viewsPct).length === 0) { toast.info(`Sem posts/views em ${pageName} para ${formatMonth(formMonth)}`); continue; }
 
@@ -120,6 +123,8 @@ function Page() {
         toast.success(`Fechamento gerado — ${pageName} (${items.length} colabs)`);
       }
 
+      await loadAll();
+      setShowForm(false);
       if (createdId) navigate({ to: "/admin/fechamentos/$id", params: { id: createdId } });
     } catch (err: any) {
       toast.error("Erro ao gerar fechamento", { description: err.message });
@@ -136,21 +141,23 @@ function Page() {
     );
   }
 
-  // No closings exist — show generate form
   return (
     <div className="space-y-6">
       <WriteGuardDialog />
+
+      {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Fechamentos</h1>
-          <p className="text-sm text-muted-foreground mt-1">Nenhum fechamento gerado ainda.</p>
+          <p className="text-sm text-muted-foreground mt-1">Selecione um fechamento para visualizar ou registrar pagamentos.</p>
         </div>
-        <Button onClick={guard(() => setShowForm(true))} className="gap-2">
+        <Button onClick={guard(() => setShowForm((v) => !v))} className="gap-2">
           <Plus className="h-4 w-4" />
           Gerar fechamento
         </Button>
       </div>
 
+      {/* Generate form */}
       {showForm && (
         <form onSubmit={guardSubmit(generate)} className="rounded-xl border border-border bg-card p-5 space-y-4 max-w-lg">
           <h3 className="font-semibold text-sm">Novo fechamento</h3>
@@ -177,7 +184,8 @@ function Page() {
         </form>
       )}
 
-      {!showForm && (
+      {/* List */}
+      {months.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-12 flex flex-col items-center gap-3 text-center">
           <div className="h-12 w-12 rounded-full bg-orange-500/10 flex items-center justify-center">
             <CalendarCheck className="h-6 w-6 text-orange-500" />
@@ -186,6 +194,43 @@ function Page() {
           <p className="text-sm text-muted-foreground max-w-xs">
             Gere o primeiro fechamento para calcular os pagamentos do mês automaticamente.
           </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {months.map((month) => (
+            <div key={month} className="rounded-xl border border-border bg-card overflow-hidden">
+              <div className="px-5 py-3 border-b border-border bg-muted/30">
+                <p className="text-sm font-semibold">{formatMonth(month)}</p>
+              </div>
+              <div className="divide-y divide-border">
+                {grouped[month].map((c) => (
+                  <Link
+                    key={c.id}
+                    to="/admin/fechamentos/$id"
+                    params={{ id: c.id }}
+                    className="flex items-center justify-between gap-4 px-5 py-3.5 hover:bg-muted/30 transition-colors group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className={cn(
+                        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border shrink-0",
+                        c.status === "fechado"
+                          ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                          : "bg-amber-500/10 text-amber-600 border-amber-400/20"
+                      )}>
+                        {c.status === "fechado" ? <Lock className="h-2.5 w-2.5" /> : <Clock className="h-2.5 w-2.5" />}
+                        {c.status === "fechado" ? "Finalizado" : "Aberto"}
+                      </span>
+                      <span className="text-sm font-medium truncate">{c.pages?.nome ?? "—"}</span>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-sm font-semibold tabular-nums">${Number(c.total_gross).toFixed(2)}</span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
