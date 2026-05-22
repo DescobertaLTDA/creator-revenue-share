@@ -445,7 +445,6 @@ export default function ForecastPage() {
             value={`${fmtUSD(metrics.actualDailyRate, true)} / dia`}
             sub="Média últimos 7 dias"
             trend={metrics.growthRate}
-            chart={true}
           />
           <KpiCard
             label="Crescimento"
@@ -629,13 +628,12 @@ function HeroCard({ projection, brl, realized, daysLeft, totalDays, elapsed, con
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value, sub, trend, highlight, positive, chart }: {
+function KpiCard({ label, value, sub, trend, highlight, positive }: {
   label: string; value: string; sub: string;
-  trend?: number; highlight?: boolean; positive?: boolean; chart?: boolean;
+  trend?: number; highlight?: boolean; positive?: boolean;
 }) {
-  const isUp = trend !== undefined ? trend > 0 : (positive ?? true);
   return (
-    <div className="rounded-2xl border border-border bg-white p-4 flex flex-col gap-2">
+    <div className="rounded-2xl border border-border bg-white p-4 flex flex-col gap-1.5">
       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className="text-lg font-extrabold leading-tight">{value}</p>
       <div className="flex items-center gap-1">
@@ -646,16 +644,6 @@ function KpiCard({ label, value, sub, trend, highlight, positive, chart }: {
         )}
         <p className={cn("text-[10px]", highlight ? "text-[#F44708] font-semibold" : "text-muted-foreground")}>{sub}</p>
       </div>
-      {chart && (
-        <div className="h-6 mt-1">
-          <svg viewBox="0 0 60 20" className="w-full h-full">
-            <polyline
-              points="0,18 10,14 20,12 30,10 40,7 50,5 60,4"
-              fill="none" stroke="#F44708" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-            />
-          </svg>
-        </div>
-      )}
     </div>
   );
 }
