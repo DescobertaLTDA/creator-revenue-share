@@ -84,13 +84,19 @@ function Page() {
   const generate = async (e: FormEvent) => {
     e.preventDefault();
     setGenerating(true);
+    const timeout = setTimeout(() => {
+      setGenerating(false);
+      toast.error("Tempo esgotado", { description: "A operação demorou demais. Verifique sua conexão e tente novamente." });
+    }, 30_000);
     try {
       const pageIds = formPage === "all" ? pages.map((p) => p.id) : [formPage];
       let createdId: string | null = null;
 
       for (const pageId of pageIds) {
         const pageName = pages.find((p) => p.id === pageId)?.nome ?? pageId;
-        const { data: existing } = await supabase.from("monthly_closings").select("id").eq("month_ref", formMonth).eq("page_id", pageId).maybeSingle();
+
+        const { data: existing, error: exErr } = await supabase.from("monthly_closings").select("id").eq("month_ref", formMonth).eq("page_id", pageId).maybeSingle();
+        if (exErr) throw exErr;
         if (existing) { toast.warning(`Já existe fechamento para ${pageName} em ${formatMonth(formMonth)}`); continue; }
 
         const [y, m] = formMonth.split("-").map(Number);
@@ -98,14 +104,16 @@ function Page() {
         const dateFrom = `${formMonth}-01`;
         const dateTo = `${formMonth}-${String(lastDay).padStart(2, "0")}`;
 
-        const { data: dailyEntries } = await supabase.from("daily_revenue_entries").select("actual_revenue_usd").eq("page_id", pageId).gte("entry_date", dateFrom).lte("entry_date", dateTo);
+        const { data: dailyEntries, error: deErr } = await supabase.from("daily_revenue_entries").select("actual_revenue_usd").eq("page_id", pageId).gte("entry_date", dateFrom).lte("entry_date", dateTo);
+        if (deErr) throw deErr;
         const totalActual = (dailyEntries ?? []).reduce((s: number, e: any) => s + Number(e.actual_revenue_usd ?? 0), 0);
 
         const viewsPct = await fetchViewsPctByColabForMonth(formMonth, pageId);
         if (Object.keys(viewsPct).length === 0) { toast.info(`Sem posts/views em ${pageName} para ${formatMonth(formMonth)}`); continue; }
 
         const colabIds = Object.keys(viewsPct);
-        const { data: colabData } = await supabase.from("collaborators").select("id, nome").in("id", colabIds);
+        const { data: colabData, error: coErr } = await supabase.from("collaborators").select("id, nome").in("id", colabIds);
+        if (coErr) throw coErr;
         const collabs = (colabData ?? []) as Collab[];
 
         const { data: closing, error: cErr } = await supabase.from("monthly_closings").insert({ month_ref: formMonth, page_id: pageId, status: "aberto", total_gross: parseFloat(totalActual.toFixed(4)), created_by: profile?.id }).select("id").single();
@@ -129,6 +137,7 @@ function Page() {
     } catch (err: any) {
       toast.error("Erro ao gerar fechamento", { description: err.message });
     } finally {
+      clearTimeout(timeout);
       setGenerating(false);
     }
   };
