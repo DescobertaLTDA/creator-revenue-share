@@ -506,71 +506,76 @@ export default function DataPipelinePage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-t border-border bg-muted/20">
-                    {["ARQUIVO", "PERÍODO", "LINHAS PROCESSADAS", "ATUALIZAÇÕES", "NOVOS REGISTROS", "PÁGINAS AFETADAS", "ENVIADO POR", "STATUS", "DURAÇÃO", ""].map(h => (
-                      <th key={h} className="text-left px-4 py-2.5 font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap first:pl-5">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginated.map(imp => {
-                    const revenue = revenueMap.get(imp.id) ?? 0;
-                    const isSelected = selectedId === imp.id;
-                    return (
-                      <tr
-                        key={imp.id}
-                        onClick={() => setSelectedId(imp.id)}
-                        className={cn(
-                          "border-t border-border/50 cursor-pointer transition-colors hover:bg-muted/20",
-                          isSelected && "bg-[#FFF8F0]"
-                        )}
-                      >
-                        <td className="pl-5 pr-3 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="h-7 w-7 rounded-lg bg-[#FFF0E8] flex items-center justify-center shrink-0">
-                              <FileText className="h-3.5 w-3.5 text-[#F44708]" />
-                            </div>
-                            <span className="font-medium text-foreground max-w-[160px] truncate block" title={imp.file_name}>
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-t border-border bg-muted/20">
+                  <th className="text-left pl-5 pr-3 py-2.5 font-bold uppercase tracking-wider text-muted-foreground w-[35%]">Arquivo</th>
+                  <th className="text-left px-4 py-2.5 font-bold uppercase tracking-wider text-muted-foreground w-[20%]">Período</th>
+                  <th className="text-left px-4 py-2.5 font-bold uppercase tracking-wider text-muted-foreground w-[12%]">Linhas</th>
+                  <th className="text-left px-4 py-2.5 font-bold uppercase tracking-wider text-muted-foreground w-[18%]">Enviado por</th>
+                  <th className="text-left px-4 py-2.5 font-bold uppercase tracking-wider text-muted-foreground w-[15%]">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginated.map(imp => {
+                  const isSelected = selectedId === imp.id;
+                  return (
+                    <tr
+                      key={imp.id}
+                      onClick={() => setSelectedId(imp.id)}
+                      className={cn(
+                        "border-t border-border/50 cursor-pointer transition-colors hover:bg-muted/20",
+                        isSelected && "bg-[#FFF8F0]"
+                      )}
+                    >
+                      {/* Arquivo */}
+                      <td className="pl-5 pr-3 py-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="h-7 w-7 rounded-lg bg-[#FFF0E8] flex items-center justify-center shrink-0">
+                            <FileText className="h-3.5 w-3.5 text-[#F44708]" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground truncate" title={imp.file_name}>
                               {imp.file_name}
-                            </span>
+                            </p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              {new Date(imp.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+                            </p>
                           </div>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{fmtPeriod(imp.period_start, imp.period_end)}</td>
-                        <td className="px-4 py-3 tabular-nums font-medium">{imp.valid_rows.toLocaleString()}</td>
-                        <td className="px-4 py-3 tabular-nums text-muted-foreground">{imp.updated_rows.toLocaleString()}</td>
-                        <td className="px-4 py-3 tabular-nums text-muted-foreground">{imp.inserted_rows.toLocaleString()}</td>
-                        <td className="px-4 py-3 tabular-nums text-muted-foreground">{imp.detected_pages_count}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            {imp.uploader?.avatar_url
-                              ? <img src={imp.uploader.avatar_url} className="h-7 w-7 rounded-full object-cover shrink-0 ring-2 ring-border" alt="" />
-                              : <div className="h-7 w-7 rounded-full bg-[#F44708]/15 flex items-center justify-center shrink-0 ring-2 ring-border">
-                                  <span className="text-[9px] font-bold text-[#F44708]">{(imp.uploader?.nome ?? "A")[0].toUpperCase()}</span>
-                                </div>
-                            }
-                            <span className="text-xs font-medium text-foreground max-w-[100px] truncate">{imp.uploader?.nome ?? "Admin"}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3"><StatusPill status={imp.status} /></td>
-                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap tabular-nums font-mono text-[10px]">
-                          {fmtDuration(imp.valid_rows, imp.status)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <button className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted transition-colors text-muted-foreground">
-                            <MoreVertical className="h-3.5 w-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                      </td>
+                      {/* Período */}
+                      <td className="px-4 py-3 text-muted-foreground text-[11px]">
+                        {fmtPeriod(imp.period_start, imp.period_end)}
+                      </td>
+                      {/* Linhas */}
+                      <td className="px-4 py-3">
+                        <span className="tabular-nums font-semibold text-foreground">{imp.valid_rows.toLocaleString()}</span>
+                        {imp.invalid_rows > 0 && (
+                          <span className="block text-[10px] text-amber-500">{imp.invalid_rows} inválidas</span>
+                        )}
+                      </td>
+                      {/* Enviado por */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {imp.uploader?.avatar_url
+                            ? <img src={imp.uploader.avatar_url} className="h-7 w-7 rounded-full object-cover shrink-0 ring-2 ring-border" alt="" />
+                            : <div className="h-7 w-7 rounded-full bg-[#F44708]/15 flex items-center justify-center shrink-0 ring-2 ring-[#F44708]/20">
+                                <span className="text-[9px] font-bold text-[#F44708]">{(imp.uploader?.nome ?? "A")[0].toUpperCase()}</span>
+                              </div>
+                          }
+                          <span className="font-medium text-foreground truncate">{imp.uploader?.nome ?? "Admin"}</span>
+                        </div>
+                      </td>
+                      {/* Status */}
+                      <td className="px-4 py-3">
+                        <StatusPill status={imp.status} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
 
             {/* Pagination */}
             {totalPages > 1 && (
