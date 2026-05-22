@@ -16,7 +16,6 @@ export const Route = createFileRoute("/admin/fechamentos/")({
 interface PageRow { id: string; nome: string }
 interface RawPostViews { id: string; views: number | null }
 interface PostAuthor { post_id: string; collaborator_id: string }
-interface SplitRule { collaborator_pct: number }
 interface Collab { id: string; nome: string }
 
 
@@ -102,9 +101,6 @@ function Page() {
         const viewsPct = await fetchViewsPctByColabForMonth(formMonth, pageId);
         if (Object.keys(viewsPct).length === 0) { toast.info(`Sem posts/views em ${pageName} para ${formatMonth(formMonth)}`); continue; }
 
-        const { data: rulesData } = await supabase.from("split_rules").select("collaborator_pct").eq("page_id", pageId).eq("active", true).lte("effective_from", dateTo).order("effective_from", { ascending: false }).limit(1);
-        const collaboratorPct = ((rulesData as SplitRule[]) ?? [])[0]?.collaborator_pct ?? 0;
-
         const colabIds = Object.keys(viewsPct);
         const { data: colabData } = await supabase.from("collaborators").select("id, nome").in("id", colabIds);
         const collabs = (colabData ?? []) as Collab[];
@@ -116,9 +112,8 @@ function Page() {
         const items = collabs.map((c) => {
           const viewShare = viewsPct[c.id] ?? 0;
           const gross = parseFloat((viewShare * totalActual).toFixed(4));
-          const amountDue = parseFloat((gross * collaboratorPct / 100).toFixed(4));
           if (gross === 0) return null;
-          return { closing_id: closing.id, collaborator_id: c.id, gross_revenue: gross, collaborator_pct: collaboratorPct, amount_due: amountDue, adjustments: 0, final_amount: amountDue, payment_status: "a_pagar" };
+          return { closing_id: closing.id, collaborator_id: c.id, gross_revenue: gross, collaborator_pct: 100, amount_due: gross, adjustments: 0, final_amount: gross, payment_status: "a_pagar" };
         }).filter((x): x is NonNullable<typeof x> => x !== null);
 
         if (items.length > 0) { const { error: iErr } = await supabase.from("monthly_closing_items").insert(items); if (iErr) throw iErr; }
