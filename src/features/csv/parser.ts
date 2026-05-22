@@ -39,6 +39,7 @@ const HEADER_MAP: Record<string, string> = {
   "post url": "permalink",
 
   "tipo de postagem": "post_type",
+  "tipo de post": "post_type",
   "post type": "post_type",
 
   "idioma": "language",
@@ -65,11 +66,13 @@ const HEADER_MAP: Record<string, string> = {
   "cliques (total)": "clicks_total",
   "clicks (total)": "clicks_total",
   "total clicks": "clicks_total",
+  "total de cliques": "clicks_total",
 
   "outros cliques": "clicks_other",
   "other clicks": "clicks_other",
 
   "cliques em links": "link_clicks",
+  "cliques no link": "link_clicks",
   "link clicks": "link_clicks",
 
   "ganhos aproximados com a monetização de conteúdo": "monetization_approx",
@@ -78,6 +81,24 @@ const HEADER_MAP: Record<string, string> = {
 
   "ganhos estimados (usd)": "estimated_usd",
   "estimated earnings (usd)": "estimated_usd",
+
+  "ganhos estimados com estrelas (usd)": "stars_earnings_usd",
+  "estimated earnings from stars (usd)": "stars_earnings_usd",
+
+  "cpm do anuncio (usd)": "ad_cpm_usd",
+  "ad cpm (usd)": "ad_cpm_usd",
+
+  "impressoes do anuncio": "ad_impressions",
+  "ad impressions": "ad_impressions",
+
+  "duracao (s)": "video_duration_s",
+  "duration (s)": "video_duration_s",
+
+  "segundos de visualizacao": "watch_seconds_total",
+  "total video view time (seconds)": "watch_seconds_total",
+
+  "media de segundos de visualizacao": "watch_seconds_avg",
+  "average seconds watched": "watch_seconds_avg",
 };
 
 const normalizeHeader = (h: string) =>
@@ -108,6 +129,12 @@ export interface ParsedPostRow {
   link_clicks: number;
   monetization_approx: number;
   estimated_usd: number;
+  stars_earnings_usd: number;
+  ad_cpm_usd: number;
+  ad_impressions: number;
+  video_duration_s: number;
+  watch_seconds_total: number;
+  watch_seconds_avg: number;
 }
 
 export interface RowError {
@@ -205,6 +232,12 @@ export function parseFacebookCsv(text: string): ParseResult {
       link_clicks: parseNumberLoose(pick("link_clicks")),
       monetization_approx: parseNumberLoose(pick("monetization_approx")),
       estimated_usd: parseNumberLoose(pick("estimated_usd")),
+      stars_earnings_usd: parseNumberLoose(pick("stars_earnings_usd")),
+      ad_cpm_usd: parseNumberLoose(pick("ad_cpm_usd")),
+      ad_impressions: parseNumberLoose(pick("ad_impressions")),
+      video_duration_s: parseNumberLoose(pick("video_duration_s")),
+      watch_seconds_total: parseNumberLoose(pick("watch_seconds_total")),
+      watch_seconds_avg: parseNumberLoose(pick("watch_seconds_avg")),
     });
   });
 
