@@ -232,7 +232,7 @@ function CentralReceita() {
       for (const post of curPostsArr) {
         const authors = curPaByPost[post.id] ?? [];
         if (authors.length === 0) continue;
-        const splitPct = splitByPage[post.page_id] ?? 50;
+        const splitPct = splitByPage[post.page_id] ?? 100;
         const mono = Number(post.monetization_approx ?? 0);
         const share = (mono * (splitPct / 100)) / authors.length;
         totalPosts += mono * (splitPct / 100); // total posts revenue (all collabs)
@@ -280,8 +280,8 @@ function CentralReceita() {
         // Determine split % (avg across pages this collab posted on current month)
         const postsOfColab = curPostsArr.filter((p) => (curPaByPost[p.id] ?? []).includes(cid));
         const splitPctAvg = postsOfColab.length > 0
-          ? postsOfColab.reduce((s, p) => s + (splitByPage[p.page_id] ?? 50), 0) / postsOfColab.length
-          : 50;
+          ? postsOfColab.reduce((s, p) => s + (splitByPage[p.page_id] ?? 100), 0) / postsOfColab.length
+          : 100;
 
         result.push({
           id: cid,
