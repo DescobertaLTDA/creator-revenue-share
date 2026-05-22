@@ -423,48 +423,45 @@ export default function ForecastPage() {
         </div>
       </div>
 
-      {/* ── Hero + KPI row ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-4">
-        {/* Hero card */}
-        <HeroCard
-          projection={metrics.totalProjection}
-          brl={metrics.totalProjection * brlRate}
-          realized={metrics.thisMonthRev}
-          daysLeft={metrics.daysLeft}
-          totalDays={metrics.totalDays}
-          elapsed={metrics.elapsed}
-          confidence={metrics.confidence}
-          vsHistorical={vsHistorical}
-          metaUsd={metaUsd}
-          dailyRate={metrics.actualDailyRate}
+      {/* ── Hero (full width) ── */}
+      <HeroCard
+        projection={metrics.totalProjection}
+        brl={metrics.totalProjection * brlRate}
+        realized={metrics.thisMonthRev}
+        daysLeft={metrics.daysLeft}
+        totalDays={metrics.totalDays}
+        elapsed={metrics.elapsed}
+        confidence={metrics.confidence}
+        vsHistorical={vsHistorical}
+        metaUsd={metaUsd}
+        dailyRate={metrics.actualDailyRate}
+      />
+      {/* ── KPI row ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <KpiCard
+          label="Ritmo atual"
+          value={`${fmtUSD(metrics.actualDailyRate, true)} / dia`}
+          sub="Média últimos 7 dias"
+          trend={metrics.growthRate}
         />
-        {/* KPI mini-cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-3">
-          <KpiCard
-            label="Ritmo atual"
-            value={`${fmtUSD(metrics.actualDailyRate, true)} / dia`}
-            sub="Média últimos 7 dias"
-            trend={metrics.growthRate}
-          />
-          <KpiCard
-            label="Crescimento"
-            value={fmtPct(metrics.growthRate)}
-            sub="vs 7 dias anteriores"
-            trend={metrics.growthRate}
-            highlight={metrics.growthRate > 0}
-          />
-          <KpiCard
-            label="RPM previsto"
-            value={`$${metrics.rpm.toFixed(3)}`}
-            sub={metrics.rpm >= 0.06 ? "↑ 8% vs média histórica" : "Abaixo de $0.06"}
-            positive={metrics.rpm >= 0.06}
-          />
-          <KpiCard
-            label="Pico esperado"
-            value={`Dia ${metrics.peakDay}`}
-            sub={`Entre ${metrics.peakDayRange[0]} e ${metrics.peakDayRange[1]}`}
-          />
-        </div>
+        <KpiCard
+          label="Crescimento"
+          value={fmtPct(metrics.growthRate)}
+          sub="vs 7 dias anteriores"
+          trend={metrics.growthRate}
+          highlight={metrics.growthRate > 0}
+        />
+        <KpiCard
+          label="RPM previsto"
+          value={`$${metrics.rpm.toFixed(3)}`}
+          sub={metrics.rpm >= 0.06 ? "↑ 8% vs média histórica" : "Abaixo de $0.06"}
+          positive={metrics.rpm >= 0.06}
+        />
+        <KpiCard
+          label="Pico esperado"
+          value={`Dia ${metrics.peakDay}`}
+          sub={`Entre ${metrics.peakDayRange[0]} e ${metrics.peakDayRange[1]}`}
+        />
       </div>
 
       {/* ── Confidence banner ── */}
@@ -561,19 +558,55 @@ function HeroCard({ projection, brl, realized, daysLeft, totalDays, elapsed, con
   elapsed: number; confidence: "Alta" | "Média" | "Baixa"; vsHistorical: number; metaUsd: number; dailyRate: number;
 }) {
   const metaPct = Math.min(Math.round((projection / metaUsd) * 100), 100);
-  const daysToMonetize = dailyRate > 0 ? Math.ceil((5000 - realized) / dailyRate) : null;
 
   return (
     <div className="rounded-2xl overflow-hidden relative"
       style={{ background: "linear-gradient(135deg, #F44708 0%, #E84A10 40%, #C03A08 100%)" }}>
-      <div className="absolute -top-10 -right-10 h-52 w-52 rounded-full opacity-10"
+      <div className="absolute -top-10 -right-10 h-64 w-64 rounded-full opacity-10"
         style={{ background: "radial-gradient(circle, #fff 0%, transparent 70%)" }} />
-      <div className="p-6 flex flex-col gap-4 relative">
-        {/* Label + confidence */}
-        <div className="flex items-center justify-between">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-white/60">Receita prevista do mês</p>
+      <div className="px-6 py-5 flex items-center gap-6 flex-wrap relative">
+
+        {/* Big number */}
+        <div className="shrink-0">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-1">Receita prevista do mês</p>
+          <p className="text-4xl font-black tracking-tight text-white leading-none">{fmtUSD(projection)}</p>
+          <p className="text-white/70 text-base font-bold mt-0.5">{fmtBRL(brl)}</p>
+        </div>
+
+        <div className="w-px h-10 bg-white/20 shrink-0 hidden sm:block" />
+
+        {/* Realizado + dias */}
+        <div className="shrink-0">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-1">Realizado</p>
+          <p className="text-2xl font-black text-white leading-none">{fmtUSD(realized)}</p>
+          <p className="text-[11px] text-white/60 mt-0.5">{elapsed} de {totalDays} dias</p>
+        </div>
+
+        <div className="w-px h-10 bg-white/20 shrink-0 hidden sm:block" />
+
+        {/* Meta bar */}
+        <div className="flex-1 min-w-[160px]">
+          <div className="flex justify-between text-[10px] text-white/60 mb-1.5">
+            <span>Meta: <span className="text-white/80 font-semibold">{fmtUSD(metaUsd, true)}</span></span>
+            <span className="font-semibold text-white/80">{metaPct}%</span>
+          </div>
+          <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-700 bg-white/80" style={{ width: `${metaPct}%` }} />
+          </div>
+          {vsHistorical !== 0 && (
+            <div className="inline-flex items-center gap-1 mt-2 bg-white/10 rounded-full px-2 py-0.5">
+              <TrendingUp className="h-3 w-3 text-white" />
+              <span className="text-[10px] text-white font-semibold">
+                {vsHistorical > 0 ? "+" : ""}{fmtPct(vsHistorical)} vs histórico
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Confidence badge */}
+        <div className="ml-auto shrink-0">
           <span className={cn(
-            "inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full",
+            "inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full",
             confidence === "Alta" ? "bg-green-400/20 text-green-300" :
             confidence === "Média" ? "bg-amber-400/20 text-amber-300" :
             "bg-red-400/20 text-red-300"
@@ -585,42 +618,6 @@ function HeroCard({ projection, brl, realized, daysLeft, totalDays, elapsed, con
           </span>
         </div>
 
-        {/* Big numbers */}
-        <div>
-          <p className="text-4xl font-black tracking-tight text-white leading-none">{fmtUSD(projection)}</p>
-          <p className="text-white/70 text-lg font-bold mt-1">{fmtBRL(brl)}</p>
-        </div>
-
-        {/* vs historical */}
-        {vsHistorical !== 0 && (
-          <div className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-full px-2.5 py-1 self-start">
-            <TrendingUp className="h-3 w-3 text-white" />
-            <span className="text-[11px] text-white font-semibold">
-              {vsHistorical > 0 ? "+" : ""}{fmtPct(vsHistorical)} vs média histórica
-            </span>
-          </div>
-        )}
-
-        {/* Meta bar */}
-        <div>
-          <div className="h-2 bg-white/20 rounded-full overflow-hidden mb-1.5">
-            <div className="h-full rounded-full transition-all duration-700 bg-white/80" style={{ width: `${metaPct}%` }} />
-          </div>
-          <div className="flex justify-between text-[10px] text-white/60">
-            <span>Meta do mês: <span className="text-white/80 font-semibold">{fmtUSD(metaUsd, true)}</span></span>
-            <span className="font-semibold text-white/80">{metaPct}% da meta</span>
-          </div>
-        </div>
-
-        {/* Insight phrase */}
-        {daysToMonetize !== null && daysToMonetize > 0 && daysToMonetize < 60 && (
-          <div className="flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2">
-            <Rocket className="h-4 w-4 text-white shrink-0" />
-            <p className="text-xs text-white font-medium">
-              Mantendo esse ritmo, a página deve monetizar em ~{daysToMonetize} dias.
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );
