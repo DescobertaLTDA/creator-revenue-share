@@ -23,6 +23,7 @@ import { Route as AdminImportacoesRouteImport } from './routes/admin.importacoes
 import { Route as AdminFechamentosRouteImport } from './routes/admin.fechamentos'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 import { Route as AdminColaboradoresRouteImport } from './routes/admin.colaboradores'
+import { Route as AdminCentralReceitaRouteImport } from './routes/admin.central-receita'
 import { Route as AdminCadastroRouteImport } from './routes/admin.cadastro'
 import { Route as AdminBonusManualRouteImport } from './routes/admin.bonus-manual'
 import { Route as AdminImportacoesIdRouteImport } from './routes/admin.importacoes.$id'
@@ -98,6 +99,11 @@ const AdminColaboradoresRoute = AdminColaboradoresRouteImport.update({
   path: '/colaboradores',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminCentralReceitaRoute = AdminCentralReceitaRouteImport.update({
+  id: '/central-receita',
+  path: '/central-receita',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminCadastroRoute = AdminCadastroRouteImport.update({
   id: '/cadastro',
   path: '/cadastro',
@@ -126,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/admin/bonus-manual': typeof AdminBonusManualRoute
   '/admin/cadastro': typeof AdminCadastroRoute
+  '/admin/central-receita': typeof AdminCentralReceitaRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/fechamentos': typeof AdminFechamentosRouteWithChildren
@@ -146,6 +153,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/admin/bonus-manual': typeof AdminBonusManualRoute
   '/admin/cadastro': typeof AdminCadastroRoute
+  '/admin/central-receita': typeof AdminCentralReceitaRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/fechamentos': typeof AdminFechamentosRouteWithChildren
@@ -167,6 +175,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/admin/bonus-manual': typeof AdminBonusManualRoute
   '/admin/cadastro': typeof AdminCadastroRoute
+  '/admin/central-receita': typeof AdminCentralReceitaRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/fechamentos': typeof AdminFechamentosRouteWithChildren
@@ -189,6 +198,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/bonus-manual'
     | '/admin/cadastro'
+    | '/admin/central-receita'
     | '/admin/colaboradores'
     | '/admin/dashboard'
     | '/admin/fechamentos'
@@ -209,6 +219,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/bonus-manual'
     | '/admin/cadastro'
+    | '/admin/central-receita'
     | '/admin/colaboradores'
     | '/admin/dashboard'
     | '/admin/fechamentos'
@@ -229,6 +240,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/bonus-manual'
     | '/admin/cadastro'
+    | '/admin/central-receita'
     | '/admin/colaboradores'
     | '/admin/dashboard'
     | '/admin/fechamentos'
@@ -350,6 +362,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminColaboradoresRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/central-receita': {
+      id: '/admin/central-receita'
+      path: '/central-receita'
+      fullPath: '/admin/central-receita'
+      preLoaderRoute: typeof AdminCentralReceitaRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/cadastro': {
       id: '/admin/cadastro'
       path: '/cadastro'
@@ -406,6 +425,7 @@ const AdminImportacoesRouteWithChildren =
 interface AdminRouteChildren {
   AdminBonusManualRoute: typeof AdminBonusManualRoute
   AdminCadastroRoute: typeof AdminCadastroRoute
+  AdminCentralReceitaRoute: typeof AdminCentralReceitaRoute
   AdminColaboradoresRoute: typeof AdminColaboradoresRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminFechamentosRoute: typeof AdminFechamentosRouteWithChildren
@@ -420,6 +440,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminBonusManualRoute: AdminBonusManualRoute,
   AdminCadastroRoute: AdminCadastroRoute,
+  AdminCentralReceitaRoute: AdminCentralReceitaRoute,
   AdminColaboradoresRoute: AdminColaboradoresRoute,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminFechamentosRoute: AdminFechamentosRouteWithChildren,
