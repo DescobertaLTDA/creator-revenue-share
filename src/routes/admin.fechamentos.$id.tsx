@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useWriteGuard } from "@/hooks/use-write-guard";
@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import {
   ArrowLeft, Loader2, CheckCircle2, Clock, Download,
   Lock, X, DollarSign, Users, Zap, TrendingUp,
-  Filter, Shield, ChevronRight, AlertCircle, FileText,
+  Filter, Shield, ChevronRight, AlertCircle, FileText, ChevronLeft,
 } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
@@ -324,6 +324,7 @@ type Tab = "all" | "pago" | "pendente" | "revisao";
 
 function ClosingDetail() {
   const { id } = Route.useParams();
+  const navigate = useNavigate();
   const { guard, WriteGuardDialog } = useWriteGuard();
   const [closing, setClosing] = useState<Closing | null>(null);
   const [items, setItems] = useState<Item[]>([]);
@@ -332,6 +333,7 @@ function ClosingDetail() {
   const [approving, setApproving] = useState(false);
   const [tab, setTab] = useState<Tab>("all");
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [allClosings, setAllClosings] = useState<{ id: string; month_ref: string }[]>([]);
 
   useEffect(() => {
     fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL")
@@ -359,7 +361,11 @@ function ClosingDetail() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => {
+    load();
+    supabase.from("monthly_closings").select("id, month_ref").order("month_ref", { ascending: false })
+      .then(({ data }) => setAllClosings((data ?? []) as { id: string; month_ref: string }[]));
+  }, [id]);
 
   const isFechado = closing?.status === "fechado";
 
@@ -450,14 +456,31 @@ function ClosingDetail() {
     <div className="space-y-5 pb-10">
       <WriteGuardDialog />
 
-      {/* Back link */}
-      <Link
-        to="/admin/fechamentos"
-        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        Fechamentos
-      </Link>
+      {/* Month navigator */}
+      {allClosings.length > 1 && (() => {
+        const idx = allClosings.findIndex((c) => c.id === id);
+        const prev = allClosings[idx + 1]; // older
+        const next = allClosings[idx - 1]; // newer
+        return (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => prev && navigate({ to: "/admin/fechamentos/$id", params: { id: prev.id } })}
+              disabled={!prev}
+              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" /> {prev ? formatMonth(prev.month_ref) : "—"}
+            </button>
+            <span className="text-xs text-muted-foreground px-1">·</span>
+            <button
+              onClick={() => next && navigate({ to: "/admin/fechamentos/$id", params: { id: next.id } })}
+              disabled={!next}
+              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              {next ? formatMonth(next.month_ref) : "—"} <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        );
+      })()}
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
