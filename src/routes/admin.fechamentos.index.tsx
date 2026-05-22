@@ -19,18 +19,15 @@ interface PostAuthor { post_id: string; collaborator_id: string }
 interface SplitRule { collaborator_pct: number }
 interface Collab { id: string; nome: string }
 
-function calcPrevMonthRef(monthRef: string) {
-  const [y, m] = monthRef.split("-").map(Number);
-  const d = new Date(y, m - 2, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
 
-async function fetchViewsPctByColabForMonth(monthRef: string): Promise<Record<string, number>> {
+async function fetchViewsPctByColabForMonth(monthRef: string, pageId?: string): Promise<Record<string, number>> {
   const [y, m] = monthRef.split("-").map(Number);
   const lastDay = new Date(y, m, 0).getDate();
   const from = `${monthRef}-01`;
   const to = `${monthRef}-${String(lastDay).padStart(2, "0")}T23:59:59`;
-  const { data: postsData } = await supabase.from("posts").select("id, views").gte("published_at", from).lte("published_at", to);
+  let query = supabase.from("posts").select("id, views").gte("published_at", from).lte("published_at", to);
+  if (pageId) query = (query as any).eq("page_id", pageId);
+  const { data: postsData } = await query;
   if (!postsData || postsData.length === 0) return {};
   const viewsByPost: Record<string, number> = {};
   for (const p of postsData as RawPostViews[]) viewsByPost[p.id] = Number(p.views ?? 0);
@@ -95,55 +92,33 @@ function Page() {
         const [y, m] = formMonth.split("-").map(Number);
         const lastDay = new Date(y, m, 0).getDate();
         const dateFrom = `${formMonth}-01`;
-        const dateTo = `${formMonth}-${String(lastDay).padStart(2, "0")}T23:59:59`;
+        const dateTo = `${formMonth}-${String(lastDay).padStart(2, "0")}`;
 
-        const { data: postsData } = await supabase.from("posts").select("id, monetization_approx").eq("page_id", pageId).gte("published_at", dateFrom).lte("published_at", dateTo);
-        const posts = (postsData ?? []) as { id: string; monetization_approx: number | null }[];
-        if (posts.length === 0) { toast.info(`Sem posts em ${pageName} para ${formatMonth(formMonth)}`); continue; }
+        // Total actual revenue for this page from daily_revenue_entries
+        const { data: dailyEntries } = await supabase.from("daily_revenue_entries").select("actual_revenue_usd").eq("page_id", pageId).gte("entry_date", dateFrom).lte("entry_date", dateTo);
+        const totalActual = (dailyEntries ?? []).reduce((s: number, e: any) => s + Number(e.actual_revenue_usd ?? 0), 0);
 
-        const { data: paData } = await supabase.from("post_authors").select("post_id, collaborator_id").in("post_id", posts.map((p) => p.id));
-        const postAuthors = (paData ?? []) as PostAuthor[];
-        const colabIds = [...new Set(postAuthors.map((pa) => pa.collaborator_id))];
-        if (colabIds.length === 0) { toast.info(`Nenhum colaborador vinculado em ${pageName}`); continue; }
+        // Views proportion for current month, scoped to this page
+        const viewsPct = await fetchViewsPctByColabForMonth(formMonth, pageId);
+        if (Object.keys(viewsPct).length === 0) { toast.info(`Sem posts/views em ${pageName} para ${formatMonth(formMonth)}`); continue; }
 
+        const { data: rulesData } = await supabase.from("split_rules").select("collaborator_pct").eq("page_id", pageId).eq("active", true).lte("effective_from", dateTo).order("effective_from", { ascending: false }).limit(1);
+        const collaboratorPct = ((rulesData as SplitRule[]) ?? [])[0]?.collaborator_pct ?? 0;
+
+        const colabIds = Object.keys(viewsPct);
         const { data: colabData } = await supabase.from("collaborators").select("id, nome").in("id", colabIds);
         const collabs = (colabData ?? []) as Collab[];
 
-        const { data: rulesData } = await supabase.from("split_rules").select("collaborator_pct").eq("page_id", pageId).eq("active", true).lte("effective_from", `${formMonth}-${String(lastDay).padStart(2, "0")}`).order("effective_from", { ascending: false }).limit(1);
-        const collaboratorPct = ((rulesData as SplitRule[]) ?? [])[0]?.collaborator_pct ?? 0;
-
-        const postColabMap: Record<string, string[]> = {};
-        for (const pa of postAuthors) { if (!postColabMap[pa.post_id]) postColabMap[pa.post_id] = []; postColabMap[pa.post_id].push(pa.collaborator_id); }
-
-        const grossByColab: Record<string, number> = {};
-        for (const post of posts) {
-          const colabers = postColabMap[post.id] ?? [];
-          if (!colabers.length) continue;
-          const val = Number(post.monetization_approx ?? 0);
-          for (const cid of colabers) grossByColab[cid] = (grossByColab[cid] ?? 0) + val / colabers.length;
-        }
-        const totalGross = Object.values(grossByColab).reduce((a, b) => a + b, 0);
-
-        const { data: dailyEntries } = await supabase.from("daily_revenue_entries").select("actual_revenue_usd").gte("entry_date", dateFrom.slice(0, 10)).lte("entry_date", `${formMonth}-${String(lastDay).padStart(2, "0")}`);
-        const totalActual = (dailyEntries ?? []).reduce((s: number, e: any) => s + Number(e.actual_revenue_usd ?? 0), 0);
-        const totalBonus = totalActual - totalGross;
-        const viewsPct = totalBonus !== 0 ? await fetchViewsPctByColabForMonth(calcPrevMonthRef(formMonth)) : {};
-
-        const { data: closing, error: cErr } = await supabase.from("monthly_closings").insert({ month_ref: formMonth, page_id: pageId, status: "aberto", total_gross: parseFloat(totalGross.toFixed(4)), created_by: profile?.id }).select("id").single();
+        const { data: closing, error: cErr } = await supabase.from("monthly_closings").insert({ month_ref: formMonth, page_id: pageId, status: "aberto", total_gross: parseFloat(totalActual.toFixed(4)), created_by: profile?.id }).select("id").single();
         if (cErr) throw cErr;
         createdId = closing.id;
 
-        const allColabIds = [...new Set([...collabs.map((c) => c.id), ...Object.keys(viewsPct)])];
-        const { data: allColabData } = await supabase.from("collaborators").select("id, nome").in("id", allColabIds);
-        const allCollabs = (allColabData ?? []) as Collab[];
-
-        const items = allCollabs.map((c) => {
-          const gross = parseFloat((grossByColab[c.id] ?? 0).toFixed(4));
+        const items = collabs.map((c) => {
+          const viewShare = viewsPct[c.id] ?? 0;
+          const gross = parseFloat((viewShare * totalActual).toFixed(4));
           const amountDue = parseFloat((gross * collaboratorPct / 100).toFixed(4));
-          const bonusShare = parseFloat(((viewsPct[c.id] ?? 0) * totalBonus).toFixed(4));
-          const finalAmount = parseFloat((amountDue + bonusShare).toFixed(4));
-          if (gross === 0 && bonusShare === 0) return null;
-          return { closing_id: closing.id, collaborator_id: c.id, gross_revenue: gross, collaborator_pct: collaboratorPct, amount_due: amountDue, adjustments: bonusShare, final_amount: finalAmount, payment_status: "a_pagar" };
+          if (gross === 0) return null;
+          return { closing_id: closing.id, collaborator_id: c.id, gross_revenue: gross, collaborator_pct: collaboratorPct, amount_due: amountDue, adjustments: 0, final_amount: amountDue, payment_status: "a_pagar" };
         }).filter((x): x is NonNullable<typeof x> => x !== null);
 
         if (items.length > 0) { const { error: iErr } = await supabase.from("monthly_closing_items").insert(items); if (iErr) throw iErr; }
