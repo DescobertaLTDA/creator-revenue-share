@@ -12,6 +12,7 @@ import {
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { loadLogoBase64, buildSingleComprovante, buildAllComprovantes } from "@/lib/comprovante-pdf";
 
 export const Route = createFileRoute("/admin/fechamentos/$id")({
   head: () => ({ meta: [{ title: "Fechamento — Splash Creators" }] }),
@@ -332,6 +333,40 @@ function ClosingDetail() {
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [allClosings, setAllClosings] = useState<{ id: string; month_ref: string }[]>([]);
   const [deleting, setDeleting] = useState(false);
+  const [previewPdf, setPreviewPdf] = useState<{ blobUrl: string; filename: string } | null>(null);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  const closePreview = () => {
+    if (previewPdf) { URL.revokeObjectURL(previewPdf.blobUrl); setPreviewPdf(null); }
+  };
+
+  const openSinglePreview = async (item: Item, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!closing) return;
+    setGeneratingPdf(true);
+    try {
+      const logoB64 = await loadLogoBase64();
+      const blob = buildSingleComprovante(item, closing, usdBrl, logoB64);
+      const blobUrl = URL.createObjectURL(blob);
+      const slug = (item.collaborators?.nome ?? "colaborador").toLowerCase().replace(/\s+/g, "-");
+      setPreviewPdf({ blobUrl, filename: `comprovante-${slug}-${closing.month_ref}.pdf` });
+    } catch { toast.error("Erro ao gerar comprovante"); }
+    finally { setGeneratingPdf(false); }
+  };
+
+  const openAllPreview = async () => {
+    if (!closing) return;
+    const paidItems = items.filter((it) => it.payment_status === "pago_fora");
+    if (paidItems.length === 0) { toast.info("Nenhum pagamento confirmado ainda"); return; }
+    setGeneratingPdf(true);
+    try {
+      const logoB64 = await loadLogoBase64();
+      const blob = buildAllComprovantes(paidItems, closing, usdBrl, logoB64);
+      const blobUrl = URL.createObjectURL(blob);
+      setPreviewPdf({ blobUrl, filename: `comprovantes-${closing.month_ref}.pdf` });
+    } catch { toast.error("Erro ao gerar comprovantes"); }
+    finally { setGeneratingPdf(false); }
+  };
 
   useEffect(() => {
     fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL")
@@ -512,10 +547,11 @@ function ClosingDetail() {
             </button>
           )}
           <button
-            onClick={() => toast.info("Comprovantes em desenvolvimento")}
-            className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
+            onClick={openAllPreview}
+            disabled={generatingPdf}
+            className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors disabled:opacity-60"
           >
-            <FileText className="h-4 w-4" />
+            {generatingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
             Gerar comprovantes
           </button>
           {!isFechado ? (
@@ -770,8 +806,9 @@ function ClosingDetail() {
                         <td className="px-4 py-3.5 text-center">
                           {item.payment_status === "pago_fora" ? (
                             <button
-                              onClick={(e) => { e.stopPropagation(); toast.info("Comprovante em desenvolvimento"); }}
-                              className="inline-flex items-center justify-center h-7 w-7 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                              onClick={(e) => openSinglePreview(item, e)}
+                              disabled={generatingPdf}
+                              className="inline-flex items-center justify-center h-7 w-7 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
                             >
                               <Download className="h-3.5 w-3.5" />
                             </button>
@@ -828,6 +865,39 @@ function ClosingDetail() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* ── PDF Preview Modal ─────────────────────────────────────────────────── */}
+      {previewPdf && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex flex-col items-center justify-center p-4 gap-3">
+          {/* Toolbar */}
+          <div className="w-full max-w-3xl flex items-center justify-between bg-card border border-border rounded-xl px-4 py-2.5 shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-sm font-medium text-foreground truncate">{previewPdf.filename}</span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <a
+                href={previewPdf.blobUrl}
+                download={previewPdf.filename}
+                className="inline-flex items-center gap-2 h-8 px-3 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Baixar PDF
+              </a>
+              <button
+                onClick={closePreview}
+                className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+          {/* PDF frame */}
+          <div className="w-full max-w-3xl flex-1 rounded-xl overflow-hidden border border-border min-h-0" style={{ maxHeight: "80vh" }}>
+            <iframe src={previewPdf.blobUrl} className="w-full h-full" style={{ minHeight: "70vh" }} title="Pré-visualização do comprovante" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
