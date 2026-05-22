@@ -83,6 +83,8 @@ export default function ForecastPage() {
   const [pagePosts, setPagePosts] = useState<RawPost[]>([]);
   // All posts (for similar pages)
   const [allPosts, setAllPosts] = useState<RawPost[]>([]);
+  // Actual daily revenue from daily_revenue_entries
+  const [dailyEntries, setDailyEntries] = useState<{ entry_date: string; actual_revenue_usd: number | null }[]>([]);
   // Simulator state
   const [simPostsPerDay, setSimPostsPerDay] = useState<number | null>(null);
   const [simViewsPerPost, setSimViewsPerPost] = useState<number | null>(null);
@@ -132,26 +134,38 @@ export default function ForecastPage() {
         const defaultId = (topId && pages.find(p => p.id === topId)) ? topId : pages[0].id;
         setPageId(defaultId);
         setPagePosts(posts90.filter(p => p.page_id === defaultId));
+        (supabase as any).from("daily_revenue_entries")
+          .select("entry_date, actual_revenue_usd")
+          .eq("page_id", defaultId).gte("entry_date", isoSince)
+          .then(({ data: eData }: any) => { setDailyEntries(eData ?? []); setLoading(false); });
       } else {
         setPagePosts(posts90.filter(p => p.page_id === pageId));
+        (supabase as any).from("daily_revenue_entries")
+          .select("entry_date, actual_revenue_usd")
+          .eq("page_id", pageId).gte("entry_date", isoSince)
+          .then(({ data: eData }: any) => { setDailyEntries(eData ?? []); setLoading(false); });
       }
-      setLoading(false);
     });
   }, [pages]);
 
-  // Reload posts when page changes
+  // Reload posts + daily entries when page changes
   useEffect(() => {
     if (!pageId || !pages.length) return;
     const since = new Date(); since.setDate(since.getDate() - 90);
     const isoSince = since.toISOString().split("T")[0];
-    (supabase as any).from("posts")
-      .select("id, page_id, published_at, views, estimated_usd, monetization_approx, post_type")
-      .eq("page_id", pageId).gte("published_at", isoSince)
-      .then(({ data }: { data: RawPost[] }) => {
-        setPagePosts(data ?? []);
-        setSimApplied(false);
-        setSimPostsPerDay(null); setSimViewsPerPost(null); setSimRpm(null);
-      });
+    Promise.all([
+      (supabase as any).from("posts")
+        .select("id, page_id, published_at, views, estimated_usd, monetization_approx, post_type")
+        .eq("page_id", pageId).gte("published_at", isoSince),
+      (supabase as any).from("daily_revenue_entries")
+        .select("entry_date, actual_revenue_usd")
+        .eq("page_id", pageId).gte("entry_date", isoSince),
+    ]).then(([{ data: postsData }, { data: entriesData }]) => {
+      setPagePosts(postsData ?? []);
+      setDailyEntries(entriesData ?? []);
+      setSimApplied(false);
+      setSimPostsPerDay(null); setSimViewsPerPost(null); setSimRpm(null);
+    });
   }, [pageId]);
 
   // ── Core metrics ──────────────────────────────────────────────────────────
@@ -162,17 +176,18 @@ export default function ForecastPage() {
     const totalDays = daysInMonth(now);
     const curMonthKey = monthKey(now);
 
-    // Posts for current month
-    const thisMonthPosts = pagePosts.filter(p => p.published_at?.startsWith(curMonthKey));
-    const thisMonthRev = thisMonthPosts.reduce((s, p) => s + getPostRev(p), 0);
-
-    // Posts for last 7 days (daily revenue)
+    // Build daily revenue map from actual daily_revenue_entries
     const dailyRevByDay = new Map<string, number>();
-    for (const p of pagePosts) {
-      if (!p.published_at) continue;
-      const d = p.published_at.slice(0, 10);
-      dailyRevByDay.set(d, (dailyRevByDay.get(d) ?? 0) + getPostRev(p));
+    for (const e of dailyEntries) {
+      if (e.actual_revenue_usd != null) {
+        dailyRevByDay.set(e.entry_date, (dailyRevByDay.get(e.entry_date) ?? 0) + Number(e.actual_revenue_usd));
+      }
     }
+
+    // Accumulated real revenue for current month from daily entries
+    const thisMonthRev = [...dailyRevByDay.entries()]
+      .filter(([date]) => date.startsWith(curMonthKey))
+      .reduce((s, [, v]) => s + v, 0);
 
     const last7: number[] = [];
     const prior7: number[] = [];
@@ -252,7 +267,7 @@ export default function ForecastPage() {
       prob7days: (simApplied ? simDailyRate : actualDailyRate) * 7,
       totalProjection: simApplied ? simMonthProjection : projectedBase,
     };
-  }, [pagePosts, simPostsPerDay, simViewsPerPost, simRpm, simApplied]);
+  }, [pagePosts, dailyEntries, simPostsPerDay, simViewsPerPost, simRpm, simApplied]);
 
   // ── Chart data ────────────────────────────────────────────────────────────
 
