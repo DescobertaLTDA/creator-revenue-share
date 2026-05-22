@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import {
   ArrowLeft, Loader2, CheckCircle2, Clock, Download,
   Lock, X, DollarSign, Users, Zap, TrendingUp,
-  Filter, Shield, ChevronRight, AlertCircle, FileText, ChevronLeft,
+  Filter, Shield, ChevronRight, AlertCircle, FileText, ChevronLeft, Trash2,
 } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
@@ -331,6 +331,7 @@ function ClosingDetail() {
   const [tab, setTab] = useState<Tab>("all");
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [allClosings, setAllClosings] = useState<{ id: string; month_ref: string }[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL")
@@ -375,6 +376,16 @@ function ClosingDetail() {
     if (error) toast.error("Erro ao finalizar", { description: error.message });
     else { toast.success("Fechamento finalizado!"); await load(); }
     setApproving(false);
+  };
+
+  const destroy = async () => {
+    if (!window.confirm(`Excluir o fechamento de ${formatMonth(closing!.month_ref)}? Essa ação não pode ser desfeita.`)) return;
+    setDeleting(true);
+    await supabase.from("monthly_closing_items").delete().eq("closing_id", id);
+    const { error } = await supabase.from("monthly_closings").delete().eq("id", id);
+    if (error) { toast.error("Erro ao excluir", { description: error.message }); setDeleting(false); return; }
+    toast.success("Fechamento excluído");
+    navigate({ to: "/admin/fechamentos" });
   };
 
   const reopen = async () => {
@@ -490,6 +501,16 @@ function ClosingDetail() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          {!isFechado && (
+            <button
+              onClick={guard(destroy)}
+              disabled={deleting}
+              className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-red-500/30 text-red-500 text-sm font-medium hover:bg-red-500/10 transition-colors disabled:opacity-50"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Excluir
+            </button>
+          )}
           <button
             onClick={() => toast.info("Comprovantes em desenvolvimento")}
             className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
