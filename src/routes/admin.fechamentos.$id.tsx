@@ -762,35 +762,24 @@ function ClosingDetail() {
                     );
                   })}
 
-                  {/* Totals row */}
-                  <tr className="bg-muted/30 text-sm font-semibold">
-                    <td className="px-5 py-3">
-                      <span className="flex items-center gap-2 text-muted-foreground">
-                        <Users className="h-3.5 w-3.5" />
-                        Total · {items.length} colaboradores
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums">
-                      ${items.reduce((s, it) => s + it.amount_due, 0).toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
-                      ${items.reduce((s, it) => s + it.adjustments, 0).toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-orange-500">
-                      ${totalFinal.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-muted-foreground text-xs font-normal">
-                      {usdBrl.toFixed(2)} (média)
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums">
-                      {formatBRL(totalFinal * usdBrl)}
-                    </td>
-                    <td />
-                    <td className="px-4 py-3 text-xs font-normal text-muted-foreground">{countPago}/{items.length} pagos</td>
-                    <td />
-                  </tr>
                 </tbody>
               </table>
+            </div>
+
+            {/* Totals bar — outside table to avoid browser table spacing quirks */}
+            <div className="flex items-center gap-0 text-sm font-semibold bg-muted/30 border-t border-border/50">
+              <div className="px-5 py-3 flex items-center gap-2 text-muted-foreground min-w-[200px]">
+                <Users className="h-3.5 w-3.5 shrink-0" />
+                Total · {items.length} colaboradores
+              </div>
+              <div className="px-4 py-3 text-right tabular-nums ml-auto flex-1">${items.reduce((s, it) => s + it.amount_due, 0).toFixed(2)}</div>
+              <div className="px-4 py-3 text-right tabular-nums text-muted-foreground w-32">${items.reduce((s, it) => s + it.adjustments, 0).toFixed(2)}</div>
+              <div className="px-4 py-3 text-right tabular-nums text-orange-500 w-28">${totalFinal.toFixed(2)}</div>
+              <div className="px-4 py-3 text-right tabular-nums text-muted-foreground text-xs font-normal w-28">{usdBrl.toFixed(2)} (média)</div>
+              <div className="px-4 py-3 text-right tabular-nums w-28">{formatBRL(totalFinal * usdBrl)}</div>
+              <div className="px-4 py-3 w-20" />
+              <div className="px-4 py-3 text-xs font-normal text-muted-foreground w-28">{countPago}/{items.length} pagos</div>
+              <div className="px-4 py-3 w-20" />
             </div>
 
             {/* Frozen notice */}
