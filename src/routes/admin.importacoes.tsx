@@ -321,7 +321,7 @@ export default function DataPipelinePage() {
   const latestImport = imports[0] ?? null;
 
   return (
-    <div className="space-y-5 pb-16">
+    <div className="space-y-5">
       <WriteGuardDialog />
       <input
         ref={fileRef} type="file" accept=".csv,text/csv" multiple className="hidden"

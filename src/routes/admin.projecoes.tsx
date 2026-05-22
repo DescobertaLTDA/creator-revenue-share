@@ -455,7 +455,7 @@ export default function ForecastPage() {
   }
 
   return (
-    <div className="space-y-5 pb-4">
+    <div className="space-y-5">
       {/* ── Header ── */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
