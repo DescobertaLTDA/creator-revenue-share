@@ -494,13 +494,6 @@ export default function ForecastPage() {
         <ScenariosPanel scenarios={scenarios} onOpenDrawer={() => setDrawerOpen(true)} />
       </div>
 
-      {/* ── Fatores + Similares + Últimos 7 dias ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <FactorsCard factors={factors} />
-        <SimilarPagesCard pages={similarPages} />
-        <Last7DaysCard posts={pagePosts} />
-      </div>
-
       {/* ── Drawer ── */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto p-0">
