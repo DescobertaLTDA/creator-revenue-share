@@ -461,9 +461,6 @@ export default function ForecastPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">Forecast</h1>
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#FAA613]/15 text-[#FAA613]">
-              <Sparkles className="h-3 w-3" /> Engine preditiva
-            </span>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">Analisamos o histórico da página e projetamos seus ganhos futuros.</p>
         </div>
