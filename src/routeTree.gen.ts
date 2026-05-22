@@ -26,6 +26,7 @@ import { Route as AdminColaboradoresRouteImport } from './routes/admin.colaborad
 import { Route as AdminCentralReceitaRouteImport } from './routes/admin.central-receita'
 import { Route as AdminCadastroRouteImport } from './routes/admin.cadastro'
 import { Route as AdminBonusManualRouteImport } from './routes/admin.bonus-manual'
+import { Route as AdminFechamentosIndexRouteImport } from './routes/admin.fechamentos.index'
 import { Route as AdminImportacoesIdRouteImport } from './routes/admin.importacoes.$id'
 import { Route as AdminFechamentosIdRouteImport } from './routes/admin.fechamentos.$id'
 
@@ -114,6 +115,11 @@ const AdminBonusManualRoute = AdminBonusManualRouteImport.update({
   path: '/bonus-manual',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminFechamentosIndexRoute = AdminFechamentosIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminFechamentosRoute,
+} as any)
 const AdminImportacoesIdRoute = AdminImportacoesIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -145,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/colaborador/dashboard': typeof ColaboradorDashboardRoute
   '/admin/fechamentos/$id': typeof AdminFechamentosIdRoute
   '/admin/importacoes/$id': typeof AdminImportacoesIdRoute
+  '/admin/fechamentos/': typeof AdminFechamentosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -156,7 +163,6 @@ export interface FileRoutesByTo {
   '/admin/central-receita': typeof AdminCentralReceitaRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
   '/admin/dashboard': typeof AdminDashboardRoute
-  '/admin/fechamentos': typeof AdminFechamentosRouteWithChildren
   '/admin/importacoes': typeof AdminImportacoesRouteWithChildren
   '/admin/metas': typeof AdminMetasRoute
   '/admin/monetizacao': typeof AdminMonetizacaoRoute
@@ -166,6 +172,7 @@ export interface FileRoutesByTo {
   '/colaborador/dashboard': typeof ColaboradorDashboardRoute
   '/admin/fechamentos/$id': typeof AdminFechamentosIdRoute
   '/admin/importacoes/$id': typeof AdminImportacoesIdRoute
+  '/admin/fechamentos': typeof AdminFechamentosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -188,6 +195,7 @@ export interface FileRoutesById {
   '/colaborador/dashboard': typeof ColaboradorDashboardRoute
   '/admin/fechamentos/$id': typeof AdminFechamentosIdRoute
   '/admin/importacoes/$id': typeof AdminImportacoesIdRoute
+  '/admin/fechamentos/': typeof AdminFechamentosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -211,6 +219,7 @@ export interface FileRouteTypes {
     | '/colaborador/dashboard'
     | '/admin/fechamentos/$id'
     | '/admin/importacoes/$id'
+    | '/admin/fechamentos/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -222,7 +231,6 @@ export interface FileRouteTypes {
     | '/admin/central-receita'
     | '/admin/colaboradores'
     | '/admin/dashboard'
-    | '/admin/fechamentos'
     | '/admin/importacoes'
     | '/admin/metas'
     | '/admin/monetizacao'
@@ -232,6 +240,7 @@ export interface FileRouteTypes {
     | '/colaborador/dashboard'
     | '/admin/fechamentos/$id'
     | '/admin/importacoes/$id'
+    | '/admin/fechamentos'
   id:
     | '__root__'
     | '/'
@@ -253,6 +262,7 @@ export interface FileRouteTypes {
     | '/colaborador/dashboard'
     | '/admin/fechamentos/$id'
     | '/admin/importacoes/$id'
+    | '/admin/fechamentos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -383,6 +393,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminBonusManualRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/fechamentos/': {
+      id: '/admin/fechamentos/'
+      path: '/'
+      fullPath: '/admin/fechamentos/'
+      preLoaderRoute: typeof AdminFechamentosIndexRouteImport
+      parentRoute: typeof AdminFechamentosRoute
+    }
     '/admin/importacoes/$id': {
       id: '/admin/importacoes/$id'
       path: '/$id'
@@ -402,10 +419,12 @@ declare module '@tanstack/react-router' {
 
 interface AdminFechamentosRouteChildren {
   AdminFechamentosIdRoute: typeof AdminFechamentosIdRoute
+  AdminFechamentosIndexRoute: typeof AdminFechamentosIndexRoute
 }
 
 const AdminFechamentosRouteChildren: AdminFechamentosRouteChildren = {
   AdminFechamentosIdRoute: AdminFechamentosIdRoute,
+  AdminFechamentosIndexRoute: AdminFechamentosIndexRoute,
 }
 
 const AdminFechamentosRouteWithChildren =
