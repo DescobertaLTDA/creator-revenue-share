@@ -79,6 +79,9 @@ export default function DataPipelinePage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [revenueMap, setRevenueMap] = useState<Map<string, number>>(new Map());
+  const [activeUploadStep, setActiveUploadStep] = useState(-1); // -1 = idle, 0-5 = live step
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const load = async () => {
     setLoading(true);
@@ -114,6 +117,7 @@ export default function DataPipelinePage() {
   const onUpload = async (file: File, fromBulk = false) => {
     if (!profile) return;
     if (!fromBulk) setUploading(true);
+    setActiveUploadStep(0); // Upload recebido
     const toastId = toast.loading(`Processando ${file.name}…`);
     try {
       const text = await file.text();
@@ -126,6 +130,7 @@ export default function DataPipelinePage() {
         await supabase.from("csv_imports").update({ file_hash: null }).eq("id", existing.id);
       }
 
+      setActiveUploadStep(1); // Validação
       const parsed = parseFacebookCsv(text);
 
       const { data: imp, error: impErr } = await supabase
@@ -161,6 +166,7 @@ export default function DataPipelinePage() {
         );
       }
 
+      setActiveUploadStep(2); // Reconciliação
       const pageMap = new Map<string, string>();
       for (const row of parsed.rows) pageMap.set(row.external_page_id, row.page_name);
       if (pageMap.size > 0) {
@@ -175,6 +181,7 @@ export default function DataPipelinePage() {
       const pageIdMap = new Map<string, string>();
       (allPages ?? []).forEach((p) => pageIdMap.set(p.external_page_id, p.id));
 
+      setActiveUploadStep(3); // Atualização
       let inserted = 0; let updated = 0;
       const CHUNK = 200;
       for (let i = 0; i < parsed.rows.length; i += CHUNK) {
@@ -203,6 +210,7 @@ export default function DataPipelinePage() {
         }
       }
 
+      setActiveUploadStep(4); // Insights
       const { data: collaborators } = await (supabase as any)
         .from("collaborators").select("id, hashtag").eq("ativo", true).not("hashtag", "is", null);
       if (collaborators && collaborators.length > 0) {
@@ -222,6 +230,7 @@ export default function DataPipelinePage() {
         }
       }
 
+      setActiveUploadStep(5); // Concluído
       const status = parsed.errors.length === 0 ? "concluido" : parsed.errors.length === parsed.totalRows ? "falha" : "parcial";
       await supabase.from("csv_imports").update({ status, inserted_rows: inserted, updated_rows: updated }).eq("id", imp.id);
       await supabase.from("audit_logs").insert({
@@ -238,6 +247,7 @@ export default function DataPipelinePage() {
       const msg = err instanceof Error ? err.message : (err as any)?.message ?? String(err);
       toast.error("Falha na importação", { id: toastId, description: msg });
     } finally {
+      setActiveUploadStep(-1);
       if (!fromBulk) { setUploading(false); if (fileRef.current) fileRef.current.value = ""; }
     }
   };
@@ -303,6 +313,12 @@ export default function DataPipelinePage() {
     if (q) rows = rows.filter(i => i.file_name.toLowerCase().includes(q.toLowerCase()));
     return rows;
   }, [imports, activeTab, q]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Reset to page 1 when filter/search changes
+  useEffect(() => { setPage(1); }, [activeTab, q]);
 
   const selectedImport = useMemo(() => imports.find(i => i.id === selectedId) ?? null, [imports, selectedId]);
   const latestImport = imports[0] ?? null;
@@ -378,70 +394,71 @@ export default function DataPipelinePage() {
         />
       </div>
 
-      {/* ── Upload Zone + Pipeline Stepper ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-4">
-        {/* Upload Zone */}
-        <div
-          onDragOver={e => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={handleDrop}
-          onClick={guard(() => !uploading && fileRef.current?.click())}
-          className={cn(
-            "rounded-2xl border-2 border-dashed cursor-pointer transition-all flex flex-col items-center justify-center gap-4 p-8 min-h-[180px]",
-            dragging ? "border-[#F44708] bg-[#FFF0E8]" : "border-border bg-card hover:border-[#F44708]/40 hover:bg-muted/30"
-          )}
-        >
-          <div className={cn(
-            "h-14 w-14 rounded-2xl flex items-center justify-center transition-all",
-            dragging ? "bg-[#F44708] text-white" : "bg-[#FFF0E8]"
-          )}>
+      {/* ── Upload Zone ── */}
+      <div
+        onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+        onClick={guard(() => !uploading && fileRef.current?.click())}
+        className={cn(
+          "rounded-2xl border-2 border-dashed cursor-pointer transition-all flex flex-col sm:flex-row items-center justify-center gap-5 p-6",
+          dragging ? "border-[#F44708] bg-[#FFF0E8]" : "border-border bg-card hover:border-[#F44708]/40 hover:bg-muted/30"
+        )}
+      >
+        <div className={cn(
+          "h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 transition-all",
+          dragging ? "bg-[#F44708]" : "bg-[#FFF0E8]"
+        )}>
+          {uploading
+            ? <Loader2 className="h-6 w-6 text-[#F44708] animate-spin" />
+            : <CloudUpload className={cn("h-6 w-6", dragging ? "text-white" : "text-[#F44708]")} />
+          }
+        </div>
+        <div className="flex-1 text-center sm:text-left">
+          <p className="font-semibold text-sm">
             {uploading
-              ? <Loader2 className="h-7 w-7 text-[#F44708] animate-spin" />
-              : <CloudUpload className={cn("h-7 w-7", dragging ? "text-white" : "text-[#F44708]")} />
-            }
-          </div>
-          <div className="text-center">
-            <p className="font-semibold text-sm">
-              {uploading
-                ? bulkProgress ? `Processando ${bulkProgress.current} de ${bulkProgress.total}…` : "Processando…"
-                : "Arraste CSVs aqui ou clique para enviar"}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">Suporte a múltiplos arquivos CSV (até 1GB cada)</p>
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {[
-              { icon: CheckCircle2, label: "Deduplicação automática" },
-              { icon: RefreshCw, label: "Atualização incremental" },
-              { icon: Zap, label: "Reconciliação inteligente" },
-            ].map(({ icon: Icon, label }) => (
-              <span key={label} className="inline-flex items-center gap-1.5 text-[10px] font-medium text-green-700 bg-green-50 border border-green-100 rounded-full px-2.5 py-1">
-                <Icon className="h-3 w-3" /> {label}
-              </span>
-            ))}
-          </div>
+              ? bulkProgress ? `Processando ${bulkProgress.current} de ${bulkProgress.total}…` : "Processando…"
+              : "Arraste CSVs aqui ou clique para enviar"}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">Suporte a múltiplos arquivos CSV · deduplicação e atualização incremental automáticas</p>
         </div>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {[
+            { icon: CheckCircle2, label: "Deduplicação" },
+            { icon: RefreshCw, label: "Incremental" },
+            { icon: Zap, label: "Reconciliação" },
+          ].map(({ icon: Icon, label }) => (
+            <span key={label} className="inline-flex items-center gap-1.5 text-[10px] font-medium text-green-700 bg-green-50 border border-green-100 rounded-full px-2.5 py-1">
+              <Icon className="h-3 w-3" /> {label}
+            </span>
+          ))}
+        </div>
+      </div>
 
-        {/* Pipeline Stepper */}
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pipeline de processamento</p>
-            {latestImport && (
-              <span className={cn(
-                "inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full",
-                latestImport.status === "concluido" ? "bg-green-100 text-green-700" :
-                latestImport.status === "processando" ? "bg-amber-100 text-amber-700" :
-                "bg-red-100 text-red-600"
-              )}>
-                {latestImport.status === "concluido"
-                  ? <><CheckCircle2 className="h-3 w-3" /> Tudo certo</>
-                  : latestImport.status === "processando"
-                  ? <><Loader2 className="h-3 w-3 animate-spin" /> Processando</>
-                  : <><AlertCircle className="h-3 w-3" /> Com erros</>}
-              </span>
-            )}
-          </div>
-          <PipelineStepper imp={latestImport} />
+      {/* ── Pipeline Stepper (full-width) ── */}
+      <div className="rounded-2xl border border-border bg-card p-5">
+        <div className="flex items-center justify-between mb-5">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pipeline de processamento</p>
+          {activeUploadStep >= 0 ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+              <Loader2 className="h-3 w-3 animate-spin" /> Processando…
+            </span>
+          ) : latestImport ? (
+            <span className={cn(
+              "inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full",
+              latestImport.status === "concluido" ? "bg-green-100 text-green-700" :
+              latestImport.status === "processando" ? "bg-amber-100 text-amber-700" :
+              "bg-red-100 text-red-600"
+            )}>
+              {latestImport.status === "concluido"
+                ? <><CheckCircle2 className="h-3 w-3" /> Tudo certo</>
+                : latestImport.status === "processando"
+                ? <><Loader2 className="h-3 w-3 animate-spin" /> Processando</>
+                : <><AlertCircle className="h-3 w-3" /> Com erros</>}
+            </span>
+          ) : null}
         </div>
+        <PipelineStepper imp={latestImport} activeStep={activeUploadStep} />
       </div>
 
       {/* ── Imports Table ── */}
@@ -499,76 +516,117 @@ export default function DataPipelinePage() {
             <p className="text-sm">Nenhuma importação encontrada</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-t border-border bg-muted/20">
-                  {["ARQUIVO", "PERÍODO", "LINHAS PROCESSADAS", "ATUALIZAÇÕES", "NOVOS REGISTROS", "PÁGINAS AFETADAS", "RECEITA RECALCULADA", "STATUS", "DURAÇÃO", "OPERADOR", ""].map(h => (
-                    <th key={h} className="text-left px-4 py-2.5 font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap first:pl-5">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(imp => {
-                  const revenue = revenueMap.get(imp.id) ?? 0;
-                  const isSelected = selectedId === imp.id;
-                  return (
-                    <tr
-                      key={imp.id}
-                      onClick={() => setSelectedId(imp.id)}
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-t border-border bg-muted/20">
+                    {["ARQUIVO", "PERÍODO", "LINHAS PROCESSADAS", "ATUALIZAÇÕES", "NOVOS REGISTROS", "PÁGINAS AFETADAS", "RECEITA RECALCULADA", "STATUS", "DURAÇÃO", "OPERADOR", ""].map(h => (
+                      <th key={h} className="text-left px-4 py-2.5 font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap first:pl-5">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginated.map(imp => {
+                    const revenue = revenueMap.get(imp.id) ?? 0;
+                    const isSelected = selectedId === imp.id;
+                    return (
+                      <tr
+                        key={imp.id}
+                        onClick={() => setSelectedId(imp.id)}
+                        className={cn(
+                          "border-t border-border/50 cursor-pointer transition-colors hover:bg-muted/20",
+                          isSelected && "bg-[#FFF8F0]"
+                        )}
+                      >
+                        <td className="pl-5 pr-3 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-7 w-7 rounded-lg bg-[#FFF0E8] flex items-center justify-center shrink-0">
+                              <FileText className="h-3.5 w-3.5 text-[#F44708]" />
+                            </div>
+                            <span className="font-medium text-foreground max-w-[160px] truncate block" title={imp.file_name}>
+                              {imp.file_name}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{fmtPeriod(imp.period_start, imp.period_end)}</td>
+                        <td className="px-4 py-3 tabular-nums font-medium">{imp.valid_rows.toLocaleString()}</td>
+                        <td className="px-4 py-3 tabular-nums text-muted-foreground">{imp.updated_rows.toLocaleString()}</td>
+                        <td className="px-4 py-3 tabular-nums text-muted-foreground">{imp.inserted_rows.toLocaleString()}</td>
+                        <td className="px-4 py-3 tabular-nums text-muted-foreground">{imp.detected_pages_count}</td>
+                        <td className="px-4 py-3">
+                          {revenue > 0
+                            ? <span className="font-bold text-green-600">+${revenue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            : <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="px-4 py-3"><StatusPill status={imp.status} /></td>
+                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap tabular-nums font-mono text-[10px]">
+                          {fmtDuration(imp.valid_rows, imp.status)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1.5">
+                            {imp.uploader?.avatar_url
+                              ? <img src={imp.uploader.avatar_url} className="h-6 w-6 rounded-full object-cover shrink-0" alt="" />
+                              : <div className="h-6 w-6 rounded-full bg-[#F44708]/15 flex items-center justify-center shrink-0">
+                                  <span className="text-[8px] font-bold text-[#F44708]">{(imp.uploader?.nome ?? "A")[0]}</span>
+                                </div>
+                            }
+                            <span className="text-muted-foreground max-w-[60px] truncate">{imp.uploader?.nome ?? "Admin"}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <button className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted transition-colors text-muted-foreground">
+                            <MoreVertical className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-5 py-3 border-t border-border">
+                <p className="text-xs text-muted-foreground">
+                  {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length} registros
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="h-7 w-7 flex items-center justify-center rounded-lg border border-border text-xs text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    ‹
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
                       className={cn(
-                        "border-t border-border/50 cursor-pointer transition-colors hover:bg-muted/20",
-                        isSelected && "bg-[#FFF8F0]"
+                        "h-7 w-7 flex items-center justify-center rounded-lg text-xs font-medium transition-colors",
+                        p === page
+                          ? "bg-[#F44708] text-white"
+                          : "border border-border text-muted-foreground hover:bg-muted"
                       )}
                     >
-                      <td className="pl-5 pr-3 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="h-7 w-7 rounded-lg bg-[#FFF0E8] flex items-center justify-center shrink-0">
-                            <FileText className="h-3.5 w-3.5 text-[#F44708]" />
-                          </div>
-                          <span className="font-medium text-foreground max-w-[160px] truncate block" title={imp.file_name}>
-                            {imp.file_name}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{fmtPeriod(imp.period_start, imp.period_end)}</td>
-                      <td className="px-4 py-3 tabular-nums font-medium">{imp.valid_rows.toLocaleString()}</td>
-                      <td className="px-4 py-3 tabular-nums text-muted-foreground">{imp.updated_rows.toLocaleString()}</td>
-                      <td className="px-4 py-3 tabular-nums text-muted-foreground">{imp.inserted_rows.toLocaleString()}</td>
-                      <td className="px-4 py-3 tabular-nums text-muted-foreground">{imp.detected_pages_count}</td>
-                      <td className="px-4 py-3">
-                        {revenue > 0
-                          ? <span className="font-bold text-green-600">+${revenue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                          : <span className="text-muted-foreground">—</span>}
-                      </td>
-                      <td className="px-4 py-3"><StatusPill status={imp.status} /></td>
-                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap tabular-nums font-mono text-[10px]">
-                        {fmtDuration(imp.valid_rows, imp.status)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5">
-                          {imp.uploader?.avatar_url
-                            ? <img src={imp.uploader.avatar_url} className="h-6 w-6 rounded-full object-cover shrink-0" alt="" />
-                            : <div className="h-6 w-6 rounded-full bg-[#F44708]/15 flex items-center justify-center shrink-0">
-                                <span className="text-[8px] font-bold text-[#F44708]">{(imp.uploader?.nome ?? "A")[0]}</span>
-                              </div>
-                          }
-                          <span className="text-muted-foreground max-w-[60px] truncate">{imp.uploader?.nome ?? "Admin"}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <button className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted transition-colors text-muted-foreground">
-                          <MoreVertical className="h-3.5 w-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      {p}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="h-7 w-7 flex items-center justify-center rounded-lg border border-border text-xs text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    ›
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -642,67 +700,86 @@ const STEPS = [
   { key: "done",    label: "Concluído" },
 ];
 
-function PipelineStepper({ imp }: { imp: ImportRow | null }) {
-  if (!imp) {
+function PipelineStepper({ imp, activeStep }: { imp: ImportRow | null; activeStep: number }) {
+  const isLive = activeStep >= 0;
+
+  if (!isLive && !imp) {
     return (
-      <div className="flex items-center justify-center h-24 text-muted-foreground text-xs">
+      <div className="flex items-center justify-center h-16 text-muted-foreground text-xs">
         Aguardando primeira importação
       </div>
     );
   }
 
-  const stepsComplete = imp.status === "concluido" ? 6
-    : imp.status === "processando" ? 4
-    : imp.status === "falha" ? 2
-    : 6;
-
-  const ts = new Date(imp.created_at);
-  const offsets = [0, 1, 7, 20, 27, 28];
+  // When live upload: steps 0..activeStep-1 done, activeStep is running, rest pending
+  // When idle: derive from latestImport.status
+  let stepsComplete: number;
+  let isError = false;
+  if (isLive) {
+    stepsComplete = activeStep; // steps before activeStep are done
+  } else {
+    stepsComplete = imp!.status === "concluido" || imp!.status === "parcial" ? 6
+      : imp!.status === "processando" ? 4
+      : imp!.status === "falha" ? 2
+      : 6;
+    isError = imp!.status === "falha";
+  }
 
   return (
-    <div className="flex items-start gap-0 overflow-x-auto pb-1">
+    <div className="flex items-start">
       {STEPS.map((step, i) => {
-        const done = i < stepsComplete;
-        const active = i === stepsComplete - 1 && imp.status === "processando";
-        const stepTs = new Date(ts.getTime() + offsets[i] * 1000);
-        const timeStr = stepTs.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-        const completePct = step.key === "insight" && imp.status === "concluido" ? "100%" : null;
+        const done = isLive ? i < activeStep : i < stepsComplete;
+        const active = isLive ? i === activeStep : (i === stepsComplete - 1 && imp!.status === "processando");
+        const error = isError && i === stepsComplete - 1;
+
+        let sub: string | null = null;
+        if (active) sub = "Em andamento…";
+        else if (error) sub = "Erro";
+        else if (done) sub = "Concluído";
+
         return (
-          <div key={step.key} className="flex items-start shrink-0" style={{ flex: 1, minWidth: 80 }}>
+          <div key={step.key} className="flex items-start" style={{ flex: 1, minWidth: 70 }}>
             <div className="flex flex-col items-center w-full">
-              {/* Step dot + connector line */}
+              {/* Dot + line */}
               <div className="flex items-center w-full">
                 <div className={cn(
-                  "h-6 w-6 rounded-full flex items-center justify-center shrink-0 border-2 transition-all",
-                  done ? "bg-green-500 border-green-500 text-white" :
-                  active ? "bg-amber-400 border-amber-400 text-white animate-pulse" :
-                  "bg-muted border-border"
+                  "h-7 w-7 rounded-full flex items-center justify-center shrink-0 border-2 transition-all duration-500",
+                  done   ? "bg-green-500 border-green-500 text-white" :
+                  active ? "bg-[#F44708] border-[#F44708] text-white" :
+                  error  ? "bg-red-500 border-red-500 text-white" :
+                           "bg-card border-border"
                 )}>
                   {done
-                    ? <CheckCircle2 className="h-3.5 w-3.5" />
+                    ? <CheckCircle2 className="h-4 w-4" />
                     : active
-                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    : <div className="h-1.5 w-1.5 rounded-full bg-border" />}
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : error
+                    ? <AlertCircle className="h-4 w-4" />
+                    : <div className="h-2 w-2 rounded-full bg-border" />}
                 </div>
                 {i < STEPS.length - 1 && (
-                  <div className={cn("h-0.5 flex-1 transition-all", done ? "bg-green-400" : "bg-border")} />
+                  <div className={cn(
+                    "h-0.5 flex-1 transition-all duration-500",
+                    done ? "bg-green-400" : "bg-border"
+                  )} />
                 )}
               </div>
-              {/* Label + timestamp */}
-              <div className="mt-2 text-left w-full pr-2">
-                <p className={cn("text-[10px] font-semibold leading-tight",
-                  done ? "text-foreground" : "text-muted-foreground"
+              {/* Label */}
+              <div className="mt-2.5 text-left w-full pr-2">
+                <p className={cn(
+                  "text-[11px] font-semibold leading-tight",
+                  done   ? "text-foreground" :
+                  active ? "text-[#F44708]" :
+                  error  ? "text-red-600" :
+                           "text-muted-foreground"
                 )}>{step.label}</p>
-                {done && imp.status === "concluido" && (
-                  <p className="text-[9px] text-green-600 font-medium mt-0.5">
-                    {completePct ?? `Concluído`}
-                  </p>
-                )}
-                {done && imp.status !== "concluido" && i < stepsComplete - 1 && (
-                  <p className="text-[9px] text-green-600 mt-0.5">Concluído</p>
-                )}
-                {active && (
-                  <p className="text-[9px] text-amber-600 font-medium mt-0.5 animate-pulse">Em andamento…</p>
+                {sub && (
+                  <p className={cn(
+                    "text-[10px] font-medium mt-0.5",
+                    active ? "text-[#F44708] animate-pulse" :
+                    error  ? "text-red-500" :
+                             "text-green-600"
+                  )}>{sub}</p>
                 )}
               </div>
             </div>
