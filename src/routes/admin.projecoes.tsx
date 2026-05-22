@@ -640,10 +640,10 @@ function KpiCard({ label, value, sub, trend, highlight, positive }: {
   trend?: number; highlight?: boolean; positive?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-white p-4 flex flex-col gap-1.5">
+    <div className="rounded-2xl border border-border bg-white p-4 flex flex-col gap-2">
       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="text-lg font-extrabold leading-tight">{value}</p>
-      <div className="flex items-center gap-1">
+      <p className="text-3xl font-black leading-none tracking-tight">{value}</p>
+      <div className="flex items-center gap-1 mt-auto">
         {trend !== undefined && (
           trend > 0
             ? <TrendingUp className="h-3 w-3 text-[#F44708] shrink-0" />
