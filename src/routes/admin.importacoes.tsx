@@ -198,6 +198,12 @@ export default function DataPipelinePage() {
             comments: r.comments, shares: r.shares,
             clicks_total: r.clicks_total, clicks_other: r.clicks_other, link_clicks: r.link_clicks,
             monetization_approx: r.monetization_approx, estimated_usd: r.estimated_usd,
+            stars_earnings_usd: r.stars_earnings_usd || null,
+            ad_cpm_usd: r.ad_cpm_usd || null,
+            ad_impressions: r.ad_impressions || null,
+            video_duration_s: r.video_duration_s || null,
+            watch_seconds_total: r.watch_seconds_total || null,
+            watch_seconds_avg: r.watch_seconds_avg || null,
             source_import_id: imp.id,
           };
         }).filter((x): x is NonNullable<typeof x> => x !== null);
@@ -362,7 +368,7 @@ export default function DataPipelinePage() {
           icon={FileText} iconBg="#FFF0E8" iconColor="#F44708" positive
         />
         <PipelineKpi
-          label="Última sincronização"
+          label="Último upload"
           value={loading ? "—" : (kpis.lastSync ? timeSince(kpis.lastSync) : "Nunca")}
           sub={kpis.lastSync ? formatDateTime(kpis.lastSync) : "—"}
           icon={Clock} iconBg="#FFF0E8" iconColor="#FAA613"
