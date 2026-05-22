@@ -333,9 +333,6 @@ export default function DataPipelinePage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">Data Pipeline</h1>
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#FAA613]/15 text-[#FAA613]">
-              <Activity className="h-3 w-3" /> Sincronização automática
-            </span>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">Sincronização inteligente dos dados de monetização da plataforma.</p>
         </div>
@@ -598,12 +595,6 @@ export default function DataPipelinePage() {
             )}
           </>
         )}
-      </div>
-
-      {/* ── Health + Schedule ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <HealthPanel health={health} />
-        <SchedulePanel latestImport={latestImport} />
       </div>
 
       {/* ── Drawer ── */}
