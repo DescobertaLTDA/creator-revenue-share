@@ -381,37 +381,6 @@ export default function DataPipelinePage() {
         />
       </div>
 
-      {/* ── Upload Zone (full-width strip) ── */}
-      <div
-        onDragOver={e => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={handleDrop}
-        onClick={guard(() => !uploading && fileRef.current?.click())}
-        className={cn(
-          "rounded-2xl border-2 border-dashed cursor-pointer transition-all flex flex-col sm:flex-row items-center gap-5 p-5",
-          dragging ? "border-[#F44708] bg-[#FFF0E8]" : "border-border bg-card hover:border-[#F44708]/40 hover:bg-muted/30"
-        )}
-      >
-        <div className={cn(
-          "h-11 w-11 rounded-xl flex items-center justify-center shrink-0 transition-all",
-          dragging ? "bg-[#F44708]" : "bg-[#FFF0E8]"
-        )}>
-          {uploading
-            ? <Loader2 className="h-5 w-5 text-[#F44708] animate-spin" />
-            : <CloudUpload className={cn("h-5 w-5", dragging ? "text-white" : "text-[#F44708]")} />
-          }
-        </div>
-        <div className="flex-1 text-center sm:text-left">
-          <p className="font-semibold text-sm">
-            {uploading
-              ? bulkProgress ? `Processando ${bulkProgress.current} de ${bulkProgress.total}…` : "Processando…"
-              : "Arraste CSVs aqui ou clique para enviar"}
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Suporte a múltiplos arquivos CSV · deduplicação e atualização incremental automáticas
-          </p>
-        </div>
-      </div>
 
       {/* ── Pipeline Stepper (full-width) ── */}
       <div className="rounded-2xl border border-border bg-card p-6">
