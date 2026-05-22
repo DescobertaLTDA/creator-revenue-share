@@ -688,7 +688,7 @@ function ClosingDetail() {
             </div>
 
             {/* Desktop table */}
-            <div className="hidden sm:block overflow-x-auto pb-2">
+            <div className="hidden sm:block overflow-x-auto pb-3">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
