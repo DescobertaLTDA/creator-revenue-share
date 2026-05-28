@@ -191,23 +191,58 @@ function ChartTooltip({ active, payload, label }: any) {
   );
 }
 
-// ─── Record Banner ────────────────────────────────────────────────────────────
+// ─── Record Cards ─────────────────────────────────────────────────────────────
 
-interface RecordMetric {
+function RecordCard({
+  label, current, target, fmtFn, icon: Icon, bestMonth,
+}: {
   label: string;
   current: number;
   target: number;
-  fmt: (n: number) => string;
-  unit?: string;
-}
+  fmtFn: (n: number) => string;
+  icon: React.FC<{ size?: number; className?: string }>;
+  bestMonth: string;
+}) {
+  const pct = target > 0 ? Math.min(100, (current / target) * 100) : 0;
+  const done = current >= target;
+  const barColor = done ? GREEN : pct >= 80 ? GREEN : pct >= 50 ? ORANGE : ORANGE_LIGHT;
+  const pctColor = done ? GREEN : pct >= 50 ? ORANGE : "#bbb";
 
-function RecordBar({ pct }: { pct: number }) {
-  const clamped = Math.min(100, Math.max(0, pct));
-  const color = clamped >= 80 ? GREEN : clamped >= 50 ? ORANGE : clamped >= 25 ? ORANGE_LIGHT : "#f0f0f0";
   return (
-    <div className="w-full h-1.5 bg-[#f0f0f0] rounded-full overflow-hidden mt-1.5">
-      <div className="h-full rounded-full transition-all duration-500"
-        style={{ width: `${clamped}%`, background: clamped >= 80 ? GREEN : ORANGE }} />
+    <div className="bg-white rounded-2xl border border-[#ececec] px-5 pt-5 pb-4 flex flex-col gap-2 shadow-sm hover:shadow-md transition-shadow duration-200">
+      {/* Label + icon */}
+      <div className="flex items-start justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-[#999]">{label}</p>
+        <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: `${ORANGE}18` }}>
+          <Icon size={14} className="text-[#ff6b00]" />
+        </div>
+      </div>
+
+      {/* Current value */}
+      <p className="text-3xl font-bold text-[#111] tracking-tight leading-none">{fmtFn(current)}</p>
+
+      {/* Target row */}
+      <div className="flex items-center gap-1.5">
+        <span className="text-[10px] text-[#bbb] uppercase tracking-wider">Meta</span>
+        <span className="text-xs font-semibold text-[#888]">{fmtFn(target)}</span>
+        <span className="text-[10px] text-[#ccc] ml-auto">{bestMonth}</span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="w-full h-2 bg-[#f3f3f3] rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${pct}%`, background: barColor }} />
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold" style={{ color: pctColor }}>
+          {done ? "✓ Meta atingida" : `${pct.toFixed(0)}%`}
+        </span>
+        {!done && target > current && (
+          <span className="text-[11px] text-[#bbb]">faltam {fmtFn(target - current)}</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -221,74 +256,26 @@ function RecordBanner({
   const cur = current ?? { month: "—", posts: 0, views: 0, revenue: 0 };
   const curAvg  = cur.posts  > 0 ? cur.views  / cur.posts  : 0;
   const bestAvg = best.posts > 0 ? best.views / best.posts : 0;
-
-  const metrics: RecordMetric[] = [
-    { label: "Posts",       current: cur.posts,            target: best.posts,   fmt: (n) => String(Math.round(n)) },
-    { label: "Views",       current: cur.views,            target: best.views,   fmt: fmtRound },
-    { label: "Receita",     current: cur.revenue * USD_TO_BRL, target: best.revenue * USD_TO_BRL, fmt: (n) => fmtBRL(n / USD_TO_BRL) },
-    { label: "Views/post",  current: curAvg,               target: bestAvg,      fmt: fmtRound },
-  ];
-
-  const overallPct = best.revenue > 0 ? Math.min(100, (cur.revenue / best.revenue) * 100) : 0;
+  const bestLabel = formatMonth(best.month).replace(/\/(\d{4})$/, (_, y) => `/${y.slice(2)}`);
 
   return (
-    <div className="bg-white rounded-2xl border border-[#ececec] shadow-sm px-6 py-5">
-      {/* Header row */}
-      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg"
-            style={{ background: `${ORANGE}18` }}>🏆</div>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#999]">Recorde a bater</p>
-            <p className="font-bold text-[#111]">
-              {formatMonth(best.month).replace(/\/(\d{4})$/, (_, y) => `/${y.slice(2)}`)}
-              <span className="ml-2 text-sm font-normal text-[#aaa]">·</span>
-              <span className="ml-2 font-bold" style={{ color: GREEN }}>{fmtBRL(best.revenue)}</span>
-            </p>
-          </div>
-        </div>
-        {/* Overall progress pill */}
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-[#aaa] uppercase tracking-wider">Progresso geral</span>
-          <span className="text-sm font-bold px-3 py-1 rounded-full"
-            style={{
-              background: overallPct >= 80 ? "#dcfce7" : overallPct >= 50 ? "#fff0e8" : "#f5f5f5",
-              color:      overallPct >= 80 ? GREEN      : overallPct >= 50 ? ORANGE    : "#aaa",
-            }}>
-            {overallPct.toFixed(0)}%
-          </span>
-        </div>
+    <div className="space-y-2">
+      {/* Section header */}
+      <div className="flex items-center gap-2 px-1">
+        <span className="text-base">🏆</span>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-[#999]">
+          Recorde a bater —
+          <span className="ml-1 text-[#111] normal-case font-bold">{bestLabel}</span>
+          <span className="ml-1 font-bold" style={{ color: GREEN }}>{fmtBRL(best.revenue)}</span>
+        </p>
       </div>
 
-      {/* Metrics grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-5">
-        {metrics.map((m) => {
-          const pct = m.target > 0 ? Math.min(100, (m.current / m.target) * 100) : 0;
-          const done = m.current >= m.target;
-          return (
-            <div key={m.label}>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#bbb] mb-1">{m.label}</p>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-bold text-[#111] leading-none">{m.fmt(m.current)}</span>
-                <span className="text-[#ddd] text-sm">/</span>
-                <span className="text-sm text-[#aaa]">{m.fmt(m.target)}</span>
-              </div>
-              <RecordBar pct={pct} />
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-[10px] font-bold"
-                  style={{ color: done ? GREEN : pct >= 50 ? ORANGE : "#bbb" }}>
-                  {pct.toFixed(0)}%
-                </span>
-                {done && <span className="text-[10px] font-bold" style={{ color: GREEN }}>✓</span>}
-                {!done && m.target > m.current && (
-                  <span className="text-[10px] text-[#ccc]">
-                    faltam {m.fmt(m.target - m.current)}
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
+      {/* 4 cards */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        <RecordCard label="Posts"      current={cur.posts}                  target={best.posts}                  fmtFn={(n) => String(Math.round(n))} icon={TrendingUp} bestMonth={bestLabel} />
+        <RecordCard label="Views"      current={cur.views}                  target={best.views}                  fmtFn={fmtRound}                     icon={Eye}        bestMonth={bestLabel} />
+        <RecordCard label="Receita"    current={cur.revenue * USD_TO_BRL}   target={best.revenue * USD_TO_BRL}   fmtFn={(n) => fmtBRL(n / USD_TO_BRL)}icon={DollarSign} bestMonth={bestLabel} />
+        <RecordCard label="Views/post" current={curAvg}                     target={bestAvg}                     fmtFn={fmtRound}                     icon={Eye}        bestMonth={bestLabel} />
       </div>
     </div>
   );
