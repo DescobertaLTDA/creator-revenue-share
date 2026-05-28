@@ -47,12 +47,23 @@ const RED = "#dc2626";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+const USD_TO_BRL = 5.02;
+
 const fmt = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M`
   : n >= 1_000 ? `${(n / 1_000).toFixed(1)}k`
   : n.toFixed(0);
 
 const fmtPct = (n: number, dec = 1) => `${(n * 100).toFixed(dec)}%`;
+
+/** Converte USD → BRL e formata como "R$ 1.234" ou "R$ 1,2k" */
+const fmtBRL = (usd: number, compact = true): string => {
+  const brl = usd * USD_TO_BRL;
+  if (!compact) return `R$ ${brl.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  if (brl >= 1_000_000) return `R$ ${(brl / 1_000_000).toFixed(1)}M`;
+  if (brl >= 1_000) return `R$ ${(brl / 1_000).toFixed(1)}k`;
+  return `R$ ${brl.toFixed(2)}`;
+};
 
 async function fetchAllRows<T>(query: () => ReturnType<typeof supabase.from>): Promise<T[]> {
   const PAGE = 1000; let from = 0; const all: T[] = [];
@@ -376,10 +387,10 @@ function AnalyticsPage() {
       list.push({ text: `Vídeos acima de ${(analytics.avgRetentionPct * 0.8).toFixed(0)}% de retenção geram +63% mais receita`, icon: TrendingUp });
     if (analytics.videoCount > 0 && analytics.photoCount > 0) {
       const vRpm = analytics.videoViews > 0 ? (analytics.videoRevenue / analytics.videoViews) * 1000 : 0;
-      list.push({ text: `Vídeos com RPM médio de $${vRpm.toFixed(2)} superam fotos em monetização`, icon: Zap });
+      list.push({ text: `Vídeos com RPM médio de ${fmtBRL(vRpm, false)} superam fotos em monetização`, icon: Zap });
     }
     if (analytics.monthlyData[0])
-      list.push({ text: `Melhor mês: ${formatMonth(analytics.monthlyData.reduce((b, m) => m.revenue > b.revenue ? m : b, analytics.monthlyData[0]).month)} com $${analytics.monthlyData.reduce((b, m) => m.revenue > b.revenue ? m : b, analytics.monthlyData[0]).revenue.toFixed(0)} de receita`, icon: TrendingUp });
+      list.push({ text: `Melhor mês: ${formatMonth(analytics.monthlyData.reduce((b, m) => m.revenue > b.revenue ? m : b, analytics.monthlyData[0]).month)} com ${fmtBRL(analytics.monthlyData.reduce((b, m) => m.revenue > b.revenue ? m : b, analytics.monthlyData[0]).revenue)} de receita`, icon: TrendingUp });
     return list.slice(0, 3);
   }, [analytics]);
 
@@ -439,8 +450,8 @@ function AnalyticsPage() {
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
             <KpiBlock
               label="Receita Total"
-              value={`$${analytics.totalRevenue >= 1000 ? (analytics.totalRevenue / 1000).toFixed(1) + "k" : analytics.totalRevenue.toFixed(0)}`}
-              sub={`R$ ${(analytics.totalRevenue * 5.02).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`}
+              value={fmtBRL(analytics.totalRevenue)}
+              sub={`≈ $${analytics.totalRevenue >= 1000 ? (analytics.totalRevenue / 1000).toFixed(1) + "k" : analytics.totalRevenue.toFixed(0)} USD`}
               delta={analytics.momRevenue}
               sparkline={analytics.sparkRevenue}
               icon={DollarSign}
@@ -454,7 +465,7 @@ function AnalyticsPage() {
             />
             <KpiBlock
               label="RPM Médio"
-              value={`$${analytics.rpm.toFixed(3)}`}
+              value={fmtBRL(analytics.rpm, false)}
               sub="Receita por mil views"
               sparkline={analytics.sparkRpm}
               icon={TrendingUp}
@@ -474,8 +485,8 @@ function AnalyticsPage() {
             />
             <KpiBlock
               label="CPM Médio"
-              value={analytics.avgCpm > 0 ? `$${analytics.avgCpm.toFixed(2)}` : "—"}
-              sub="Custo por mil impressões"
+              value={analytics.avgCpm > 0 ? fmtBRL(analytics.avgCpm, false) : "—"}
+              sub={analytics.avgCpm > 0 ? "Custo por mil impressões" : "Sem dados de CPM"}
               icon={Zap}
             />
           </div>
@@ -514,8 +525,8 @@ function AnalyticsPage() {
                 <AreaChart data={chartData.map((d) => ({
                   ...d,
                   viewsLabel: fmt(d.views),
-                  revenueLabel: `$${d.revenue.toFixed(2)}`,
-                  rpmLabel: `$${d.rpm.toFixed(3)}`,
+                  revenueLabel: fmtBRL(d.revenue, false),
+                  rpmLabel: fmtBRL(d.rpm, false),
                 }))} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gv" x1="0" y1="0" x2="0" y2="1">
@@ -530,7 +541,7 @@ function AnalyticsPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                   <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#aaa" }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
                   <YAxis tick={{ fontSize: 10, fill: "#aaa" }} axisLine={false} tickLine={false}
-                    tickFormatter={(v) => activeSeries === "views" ? fmt(v) : `$${v.toFixed(activeSeries === "rpm" ? 3 : 1)}`} />
+                    tickFormatter={(v) => activeSeries === "views" ? fmt(v) : `R$${(v * USD_TO_BRL).toFixed(activeSeries === "rpm" ? 2 : 1)}`} />
                   <Tooltip content={<ChartTooltip />} />
                   {activeSeries === "views" && (
                     <Area type="monotone" dataKey="views" name="Views" stroke={ORANGE} strokeWidth={2} fill="url(#gv)" dot={false} />
@@ -565,8 +576,8 @@ function AnalyticsPage() {
                         <td className="px-4 py-2.5 font-semibold text-[#111]">{formatMonth(m.month).slice(0, 8)}</td>
                         <td className="px-4 py-2.5 text-[#666]">{m.posts}</td>
                         <td className="px-4 py-2.5 text-[#666]">{fmt(m.views)}</td>
-                        <td className="px-4 py-2.5 font-semibold" style={{ color: GREEN }}>${m.revenue.toFixed(0)}</td>
-                        <td className="px-4 py-2.5 text-[#666]">${m.rpm.toFixed(2)}</td>
+                        <td className="px-4 py-2.5 font-semibold" style={{ color: GREEN }}>{fmtBRL(m.revenue)}</td>
+                        <td className="px-4 py-2.5 text-[#666]">{fmtBRL(m.rpm, false)}</td>
                         <td className="px-4 py-2.5">
                           {m.momRevenue != null ? (
                             <span className={`inline-flex items-center gap-0.5 font-semibold ${m.momRevenue >= 0 ? "text-[#16a34a]" : "text-[#dc2626]"}`}>
@@ -645,10 +656,10 @@ function AnalyticsPage() {
                             {p._watchAvg > 0 ? `${p._watchAvg.toFixed(0)}s` : "—"}
                           </td>
                           <td className="px-4 py-3 text-right text-[#666]">
-                            {p._cpm > 0 ? `$${p._cpm.toFixed(2)}` : "—"}
+                            {p._cpm > 0 ? fmtBRL(p._cpm, false) : "—"}
                           </td>
                           <td className="px-4 py-3 text-right font-semibold" style={{ color: p._revenue > 0 ? GREEN : "#ccc" }}>
-                            {p._revenue > 0 ? `$${p._revenue.toFixed(2)}` : "—"}
+                            {p._revenue > 0 ? fmtBRL(p._revenue, false) : "—"}
                           </td>
                         </tr>
                       );
@@ -714,7 +725,7 @@ function AnalyticsPage() {
                             <span className="text-xs font-semibold text-[#111]">{d.name}</span>
                             <span className="text-xs font-bold ml-auto" style={{ color: i === 0 ? ORANGE : "#aaa" }}>{pct}%</span>
                           </div>
-                          <p className="text-[10px] text-[#aaa] pl-4">{fmt(d.views)} views · ${d.revenue.toFixed(0)} rec.</p>
+                          <p className="text-[10px] text-[#aaa] pl-4">{fmt(d.views)} views · {fmtBRL(d.revenue)} rec.</p>
                         </div>
                       );
                     })}
