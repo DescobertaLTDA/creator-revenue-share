@@ -9,7 +9,7 @@ import { formatBRL, formatDateTime, formatMonth } from "@/lib/format";
 import {
   DollarSign, Eye, TrendingUp, Upload, ArrowRight,
   FileSpreadsheet, CheckCircle2, Clock, ChevronRight, ChevronLeft,
-  Target, Zap, Coins, ChevronDown, Users,
+  Target, Zap, ChevronDown, Users,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -54,6 +54,7 @@ interface RawPost {
   title: string | null;
   post_type: string | null;
   permalink: string | null;
+  source: "facebook" | "instagram" | null;
 }
 
 interface PostAuthorRow {
@@ -86,7 +87,7 @@ interface DailyEntry {
   page_id: string | null;
 }
 
-interface PageOption { id: string; name: string }
+interface PageOption { id: string; name: string; source?: "facebook" | "instagram" }
 interface ColabOption { id: string; nome: string; hashtag: string | null; avatar_url: string | null }
 
 interface DayData {
@@ -410,96 +411,109 @@ function DashSpeedometer({ score }: { score: number }) {
   );
 }
 
+// ─── Platform logo helper ─────────────────────────────────────────────────────
+
+function PlatformLogo({ source, className = "h-4 w-4" }: { source?: "facebook" | "instagram"; className?: string }) {
+  if (source === "instagram") {
+    return <img src="/assets/logo/Instagram_logo_2022.svg" alt="Instagram" className={`${className} object-contain shrink-0 rounded`} />;
+  }
+  return <img src="/assets/logo/Facebook_Logo_2023.png" alt="Facebook" className={`${className} object-contain shrink-0`} />;
+}
+
 // ─── PageSelect ───────────────────────────────────────────────────────────────
 
 function PageSelect({
   pages,
   value,
   onChange,
-  monetizedIds,
 }: {
   pages: PageOption[];
   value: string;
   onChange: (v: string) => void;
-  monetizedIds: Set<string>;
 }) {
   const [open, setOpen] = useState(false);
   const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
     function onDown(e: MouseEvent) {
-      if (
-        triggerRef.current?.contains(e.target as Node) ||
-        dropRef.current?.contains(e.target as Node)
-      ) return;
+      if (triggerRef.current?.contains(e.target as Node) || dropRef.current?.contains(e.target as Node)) return;
       setOpen(false);
     }
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  // Close on scroll/resize so it doesn't float away, but ignore scrolls inside the dropdown itself
   useEffect(() => {
     if (!open) return;
     const close = (e: Event) => {
       if (dropRef.current && e.target instanceof Node && dropRef.current.contains(e.target)) return;
       setOpen(false);
     };
-    const closeResize = () => setOpen(false);
     window.addEventListener("scroll", close, true);
-    window.addEventListener("resize", closeResize);
-    return () => { window.removeEventListener("scroll", close, true); window.removeEventListener("resize", closeResize); };
+    window.addEventListener("resize", () => setOpen(false));
+    return () => window.removeEventListener("scroll", close, true);
   }, [open]);
 
   function openDrop() {
     if (!triggerRef.current) return;
     const r = triggerRef.current.getBoundingClientRect();
-    setDropPos({ top: r.bottom + 6, left: r.left, width: Math.max(r.width, 240) });
+    setDropPos({ top: r.bottom + 4, left: r.left, width: Math.max(r.width, 220) });
     setOpen((o) => !o);
   }
 
   const selected = value === "all" ? null : pages.find((p) => p.id === value) ?? null;
-  const monetized = pages.filter((p) => monetizedIds.has(p.id));
-  const nonMonetized = pages.filter((p) => !monetizedIds.has(p.id));
+  const fbPages = pages.filter((p) => (p.source ?? "facebook") === "facebook");
+  const igPages = pages.filter((p) => p.source === "instagram");
 
   function Item({ page }: { page: PageOption }) {
-    const isM = monetizedIds.has(page.id);
     const active = value === page.id;
     return (
       <button
         onClick={() => { onChange(page.id); setOpen(false); }}
-        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
-          active
-            ? "bg-[#F44708] text-white"
-            : "text-[#1A0A00] hover:bg-[#FFF0E8]"
+        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
+          active ? "bg-[#F44708] text-white" : "text-[#1A0A00] hover:bg-[#FFF0E8]"
         }`}
       >
-        <Coins className={`h-3.5 w-3.5 shrink-0 ${active ? "text-white/80" : isM ? "text-emerald-500" : "text-red-400"}`} />
-        <span className="truncate">{page.name}</span>
-        {active && <span className="ml-auto text-white/60 text-xs">✓</span>}
+        <PlatformLogo source={page.source} className={`h-4 w-4 ${active ? "opacity-90" : ""}`} />
+        <span className="truncate flex-1">{page.name}</span>
+        {active && <span className="text-white/60 text-xs">✓</span>}
       </button>
     );
   }
 
+  function Group({ label, items }: { label: string; items: PageOption[] }) {
+    if (items.length === 0) return null;
+    const src = label === "Instagram" ? "instagram" : "facebook";
+    return (
+      <div>
+        <div className="flex items-center gap-1.5 px-3 py-1.5">
+          <PlatformLogo source={src} className="h-3 w-3" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#aaa]">{label}</span>
+        </div>
+        <div className="space-y-px">
+          {items.map((p) => <Item key={p.id} page={p} />)}
+        </div>
+      </div>
+    );
+  }
+
+  const hasBoth = fbPages.length > 0 && igPages.length > 0;
+
   return (
     <div className="w-full sm:min-w-[200px]">
-      {/* Trigger */}
       <button
         ref={triggerRef}
         onClick={openDrop}
         className={`w-full h-8 flex items-center gap-2 px-3 rounded-lg border text-sm transition-all bg-white ${
-          open
-            ? "border-[#F44708] ring-2 ring-[#F44708]/15"
-            : "border-[#E0E0E0] hover:border-[#FAA613]"
+          open ? "border-[#F44708] ring-2 ring-[#F44708]/15" : "border-[#E0E0E0] hover:border-[#FAA613]"
         }`}
       >
         {selected ? (
           <>
-            <Coins className={`h-3.5 w-3.5 shrink-0 ${monetizedIds.has(selected.id) ? "text-emerald-500" : "text-red-400"}`} />
+            <PlatformLogo source={selected.source} className="h-4 w-4" />
             <span className="flex-1 truncate text-left font-medium text-[#1A0A00]">{selected.name}</span>
           </>
         ) : (
@@ -508,51 +522,33 @@ function PageSelect({
         <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[#6B6B6B] transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
 
-      {/* Dropdown — fixed to escape overflow:hidden parents */}
       {open && (
         <div
           ref={dropRef}
           style={{ position: "fixed", top: dropPos.top, left: dropPos.left, minWidth: dropPos.width, zIndex: 9999 }}
-          className="bg-white border border-[#E0E0E0] rounded-2xl overflow-hidden"
+          className="bg-white border border-[#E0E0E0] rounded-xl shadow-lg overflow-hidden"
         >
-          {/* "Todas as páginas" option */}
-          <div className="p-2 border-b border-[#FFF0E8]">
+          <div className="p-1.5 border-b border-[#f5f5f5]">
             <button
               onClick={() => { onChange("all"); setOpen(false); }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                value === "all"
-                  ? "bg-[#F44708] text-white"
-                  : "text-[#1A0A00] hover:bg-[#FFF0E8]"
+              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                value === "all" ? "bg-[#F44708] text-white" : "text-[#1A0A00] hover:bg-[#FFF0E8]"
               }`}
             >
-              <span className="h-3.5 w-3.5 shrink-0" />
-              Todas as páginas
-              {value === "all" && <span className="ml-auto text-white/70 text-xs">✓</span>}
+              <span className="flex-1 text-left">Todas as páginas</span>
+              {value === "all" && <span className="text-white/70 text-xs">✓</span>}
             </button>
           </div>
 
-          <div className="max-h-72 overflow-y-auto p-2 space-y-3">
-            {monetized.length > 0 && (
-              <div>
-                <div className="flex items-center gap-1.5 px-3 py-1.5">
-                  <Coins className="h-3 w-3 text-emerald-500" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Monetizadas</span>
-                </div>
-                <div className="space-y-px">
-                  {monetized.map((p) => <Item key={p.id} page={p} />)}
-                </div>
-              </div>
-            )}
-
-            {nonMonetized.length > 0 && (
-              <div>
-                <div className="flex items-center gap-1.5 px-3 py-1.5">
-                  <Coins className="h-3 w-3 text-red-400" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-red-500">Não Monetizadas</span>
-                </div>
-                <div className="space-y-px">
-                  {nonMonetized.map((p) => <Item key={p.id} page={p} />)}
-                </div>
+          <div className="max-h-72 overflow-y-auto p-1.5 space-y-1">
+            {hasBoth ? (
+              <>
+                <Group label="Facebook" items={fbPages} />
+                <Group label="Instagram" items={igPages} />
+              </>
+            ) : (
+              <div className="space-y-px">
+                {pages.map((p) => <Item key={p.id} page={p} />)}
               </div>
             )}
           </div>
@@ -618,7 +614,7 @@ function AdminDashboard() {
         await Promise.all([
           fetchAllRows<RawPost>(() =>
             supabase.from("posts").select(
-              "id, page_id, published_at, monetization_approx, estimated_usd, views, reach, reactions, comments, shares, title, post_type, permalink"
+              "id, page_id, published_at, monetization_approx, estimated_usd, views, reach, reactions, comments, shares, title, post_type, permalink, source"
             )
           ),
           fetchAllRows<PostAuthorRow>(() =>
@@ -646,7 +642,21 @@ function AdminDashboard() {
       const fresh: DashCache = {
         posts,
         postAuthors: pas,
-        pages: (pagesData ?? []).map((p: any) => ({ id: p.id, name: p.nome })),
+        pages: (() => {
+          // Derive source for each page from posts (most common source wins)
+          const pageSourceCount = new Map<string, { facebook: number; instagram: number }>();
+          for (const post of posts) {
+            const src = (post as any).source ?? "facebook";
+            const cur = pageSourceCount.get(post.page_id) ?? { facebook: 0, instagram: 0 };
+            cur[src as "facebook" | "instagram"] = (cur[src as "facebook" | "instagram"] ?? 0) + 1;
+            pageSourceCount.set(post.page_id, cur);
+          }
+          return (pagesData ?? []).map((p: any) => {
+            const counts = pageSourceCount.get(p.id);
+            const source = counts && counts.instagram > counts.facebook ? "instagram" : "facebook";
+            return { id: p.id, name: p.nome, source };
+          });
+        })(),
         colabs: (colabsData ?? []).map((c: any) => ({ id: c.id, nome: c.nome, hashtag: c.hashtag, avatar_url: avatarMap.get(c.id) ?? null })),
         splitRules: (rulesData as SplitRule[]) ?? [],
         imports: (imports ?? []) as RecentImport[],
@@ -1484,7 +1494,6 @@ function AdminDashboard() {
               pages={pages}
               value={filterPage}
               onChange={setFilterPage}
-              monetizedIds={monetizedPageIds}
             />
           </div>
           <div className="flex flex-col gap-1">
