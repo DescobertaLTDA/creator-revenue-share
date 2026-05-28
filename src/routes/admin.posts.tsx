@@ -123,10 +123,10 @@ function Sparkline({ data, color = ORANGE }: { data: number[]; color?: string })
 interface KpiProps {
   label: string; value: string; sub?: string; delta?: number | null;
   deltaLabel?: string; sparkline?: number[]; icon: React.FC<{ size?: number; className?: string }>;
-  customMiddle?: React.ReactNode;
+  customMiddle?: React.ReactNode; valueClass?: string;
 }
 
-function KpiBlock({ label, value, sub, delta, deltaLabel, sparkline, icon: Icon, customMiddle }: KpiProps) {
+function KpiBlock({ label, value, sub, delta, deltaLabel, sparkline, icon: Icon, customMiddle, valueClass }: KpiProps) {
   return (
     <div className="bg-white rounded-2xl border border-[#ececec] px-5 pt-5 pb-3 flex flex-col gap-1 shadow-sm hover:shadow-md transition-shadow duration-200">
       <div className="flex items-start justify-between">
@@ -136,7 +136,7 @@ function KpiBlock({ label, value, sub, delta, deltaLabel, sparkline, icon: Icon,
         </div>
       </div>
       {customMiddle ?? (
-        <p className="text-3xl font-bold text-[#111] tracking-tight leading-none mt-1">{value}</p>
+        <p className={`font-bold text-[#111] tracking-tight leading-none mt-1 ${valueClass ?? "text-3xl"}`}>{value}</p>
       )}
       {sub && <p className="text-xs text-[#888]">{sub}</p>}
       {delta != null && (
@@ -557,7 +557,10 @@ function AnalyticsPage() {
             />
             <KpiBlock
               label="Meta R$ 10k"
-              value={analytics.postsFor10k != null ? fmtRound(analytics.postsFor10k) : "—"}
+              value={analytics.postsFor10k != null
+                ? analytics.postsFor10k.toLocaleString("pt-BR")
+                : "—"}
+              valueClass="text-xl"
               sub={
                 analytics.postsFor10k != null
                   ? `posts · ${fmtRound(Math.round(analytics.avgViewsPerPost))} views/post · ${Math.round(analytics.avgPostsPerMonth)}/mês`
