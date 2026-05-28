@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useWriteGuard } from "@/hooks/use-write-guard";
-import { parseFacebookCsv, hashFile } from "@/features/csv/parser";
+import { parseAnyCsv, hashFile, type CsvSource } from "@/features/csv/parser";
 import { formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
 import {
@@ -25,6 +25,7 @@ interface ImportRow {
   id: string;
   file_name: string;
   status: string;
+  source: CsvSource | null;
   created_at: string;
   total_rows: number;
   valid_rows: number;
@@ -88,7 +89,7 @@ export default function DataPipelinePage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("csv_imports")
-      .select("id, file_name, status, created_at, total_rows, valid_rows, invalid_rows, inserted_rows, updated_rows, duplicated_rows, detected_pages_count, period_start, period_end, uploader:profiles!uploaded_by(nome, avatar_url)")
+      .select("id, file_name, status, source, created_at, total_rows, valid_rows, invalid_rows, inserted_rows, updated_rows, duplicated_rows, detected_pages_count, period_start, period_end, uploader:profiles!uploaded_by(nome, avatar_url)")
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) toast.error("Erro ao carregar", { description: error.message });
@@ -131,7 +132,7 @@ export default function DataPipelinePage() {
       }
 
       setActiveUploadStep(1);
-      const parsed = parseFacebookCsv(text);
+      const parsed = parseAnyCsv(text);
 
       const { data: imp, error: impErr } = await supabase
         .from("csv_imports")
@@ -140,6 +141,7 @@ export default function DataPipelinePage() {
           file_name: file.name,
           file_hash: hash,
           status: "processando",
+          source: parsed.source,
           total_rows: parsed.totalRows,
           valid_rows: parsed.rows.length,
           invalid_rows: parsed.errors.length,
@@ -196,6 +198,8 @@ export default function DataPipelinePage() {
             post_type: r.post_type, language: r.language,
             views: r.views, reach: r.reach, reactions: r.reactions,
             comments: r.comments, shares: r.shares,
+            saves: r.saves || null,
+            follows_gained: r.follows_gained || null,
             clicks_total: r.clicks_total, clicks_other: r.clicks_other, link_clicks: r.link_clicks,
             monetization_approx: r.monetization_approx, estimated_usd: r.estimated_usd,
             stars_earnings_usd: r.stars_earnings_usd || null,
@@ -204,6 +208,7 @@ export default function DataPipelinePage() {
             video_duration_s: r.video_duration_s || null,
             watch_seconds_total: r.watch_seconds_total || null,
             watch_seconds_avg: r.watch_seconds_avg || null,
+            source: r.source,
             source_import_id: imp.id,
           };
         }).filter((x): x is NonNullable<typeof x> => x !== null);
@@ -492,9 +497,7 @@ export default function DataPipelinePage() {
                       {/* Arquivo */}
                       <td className="pl-5 pr-3 py-3">
                         <div className="flex items-center gap-2 min-w-0">
-                          <div className="h-7 w-7 rounded-lg bg-[#FFF0E8] flex items-center justify-center shrink-0">
-                            <FileText className="h-3.5 w-3.5 text-[#F44708]" />
-                          </div>
+                          <PlatformIcon source={imp.source ?? "facebook"} />
                           <div className="min-w-0">
                             <p className="font-medium text-foreground truncate" title={imp.file_name}>
                               {imp.file_name}
@@ -770,6 +773,30 @@ function SchedulePanel({ latestImport }: { latestImport: ImportRow | null }) {
 
 // ─── Import Drawer ────────────────────────────────────────────────────────────
 
+// ─── Platform icon ────────────────────────────────────────────────────────────
+
+function PlatformIcon({ source, size = 7 }: { source: CsvSource; size?: number }) {
+  if (source === "instagram") {
+    return (
+      <div className={`h-${size} w-${size} rounded-lg overflow-hidden shrink-0`}>
+        <img
+          src="/assets/logo/Instagram_logo_2022.svg"
+          alt="Instagram"
+          className="h-full w-full object-cover"
+        />
+      </div>
+    );
+  }
+  // Facebook
+  return (
+    <div className={`h-${size} w-${size} rounded-lg bg-[#FFF0E8] flex items-center justify-center shrink-0`}>
+      <FileText className="h-3.5 w-3.5 text-[#F44708]" />
+    </div>
+  );
+}
+
+// ─── Import Drawer ────────────────────────────────────────────────────────────
+
 function ImportDrawer({ imp, revenue }: { imp: ImportRow; revenue: number }) {
   const ts = new Date(imp.created_at);
   const offsets = [0, 1, 2, 7, 22, 27, 28];
@@ -789,9 +816,7 @@ function ImportDrawer({ imp, revenue }: { imp: ImportRow; revenue: number }) {
     <div className="flex flex-col h-full">
       <div className="px-5 py-5 border-b border-border">
         <div className="flex items-start gap-3">
-          <div className="h-10 w-10 rounded-xl bg-[#FFF0E8] flex items-center justify-center shrink-0">
-            <FileText className="h-5 w-5 text-[#F44708]" />
-          </div>
+          <PlatformIcon source={imp.source ?? "facebook"} size={10} />
           <div className="flex-1 min-w-0">
             <p className="font-bold text-sm truncate" title={imp.file_name}>{imp.file_name}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{formatDateTime(imp.created_at)}{imp.uploader ? ` · por ${imp.uploader.nome}` : ""}</p>
@@ -805,6 +830,7 @@ function ImportDrawer({ imp, revenue }: { imp: ImportRow; revenue: number }) {
           <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Resumo</p>
           <div className="rounded-xl border border-border overflow-hidden">
             {[
+              { label: "Plataforma", value: imp.source === "instagram" ? "Instagram" : "Facebook" },
               { label: "Período dos dados", value: fmtPeriod(imp.period_start, imp.period_end) },
               { label: "Tamanho do arquivo", value: `${fileSize} MB` },
               { label: "Linhas processadas", value: imp.valid_rows.toLocaleString() },
