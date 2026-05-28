@@ -444,26 +444,24 @@ function AnalyticsPage() {
           </div>
 
           {/* Date range picker */}
-          <div className="flex items-center gap-1 bg-white border border-[#ececec] rounded-xl px-3 py-1.5 shadow-sm">
+          <div className="flex items-center gap-1.5 bg-white border border-[#ececec] rounded-xl px-3 py-2 shadow-sm">
             <Calendar size={13} className="text-[#aaa] flex-shrink-0" />
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="text-sm text-[#111] bg-transparent border-none outline-none w-[118px] cursor-pointer"
-              placeholder="Início"
+              className="text-xs text-[#111] bg-transparent border-none outline-none cursor-pointer w-[105px]"
             />
-            <span className="text-[#ccc] text-xs font-medium px-0.5">→</span>
+            <span className="text-[#ddd] text-xs select-none">–</span>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="text-sm text-[#111] bg-transparent border-none outline-none w-[118px] cursor-pointer"
-              placeholder="Fim"
+              className="text-xs text-[#111] bg-transparent border-none outline-none cursor-pointer w-[105px]"
             />
             {hasDateFilter && (
-              <button onClick={clearDates} className="ml-1 text-[#aaa] hover:text-[#ff6b00] transition-colors">
-                <X size={13} />
+              <button onClick={clearDates} className="text-[#bbb] hover:text-[#ff6b00] transition-colors flex-shrink-0">
+                <X size={12} />
               </button>
             )}
           </div>
@@ -622,7 +620,9 @@ function AnalyticsPage() {
                   <tbody>
                     {monthsToShow.map((m, idx) => (
                       <tr key={m.month} className={`border-b border-[#f9f9f9] hover:bg-[#fafafa] transition-colors ${idx === 0 ? "bg-[#fff8f4]" : ""}`}>
-                        <td className="px-4 py-2.5 font-semibold text-[#111]">{formatMonth(m.month).slice(0, 8)}</td>
+                        <td className="px-4 py-2.5 font-semibold text-[#111] whitespace-nowrap">
+                          {formatMonth(m.month).replace(/\/(\d{4})$/, (_, y) => `/${y.slice(2)}`)}
+                        </td>
                         <td className="px-4 py-2.5 text-[#666]">{m.posts}</td>
                         <td className="px-4 py-2.5 text-[#666]">{fmt(m.views)}</td>
                         <td className="px-4 py-2.5 font-semibold" style={{ color: GREEN }}>{fmtBRL(m.revenue)}</td>
@@ -659,63 +659,65 @@ function AnalyticsPage() {
                 <h2 className="font-bold text-[#111]">Top Posts por Performance</h2>
                 <p className="text-xs text-[#888] mt-0.5">Ranking dos 10 posts com mais views</p>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-[#f5f5f5]">
-                      <th className="px-4 py-2.5 text-[#bbb] font-semibold uppercase tracking-wider text-left text-[10px] w-6">#</th>
-                      <th className="px-4 py-2.5 text-[#bbb] font-semibold uppercase tracking-wider text-left text-[10px]">Post</th>
-                      <th className="px-4 py-2.5 text-[#bbb] font-semibold uppercase tracking-wider text-center text-[10px]">Tipo</th>
-                      <th className="px-4 py-2.5 text-[#bbb] font-semibold uppercase tracking-wider text-right text-[10px]">Views</th>
-                      <th className="px-4 py-2.5 text-[#bbb] font-semibold uppercase tracking-wider text-right text-[10px]">Avg Watch</th>
-                      <th className="px-4 py-2.5 text-[#bbb] font-semibold uppercase tracking-wider text-right text-[10px]">CPM</th>
-                      <th className="px-4 py-2.5 text-[#bbb] font-semibold uppercase tracking-wider text-right text-[10px]">Receita</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {analytics.topPosts.map((p, idx) => {
-                      const maxViews = analytics.topPosts[0]._views || 1;
-                      const barW = Math.round((p._views / maxViews) * 100);
-                      return (
-                        <tr key={p.id} className="border-b border-[#f9f9f9] hover:bg-[#fafafa] transition-colors">
-                          <td className="px-4 py-3 text-[#ccc] font-bold">{idx + 1}</td>
-                          <td className="px-4 py-3 max-w-[180px]">
-                            <p className="font-semibold text-[#111] truncate text-xs leading-tight">
-                              {p.title ?? p.external_post_id.slice(-12)}
-                            </p>
-                            <p className="text-[#aaa] text-[10px] mt-0.5">
-                              {p.pages?.nome ?? "—"} · {p.published_at ? p.published_at.slice(0, 10) : "—"}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${p._isVideo ? "text-[#ff6b00] bg-[#fff0e8]" : "text-[#6b7280] bg-[#f3f4f6]"}`}>
-                              {p._isVideo ? <Play size={9} /> : <ImageIcon size={9} />}
-                              {p._isVideo ? "Vídeo" : "Foto"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex flex-col items-end gap-1">
-                              <span className="font-semibold text-[#111]">{fmt(p._views)}</span>
-                              <div className="w-16 h-1 bg-[#f0f0f0] rounded-full overflow-hidden">
-                                <div className="h-full rounded-full" style={{ width: `${barW}%`, background: ORANGE }} />
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-right text-[#666]">
-                            {p._watchAvg > 0 ? `${p._watchAvg.toFixed(0)}s` : "—"}
-                          </td>
-                          <td className="px-4 py-3 text-right text-[#666]">
-                            {p._cpm > 0 ? fmtBRL(p._cpm, false) : "—"}
-                          </td>
-                          <td className="px-4 py-3 text-right font-semibold" style={{ color: p._revenue > 0 ? GREEN : "#ccc" }}>
-                            {p._revenue > 0 ? fmtBRL(p._revenue, false) : "—"}
-                          </td>
+              {(() => {
+                const hasWatch = analytics.topPosts.some((p) => p._watchAvg > 0);
+                const hasCpm   = analytics.topPosts.some((p) => p._cpm > 0);
+                return (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-[#f5f5f5]">
+                          <th className="px-4 py-2.5 text-[#bbb] font-semibold uppercase tracking-wider text-left text-[10px] w-6">#</th>
+                          <th className="px-4 py-2.5 text-[#bbb] font-semibold uppercase tracking-wider text-left text-[10px]">Post</th>
+                          <th className="px-4 py-2.5 text-[#bbb] font-semibold uppercase tracking-wider text-center text-[10px]">Tipo</th>
+                          <th className="px-4 py-2.5 text-[#bbb] font-semibold uppercase tracking-wider text-right text-[10px]">Views</th>
+                          {hasWatch && <th className="px-4 py-2.5 text-[#bbb] font-semibold uppercase tracking-wider text-right text-[10px]">Avg Watch</th>}
+                          {hasCpm   && <th className="px-4 py-2.5 text-[#bbb] font-semibold uppercase tracking-wider text-right text-[10px]">CPM</th>}
+                          <th className="px-4 py-2.5 text-[#bbb] font-semibold uppercase tracking-wider text-right text-[10px]">Receita</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+                      <tbody>
+                        {analytics.topPosts.map((p, idx) => {
+                          const maxViews = analytics.topPosts[0]._views || 1;
+                          const barW = Math.round((p._views / maxViews) * 100);
+                          return (
+                            <tr key={p.id} className="border-b border-[#f9f9f9] hover:bg-[#fafafa] transition-colors">
+                              <td className="px-4 py-3 text-[#ccc] font-bold">{idx + 1}</td>
+                              <td className="px-4 py-3 max-w-[200px]">
+                                <p className="font-semibold text-[#111] truncate text-xs leading-tight">
+                                  {p.title ?? p.external_post_id.slice(-12)}
+                                </p>
+                                <p className="text-[#aaa] text-[10px] mt-0.5">
+                                  {p.pages?.nome ?? "—"} · {p.published_at ? p.published_at.slice(0, 10) : "—"}
+                                </p>
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${p._isVideo ? "text-[#ff6b00] bg-[#fff0e8]" : "text-[#6b7280] bg-[#f3f4f6]"}`}>
+                                  {p._isVideo ? <Play size={9} /> : <ImageIcon size={9} />}
+                                  {p._isVideo ? "Vídeo" : "Foto"}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex flex-col items-end gap-1">
+                                  <span className="font-semibold text-[#111]">{fmt(p._views)}</span>
+                                  <div className="w-16 h-1 bg-[#f0f0f0] rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full" style={{ width: `${barW}%`, background: ORANGE }} />
+                                  </div>
+                                </div>
+                              </td>
+                              {hasWatch && <td className="px-4 py-3 text-right text-[#666]">{p._watchAvg > 0 ? `${p._watchAvg.toFixed(0)}s` : "—"}</td>}
+                              {hasCpm   && <td className="px-4 py-3 text-right text-[#666]">{p._cpm > 0 ? fmtBRL(p._cpm, false) : "—"}</td>}
+                              <td className="px-4 py-3 text-right font-semibold" style={{ color: p._revenue > 0 ? GREEN : "#ccc" }}>
+                                {p._revenue > 0 ? fmtBRL(p._revenue, false) : "—"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
               <div className="px-5 py-3 border-t border-[#f0f0f0]">
                 <button className="text-xs font-semibold flex items-center gap-1 hover:gap-2 transition-all" style={{ color: ORANGE }}>
                   Ver todos os posts <ChevronRight size={13} />
@@ -738,7 +740,7 @@ function AnalyticsPage() {
                   ))}
                 </div>
                 <ResponsiveContainer width="100%" height={130}>
-                  <BarChart data={engagementBarData} margin={{ top: 0, right: 0, left: -25, bottom: 0 }} barSize={8}>
+                  <BarChart data={engagementBarData} margin={{ top: 0, right: 0, left: -25, bottom: 0 }} barSize={12} barCategoryGap="30%">
                     <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#aaa" }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 9, fill: "#aaa" }} axisLine={false} tickLine={false} tickFormatter={fmt} />
                     <Tooltip content={<ChartTooltip />} cursor={{ fill: "#f9f9f9" }} />
@@ -763,21 +765,27 @@ function AnalyticsPage() {
                       </Pie>
                     </PieChart>
                   </div>
-                  <div className="flex flex-col gap-2 flex-1">
-                    {donutData.map((d, i) => {
+                  <div className="flex flex-col gap-2.5 flex-1">
+                    {donutData.filter((d) => d.value > 0).map((d, i) => {
                       const total = analytics.videoCount + analytics.photoCount || 1;
                       const pct = Math.round((d.value / total) * 100);
+                      const color = d.name === "Vídeos" ? ORANGE : ORANGE_MUTED;
                       return (
                         <div key={d.name}>
                           <div className="flex items-center gap-2 mb-0.5">
-                            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: i === 0 ? ORANGE : ORANGE_MUTED }} />
+                            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
                             <span className="text-xs font-semibold text-[#111]">{d.name}</span>
-                            <span className="text-xs font-bold ml-auto" style={{ color: i === 0 ? ORANGE : "#aaa" }}>{pct}%</span>
+                            <span className="text-xs font-bold ml-auto" style={{ color }}>{pct}%</span>
                           </div>
-                          <p className="text-[10px] text-[#aaa] pl-4">{fmt(d.views)} views · {fmtBRL(d.revenue)} rec.</p>
+                          <p className="text-[10px] text-[#aaa] pl-4">
+                            {fmt(d.views)} views · {fmtBRL(d.revenue)} rec.
+                          </p>
                         </div>
                       );
                     })}
+                    {analytics.videoCount === 0 && analytics.photoCount === 0 && (
+                      <p className="text-xs text-[#ccc]">Sem dados no período</p>
+                    )}
                   </div>
                 </div>
               </div>
