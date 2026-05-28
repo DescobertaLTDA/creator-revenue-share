@@ -58,7 +58,8 @@ async function fetchAllRows<T>(query: () => ReturnType<typeof supabase.from>): P
   const PAGE = 1000; let from = 0; const all: T[] = [];
   while (true) {
     const { data, error } = await (query() as any).range(from, from + PAGE - 1);
-    if (error || !data || data.length === 0) break;
+    if (error) { console.error("[fetchAllRows] Supabase error:", error); break; }
+    if (!data || data.length === 0) break;
     all.push(...data);
     if (data.length < PAGE) break;
     from += data.length;
