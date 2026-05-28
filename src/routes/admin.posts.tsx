@@ -9,7 +9,7 @@ import {
 import {
   DollarSign, Eye, TrendingUp, Clock, Heart, Zap,
   ArrowUp, ArrowDown, Loader2, Lightbulb, Play, ImageIcon,
-  ChevronRight, Download, ChevronDown,
+  ChevronRight, Download, ChevronDown, Calendar, X,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/posts")({
@@ -198,6 +198,19 @@ function AnalyticsPage() {
   const [activeSeries, setActiveSeries] = useState<ChartSeries>("views");
   const [filterPage, setFilterPage] = useState("all");
   const [showAllMonths, setShowAllMonths] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  // Quick preset helpers
+  const applyPreset = (days: number) => {
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - days + 1);
+    setDateFrom(from.toISOString().slice(0, 10));
+    setDateTo(to.toISOString().slice(0, 10));
+  };
+  const clearDates = () => { setDateFrom(""); setDateTo(""); };
+  const hasDateFilter = dateFrom || dateTo;
 
   useEffect(() => {
     (async () => {
@@ -220,11 +233,13 @@ function AnalyticsPage() {
     })();
   }, []);
 
-  // ── Filtered rows by page ──────────────────────────────────────────────────
-  const filteredRows = useMemo(() =>
-    filterPage === "all" ? rows : rows.filter((r) => r.page_id === filterPage),
-    [rows, filterPage]
-  );
+  // ── Filtered rows by page + date range ────────────────────────────────────
+  const filteredRows = useMemo(() => {
+    let r = filterPage === "all" ? rows : rows.filter((row) => row.page_id === filterPage);
+    if (dateFrom) r = r.filter((row) => row.published_at && row.published_at.slice(0, 10) >= dateFrom);
+    if (dateTo)   r = r.filter((row) => row.published_at && row.published_at.slice(0, 10) <= dateTo);
+    return r;
+  }, [rows, filterPage, dateFrom, dateTo]);
 
   // ── Full analytics ─────────────────────────────────────────────────────────
   const analytics = useMemo(() => {
@@ -427,6 +442,51 @@ function AnalyticsPage() {
             </select>
             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#888] pointer-events-none" />
           </div>
+
+          {/* Date range picker */}
+          <div className="flex items-center gap-1 bg-white border border-[#ececec] rounded-xl px-3 py-1.5 shadow-sm">
+            <Calendar size={13} className="text-[#aaa] flex-shrink-0" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="text-sm text-[#111] bg-transparent border-none outline-none w-[118px] cursor-pointer"
+              placeholder="Início"
+            />
+            <span className="text-[#ccc] text-xs font-medium px-0.5">→</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="text-sm text-[#111] bg-transparent border-none outline-none w-[118px] cursor-pointer"
+              placeholder="Fim"
+            />
+            {hasDateFilter && (
+              <button onClick={clearDates} className="ml-1 text-[#aaa] hover:text-[#ff6b00] transition-colors">
+                <X size={13} />
+              </button>
+            )}
+          </div>
+
+          {/* Quick presets */}
+          <div className="flex items-center gap-1">
+            {([["30D", 30], ["90D", 90], ["12M", 365]] as [string, number][]).map(([label, days]) => (
+              <button
+                key={label}
+                onClick={() => applyPreset(days)}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all"
+                style={
+                  dateFrom && dateTo &&
+                  (() => { const d = Math.round((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000) + 1; return d === days; })()
+                    ? { background: ORANGE, color: "#fff", borderColor: ORANGE }
+                    : { background: "#fff", color: "#666", borderColor: "#ececec" }
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           {/* Export button */}
           <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:opacity-90 active:scale-95"
             style={{ background: `linear-gradient(135deg, ${ORANGE}, #ff9a3c)` }}>
