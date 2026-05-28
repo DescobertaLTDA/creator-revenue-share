@@ -776,11 +776,12 @@ function SchedulePanel({ latestImport }: { latestImport: ImportRow | null }) {
 // ─── Platform icon ────────────────────────────────────────────────────────────
 
 function PlatformIcon({ source, size = 7 }: { source: CsvSource; size?: number }) {
+  const sizeClass = `h-${size} w-${size}`;
   if (source === "instagram") {
     return (
-      <div className={`h-${size} w-${size} rounded-lg overflow-hidden shrink-0`}>
+      <div className={`${sizeClass} rounded-lg overflow-hidden shrink-0`}>
         <img
-          src="/assets/logo/Instagram_logo_2022.svg"
+          src="/assets/logo/instagram_logo_icon_186894.webp"
           alt="Instagram"
           className="h-full w-full object-cover"
         />
@@ -789,8 +790,12 @@ function PlatformIcon({ source, size = 7 }: { source: CsvSource; size?: number }
   }
   // Facebook
   return (
-    <div className={`h-${size} w-${size} rounded-lg bg-[#FFF0E8] flex items-center justify-center shrink-0`}>
-      <FileText className="h-3.5 w-3.5 text-[#F44708]" />
+    <div className={`${sizeClass} rounded-lg overflow-hidden shrink-0 bg-white`}>
+      <img
+        src="/assets/logo/Facebook_Logo_2023.png"
+        alt="Facebook"
+        className="h-full w-full object-contain p-0.5"
+      />
     </div>
   );
 }
