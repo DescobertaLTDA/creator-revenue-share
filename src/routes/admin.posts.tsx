@@ -509,7 +509,6 @@ function AnalyticsPage() {
             <KpiBlock
               label="Receita Total"
               value={fmtBRL(analytics.totalRevenue)}
-              sub={`≈ $${analytics.totalRevenue >= 1000 ? (analytics.totalRevenue / 1000).toFixed(1) + "k" : analytics.totalRevenue.toFixed(0)} USD`}
               delta={analytics.momRevenue}
               sparkline={analytics.sparkRevenue}
               icon={DollarSign}
