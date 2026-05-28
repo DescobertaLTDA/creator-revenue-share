@@ -248,15 +248,18 @@ function RecordCard({
 }
 
 function RecordBanner({
-  best, current,
+  best, current, curVideos, curPhotos,
 }: {
-  best: { month: string; posts: number; views: number; revenue: number };
+  best: { month: string; posts: number; views: number; revenue: number; videos: number; photos: number };
   current: { month: string; posts: number; views: number; revenue: number } | null;
+  curVideos: number;
+  curPhotos: number;
 }) {
   const cur = current ?? { month: "—", posts: 0, views: 0, revenue: 0 };
   const curAvg  = cur.posts  > 0 ? cur.views  / cur.posts  : 0;
   const bestAvg = best.posts > 0 ? best.views / best.posts : 0;
   const bestLabel = formatMonth(best.month).replace(/\/(\d{4})$/, (_, y) => `/${y.slice(2)}`);
+  const fmtInt = (n: number) => String(Math.round(n));
 
   return (
     <div className="space-y-2">
@@ -270,12 +273,14 @@ function RecordBanner({
         </p>
       </div>
 
-      {/* 4 cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-        <RecordCard label="Posts"      current={cur.posts}                  target={best.posts}                  fmtFn={(n) => String(Math.round(n))} icon={TrendingUp} bestMonth={bestLabel} />
-        <RecordCard label="Views"      current={cur.views}                  target={best.views}                  fmtFn={fmtRound}                     icon={Eye}        bestMonth={bestLabel} />
-        <RecordCard label="Receita"    current={cur.revenue * USD_TO_BRL}   target={best.revenue * USD_TO_BRL}   fmtFn={(n) => fmtBRL(n / USD_TO_BRL)}icon={DollarSign} bestMonth={bestLabel} />
-        <RecordCard label="Views/post" current={curAvg}                     target={bestAvg}                     fmtFn={fmtRound}                     icon={Eye}        bestMonth={bestLabel} />
+      {/* 6 cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        <RecordCard label="Posts"      current={cur.posts}                target={best.posts}                fmtFn={fmtInt}                       icon={TrendingUp} bestMonth={bestLabel} />
+        <RecordCard label="Views"      current={cur.views}                target={best.views}                fmtFn={fmtRound}                     icon={Eye}        bestMonth={bestLabel} />
+        <RecordCard label="Receita"    current={cur.revenue * USD_TO_BRL} target={best.revenue * USD_TO_BRL} fmtFn={(n) => fmtBRL(n / USD_TO_BRL)} icon={DollarSign} bestMonth={bestLabel} />
+        <RecordCard label="Views/post" current={curAvg}                   target={bestAvg}                   fmtFn={fmtRound}                     icon={Eye}        bestMonth={bestLabel} />
+        <RecordCard label="Vídeos"     current={curVideos}                target={best.videos}               fmtFn={fmtInt}                       icon={Play}       bestMonth={bestLabel} />
+        <RecordCard label="Fotos"      current={curPhotos}                target={best.photos}               fmtFn={fmtInt}                       icon={ImageIcon}  bestMonth={bestLabel} />
       </div>
     </div>
   );
@@ -472,17 +477,18 @@ function AnalyticsPage() {
 
   // ── Best month ever (from ALL rows, ignoring date filter) ────────────────
   const bestMonthEver = useMemo(() => {
-    const agg = new Map<string, { posts: number; views: number; revenue: number }>();
+    const agg = new Map<string, { posts: number; views: number; revenue: number; videos: number; photos: number }>();
     for (const row of rows) {
       if (!row.published_at) continue;
       const key = row.published_at.slice(0, 7);
-      const cur = agg.get(key) ?? { posts: 0, views: 0, revenue: 0 };
+      const cur = agg.get(key) ?? { posts: 0, views: 0, revenue: 0, videos: 0, photos: 0 };
       cur.posts++;
       cur.views += Number(row.views ?? 0);
       cur.revenue += getPostUsd(row);
+      if (isVideo(row)) cur.videos++; else cur.photos++;
       agg.set(key, cur);
     }
-    let best: { month: string; posts: number; views: number; revenue: number } | null = null;
+    let best: { month: string; posts: number; views: number; revenue: number; videos: number; photos: number } | null = null;
     for (const [month, data] of agg.entries()) {
       if (!best || data.revenue > best.revenue) best = { month, ...data };
     }
@@ -671,6 +677,8 @@ function AnalyticsPage() {
             <RecordBanner
               best={bestMonthEver}
               current={analytics.monthlyData[0] ?? null}
+              curVideos={analytics.videoCount}
+              curPhotos={analytics.photoCount}
             />
           )}
 
