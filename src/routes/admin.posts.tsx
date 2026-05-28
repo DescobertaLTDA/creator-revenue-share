@@ -209,38 +209,35 @@ function RecordCard({
   const pctColor = done ? GREEN : pct >= 50 ? ORANGE : "#bbb";
 
   return (
-    <div className="bg-white rounded-2xl border border-[#ececec] px-5 pt-5 pb-4 flex flex-col gap-2 shadow-sm hover:shadow-md transition-shadow duration-200">
+    <div className="bg-white rounded-xl border border-[#ececec] px-4 py-3 flex flex-col gap-1.5 shadow-sm hover:shadow-md transition-shadow duration-200">
       {/* Label + icon */}
-      <div className="flex items-start justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-[#999]">{label}</p>
-        <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: `${ORANGE}18` }}>
-          <Icon size={14} className="text-[#ff6b00]" />
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-[#bbb]">{label}</p>
+        <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: `${ORANGE}15` }}>
+          <Icon size={11} className="text-[#ff6b00]" />
         </div>
       </div>
 
-      {/* Current value */}
-      <p className="text-3xl font-bold text-[#111] tracking-tight leading-none">{fmtFn(current)}</p>
-
-      {/* Target row */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-[10px] text-[#bbb] uppercase tracking-wider">Meta</span>
-        <span className="text-xs font-semibold text-[#888]">{fmtFn(target)}</span>
-        <span className="text-[10px] text-[#ccc] ml-auto">{bestMonth}</span>
+      {/* Values row: current / target */}
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-xl font-bold text-[#111] tracking-tight leading-none">{fmtFn(current)}</span>
+        <span className="text-[#ddd] text-xs">/</span>
+        <span className="text-xs font-semibold text-[#aaa]">{fmtFn(target)}</span>
       </div>
 
       {/* Progress bar */}
-      <div className="w-full h-2 bg-[#f3f3f3] rounded-full overflow-hidden">
+      <div className="w-full h-1.5 bg-[#f3f3f3] rounded-full overflow-hidden">
         <div className="h-full rounded-full transition-all duration-500"
           style={{ width: `${pct}%`, background: barColor }} />
       </div>
 
       {/* Footer */}
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold" style={{ color: pctColor }}>
-          {done ? "✓ Meta atingida" : `${pct.toFixed(0)}%`}
+        <span className="text-[10px] font-bold" style={{ color: pctColor }}>
+          {done ? "✓ atingida" : `${pct.toFixed(0)}%`}
         </span>
         {!done && target > current && (
-          <span className="text-[11px] text-[#bbb]">faltam {fmtFn(target - current)}</span>
+          <span className="text-[10px] text-[#ccc]">−{fmtFn(target - current)}</span>
         )}
       </div>
     </div>
