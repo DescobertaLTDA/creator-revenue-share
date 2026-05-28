@@ -549,10 +549,10 @@ function AnalyticsPage() {
             />
             <KpiBlock
               label="Meta R$ 10k"
-              value={analytics.postsFor10k != null ? `${analytics.postsFor10k} posts` : "—"}
+              value={analytics.postsFor10k != null ? `${fmt(analytics.postsFor10k)} posts` : "—"}
               sub={
                 analytics.postsFor10k != null
-                  ? `${fmt(Math.round(analytics.avgViewsPerPost))} views/post · ${analytics.avgPostsPerMonth.toFixed(0)}/mês`
+                  ? `↗ ${fmt(Math.round(analytics.avgViewsPerPost))} views · ${analytics.avgPostsPerMonth.toFixed(0)} posts/mês`
                   : "Sem dados suficientes"
               }
               icon={Zap}
