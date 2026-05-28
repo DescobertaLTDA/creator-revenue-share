@@ -472,24 +472,38 @@ function AnalyticsPage() {
     };
   }, [filteredRows, postAuthors, splitRules]);
 
-  // ── Best month ever (from ALL rows, ignoring date filter) ────────────────
-  const bestMonthEver = useMemo(() => {
-    const agg = new Map<string, { posts: number; views: number; revenue: number; videos: number; photos: number }>();
+  // ── All months + best month (from ALL rows, ignoring date filter) ──────────
+  const { bestMonthEver, allMonthlyData } = useMemo(() => {
+    const agg = new Map<string, { posts: number; views: number; revenue: number; videos: number; photos: number; reactions: number; comments: number; shares: number }>();
     for (const row of rows) {
       if (!row.published_at) continue;
       const key = row.published_at.slice(0, 7);
-      const cur = agg.get(key) ?? { posts: 0, views: 0, revenue: 0, videos: 0, photos: 0 };
+      const cur = agg.get(key) ?? { posts: 0, views: 0, revenue: 0, videos: 0, photos: 0, reactions: 0, comments: 0, shares: 0 };
       cur.posts++;
       cur.views += Number(row.views ?? 0);
       cur.revenue += getPostUsd(row);
+      cur.reactions += Number(row.reactions ?? 0);
+      cur.comments  += Number(row.comments  ?? 0);
+      cur.shares    += Number(row.shares    ?? 0);
       if (isVideo(row)) cur.videos++; else cur.photos++;
       agg.set(key, cur);
     }
-    let best: { month: string; posts: number; views: number; revenue: number; videos: number; photos: number } | null = null;
+    let best: { month: string; posts: number; views: number; revenue: number; videos: number; photos: number; reactions: number; comments: number; shares: number } | null = null;
     for (const [month, data] of agg.entries()) {
       if (!best || data.revenue > best.revenue) best = { month, ...data };
     }
-    return best;
+    // Sort desc by month
+    const sorted = Array.from(agg.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([month, d], idx, arr) => {
+        const prev = arr[idx + 1]?.[1];
+        return {
+          month, ...d,
+          rpm: d.views > 0 ? (d.revenue / d.views) * 1000 : 0,
+          momRevenue: prev && prev.revenue > 0 ? ((d.revenue - prev.revenue) / prev.revenue) * 100 : null,
+        };
+      });
+    return { bestMonthEver: best, allMonthlyData: sorted };
   }, [rows]);
 
   // ── Period-filtered chart data ─────────────────────────────────────────────
@@ -736,7 +750,7 @@ function AnalyticsPage() {
             {/* Monthly table */}
             <div className="xl:col-span-2 bg-white rounded-2xl border border-[#ececec] shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-[#f0f0f0]">
-                <h2 className="font-bold text-[#111]">Resumo Mensal</h2>
+                <h2 className="font-bold text-[#111]">Histórico Mensal</h2>
               </div>
               <div className="overflow-x-auto overflow-y-auto max-h-[320px]">
                 <table className="w-full text-xs">
@@ -748,7 +762,7 @@ function AnalyticsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {analytics.monthlyData.map((m, idx) => (
+                    {allMonthlyData.map((m, idx) => (
                       <tr key={m.month} className={`border-b border-[#f9f9f9] hover:bg-[#fafafa] transition-colors ${idx === 0 ? "bg-[#fff8f4]" : ""}`}>
                         <td className="px-4 py-2.5 font-semibold text-[#111] whitespace-nowrap">
                           {formatMonth(m.month).replace(/\/(\d{4})$/, (_, y) => `/${y.slice(2)}`)}
