@@ -191,6 +191,109 @@ function ChartTooltip({ active, payload, label }: any) {
   );
 }
 
+// ─── Record Banner ────────────────────────────────────────────────────────────
+
+interface RecordMetric {
+  label: string;
+  current: number;
+  target: number;
+  fmt: (n: number) => string;
+  unit?: string;
+}
+
+function RecordBar({ pct }: { pct: number }) {
+  const clamped = Math.min(100, Math.max(0, pct));
+  const color = clamped >= 80 ? GREEN : clamped >= 50 ? ORANGE : clamped >= 25 ? ORANGE_LIGHT : "#f0f0f0";
+  return (
+    <div className="w-full h-1.5 bg-[#f0f0f0] rounded-full overflow-hidden mt-1.5">
+      <div className="h-full rounded-full transition-all duration-500"
+        style={{ width: `${clamped}%`, background: clamped >= 80 ? GREEN : ORANGE }} />
+    </div>
+  );
+}
+
+function RecordBanner({
+  best, current,
+}: {
+  best: { month: string; posts: number; views: number; revenue: number };
+  current: { month: string; posts: number; views: number; revenue: number } | null;
+}) {
+  const cur = current ?? { month: "—", posts: 0, views: 0, revenue: 0 };
+  const curAvg  = cur.posts  > 0 ? cur.views  / cur.posts  : 0;
+  const bestAvg = best.posts > 0 ? best.views / best.posts : 0;
+
+  const metrics: RecordMetric[] = [
+    { label: "Posts",       current: cur.posts,            target: best.posts,   fmt: (n) => String(Math.round(n)) },
+    { label: "Views",       current: cur.views,            target: best.views,   fmt: fmtRound },
+    { label: "Receita",     current: cur.revenue * USD_TO_BRL, target: best.revenue * USD_TO_BRL, fmt: (n) => fmtBRL(n / USD_TO_BRL) },
+    { label: "Views/post",  current: curAvg,               target: bestAvg,      fmt: fmtRound },
+  ];
+
+  const overallPct = best.revenue > 0 ? Math.min(100, (cur.revenue / best.revenue) * 100) : 0;
+
+  return (
+    <div className="bg-white rounded-2xl border border-[#ececec] shadow-sm px-6 py-5">
+      {/* Header row */}
+      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg"
+            style={{ background: `${ORANGE}18` }}>🏆</div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#999]">Recorde a bater</p>
+            <p className="font-bold text-[#111]">
+              {formatMonth(best.month).replace(/\/(\d{4})$/, (_, y) => `/${y.slice(2)}`)}
+              <span className="ml-2 text-sm font-normal text-[#aaa]">·</span>
+              <span className="ml-2 font-bold" style={{ color: GREEN }}>{fmtBRL(best.revenue)}</span>
+            </p>
+          </div>
+        </div>
+        {/* Overall progress pill */}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-[#aaa] uppercase tracking-wider">Progresso geral</span>
+          <span className="text-sm font-bold px-3 py-1 rounded-full"
+            style={{
+              background: overallPct >= 80 ? "#dcfce7" : overallPct >= 50 ? "#fff0e8" : "#f5f5f5",
+              color:      overallPct >= 80 ? GREEN      : overallPct >= 50 ? ORANGE    : "#aaa",
+            }}>
+            {overallPct.toFixed(0)}%
+          </span>
+        </div>
+      </div>
+
+      {/* Metrics grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-5">
+        {metrics.map((m) => {
+          const pct = m.target > 0 ? Math.min(100, (m.current / m.target) * 100) : 0;
+          const done = m.current >= m.target;
+          return (
+            <div key={m.label}>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#bbb] mb-1">{m.label}</p>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-bold text-[#111] leading-none">{m.fmt(m.current)}</span>
+                <span className="text-[#ddd] text-sm">/</span>
+                <span className="text-sm text-[#aaa]">{m.fmt(m.target)}</span>
+              </div>
+              <RecordBar pct={pct} />
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-[10px] font-bold"
+                  style={{ color: done ? GREEN : pct >= 50 ? ORANGE : "#bbb" }}>
+                  {pct.toFixed(0)}%
+                </span>
+                {done && <span className="text-[10px] font-bold" style={{ color: GREEN }}>✓</span>}
+                {!done && m.target > m.current && (
+                  <span className="text-[10px] text-[#ccc]">
+                    faltam {m.fmt(m.target - m.current)}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 function AnalyticsPage() {
@@ -380,6 +483,25 @@ function AnalyticsPage() {
     };
   }, [filteredRows, postAuthors, splitRules]);
 
+  // ── Best month ever (from ALL rows, ignoring date filter) ────────────────
+  const bestMonthEver = useMemo(() => {
+    const agg = new Map<string, { posts: number; views: number; revenue: number }>();
+    for (const row of rows) {
+      if (!row.published_at) continue;
+      const key = row.published_at.slice(0, 7);
+      const cur = agg.get(key) ?? { posts: 0, views: 0, revenue: 0 };
+      cur.posts++;
+      cur.views += Number(row.views ?? 0);
+      cur.revenue += getPostUsd(row);
+      agg.set(key, cur);
+    }
+    let best: { month: string; posts: number; views: number; revenue: number } | null = null;
+    for (const [month, data] of agg.entries()) {
+      if (!best || data.revenue > best.revenue) best = { month, ...data };
+    }
+    return best;
+  }, [rows]);
+
   // ── Period-filtered chart data ─────────────────────────────────────────────
   const chartData = useMemo(() => {
     const days = periodDays(period);
@@ -520,7 +642,7 @@ function AnalyticsPage() {
       ) : (
         <>
           {/* ── KPI Cards ── */}
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
             <KpiBlock
               label="Receita Total"
               value={fmtBRL(analytics.totalRevenue)}
@@ -555,20 +677,15 @@ function AnalyticsPage() {
               sparkline={analytics.sparkEng}
               icon={Heart}
             />
-            <KpiBlock
-              label="Meta R$ 10k"
-              value={analytics.postsFor10k != null
-                ? analytics.postsFor10k.toLocaleString("pt-BR")
-                : "—"}
-              valueClass="text-xl"
-              sub={
-                analytics.postsFor10k != null
-                  ? `posts · ${fmtRound(Math.round(analytics.avgViewsPerPost))} views/post · ${Math.round(analytics.avgPostsPerMonth)}/mês`
-                  : "Sem dados suficientes"
-              }
-              icon={Zap}
-            />
           </div>
+
+          {/* ── Record Banner ── */}
+          {bestMonthEver && (
+            <RecordBanner
+              best={bestMonthEver}
+              current={analytics.monthlyData[0] ?? null}
+            />
+          )}
 
           {/* ── Main chart + Monthly table ── */}
           <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
