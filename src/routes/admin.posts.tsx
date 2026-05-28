@@ -756,8 +756,8 @@ function AnalyticsPage() {
                 <table className="w-full text-xs table-fixed">
                   <thead className="sticky top-0 bg-white z-10">
                     <tr className="border-b border-[#f5f5f5]">
-                      {[["Mês","w-[26%]"],["Posts","w-[10%]"],["Views","w-[14%]"],["Receita","w-[22%]"],["RPM","w-[16%]"],["MoM","w-[12%]"]].map(([h, w]) => (
-                        <th key={h} className={`${w} px-3 py-2.5 text-left font-semibold text-[#bbb] uppercase tracking-wider text-[10px]`}>{h}</th>
+                      {[["Mês","w-[26%]",""],["Posts","w-[10%]",""],["Views","w-[14%]",""],["Receita","w-[22%]",""],["RPM","w-[16%]",""],["MoM","w-[12%]","pr-5"]].map(([h, w, extra]) => (
+                        <th key={h} className={`${w} ${extra} px-3 py-2.5 text-left font-semibold text-[#bbb] uppercase tracking-wider text-[10px]`}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -771,11 +771,13 @@ function AnalyticsPage() {
                         <td className="px-3 py-2.5 text-[#666]">{fmt(m.views)}</td>
                         <td className="px-3 py-2.5 font-semibold truncate" style={{ color: GREEN }}>{fmtBRL(m.revenue)}</td>
                         <td className="px-3 py-2.5 text-[#666]">{fmtBRL(m.rpm, false)}</td>
-                        <td className="px-3 py-2.5">
+                        <td className="px-3 pr-5 py-2.5">
                           {m.momRevenue != null ? (
                             <span className={`inline-flex items-center gap-0.5 font-semibold whitespace-nowrap ${m.momRevenue >= 0 ? "text-[#16a34a]" : "text-[#dc2626]"}`}>
                               {m.momRevenue >= 0 ? <ArrowUp size={10} /> : <ArrowDown size={10} />}
-                              {Math.abs(m.momRevenue).toFixed(0)}%
+                              {Math.abs(m.momRevenue) >= 1000
+                                ? `${(Math.abs(m.momRevenue) / 100).toFixed(0)}x`
+                                : `${Math.abs(m.momRevenue).toFixed(0)}%`}
                             </span>
                           ) : <span className="text-[#ccc]">—</span>}
                         </td>
