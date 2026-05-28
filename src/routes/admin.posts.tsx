@@ -738,9 +738,9 @@ function AnalyticsPage() {
               <div className="px-5 py-4 border-b border-[#f0f0f0]">
                 <h2 className="font-bold text-[#111]">Resumo Mensal</h2>
               </div>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto overflow-y-auto max-h-[320px]">
                 <table className="w-full text-xs">
-                  <thead>
+                  <thead className="sticky top-0 bg-white z-10">
                     <tr className="border-b border-[#f5f5f5]">
                       {["Mês", "Posts", "Views", "Receita", "RPM", "MoM"].map((h) => (
                         <th key={h} className="px-4 py-2.5 text-left font-semibold text-[#bbb] uppercase tracking-wider text-[10px]">{h}</th>
@@ -748,7 +748,7 @@ function AnalyticsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {monthsToShow.map((m, idx) => (
+                    {analytics.monthlyData.map((m, idx) => (
                       <tr key={m.month} className={`border-b border-[#f9f9f9] hover:bg-[#fafafa] transition-colors ${idx === 0 ? "bg-[#fff8f4]" : ""}`}>
                         <td className="px-4 py-2.5 font-semibold text-[#111] whitespace-nowrap">
                           {formatMonth(m.month).replace(/\/(\d{4})$/, (_, y) => `/${y.slice(2)}`)}
@@ -770,14 +770,6 @@ function AnalyticsPage() {
                   </tbody>
                 </table>
               </div>
-              {analytics.monthlyData.length > 5 && (
-                <button onClick={() => setShowAllMonths((v) => !v)}
-                  className="flex items-center gap-1 px-5 py-3.5 text-xs font-semibold border-t border-[#f0f0f0] w-full hover:bg-[#fafafa] transition-colors"
-                  style={{ color: ORANGE }}>
-                  {showAllMonths ? "Ver menos" : `Ver todos os meses (${analytics.monthlyData.length})`}
-                  <ChevronRight size={13} />
-                </button>
-              )}
             </div>
           </div>
 
