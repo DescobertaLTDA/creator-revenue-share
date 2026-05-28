@@ -198,8 +198,11 @@ function AnalyticsPage() {
   const [activeSeries, setActiveSeries] = useState<ChartSeries>("views");
   const [filterPage, setFilterPage] = useState("all");
   const [showAllMonths, setShowAllMonths] = useState(false);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const today = new Date();
+  const [dateFrom, setDateFrom] = useState(
+    `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`
+  );
+  const [dateTo, setDateTo] = useState(today.toISOString().slice(0, 10));
 
   // Quick preset helpers
   const applyPreset = (days: number) => {
