@@ -1,9 +1,11 @@
 import Papa from "papaparse";
 import { parseMixedDate, parseNumberLoose } from "@/lib/format";
 
-// Mapeamento de cabeçalhos do CSV do Facebook (PT e variantes comuns).
+// ─── Header map ───────────────────────────────────────────────────────────────
+// Mapeamento de cabeçalhos do CSV do Facebook e Instagram (PT e variantes).
 // Valor = chave semântica interna.
 const HEADER_MAP: Record<string, string> = {
+  // ── Post / Account ID ──────────────────────────────────────────────────────
   "identificação do post": "external_post_id",
   "identificacao do post": "external_post_id",
   "post id": "external_post_id",
@@ -14,16 +16,31 @@ const HEADER_MAP: Record<string, string> = {
   "page id": "external_page_id",
   "id da página": "external_page_id",
   "id da pagina": "external_page_id",
+  // Instagram: English column "Account ID"
+  "account id": "external_page_id",
+  "identificação da conta": "external_page_id",
+  "identificacao da conta": "external_page_id",
 
+  // ── Page / Account name ────────────────────────────────────────────────────
   "nome da página": "page_name",
   "nome da pagina": "page_name",
   "page name": "page_name",
+  "nome da conta": "page_name",
+  "account name": "page_name",
 
+  // Instagram username (stored alongside page_name)
+  "nome de usuário da conta": "page_username",
+  "nome de usuario da conta": "page_username",
+  "account username": "page_username",
+  "username": "page_username",
+
+  // ── Publish time ───────────────────────────────────────────────────────────
   "horário de publicação": "published_at",
   "horario de publicacao": "published_at",
   "data de publicação": "published_at",
   "publish time": "published_at",
 
+  // ── Content ────────────────────────────────────────────────────────────────
   "título": "title",
   "titulo": "title",
   "title": "title",
@@ -45,6 +62,11 @@ const HEADER_MAP: Record<string, string> = {
   "idioma": "language",
   "language": "language",
 
+  // ── Row-type marker (Instagram "Total" vs per-day rows) ────────────────────
+  "data": "row_date",
+  "date": "row_date",
+
+  // ── Engagement ────────────────────────────────────────────────────────────
   "visualizações": "views",
   "visualizacoes": "views",
   "views": "views",
@@ -55,6 +77,9 @@ const HEADER_MAP: Record<string, string> = {
   "reações": "reactions",
   "reacoes": "reactions",
   "reactions": "reactions",
+  // Instagram calls them "Curtidas" (likes)
+  "curtidas": "reactions",
+  "likes": "reactions",
 
   "comentários": "comments",
   "comentarios": "comments",
@@ -63,6 +88,15 @@ const HEADER_MAP: Record<string, string> = {
   "compartilhamentos": "shares",
   "shares": "shares",
 
+  // Instagram-specific
+  "salvamentos": "saves",
+  "saves": "saves",
+
+  "seguimentos": "follows_gained",
+  "follows gained": "follows_gained",
+  "new followers": "follows_gained",
+
+  // ── Clicks (Facebook) ──────────────────────────────────────────────────────
   "cliques (total)": "clicks_total",
   "clicks (total)": "clicks_total",
   "total clicks": "clicks_total",
@@ -75,6 +109,7 @@ const HEADER_MAP: Record<string, string> = {
   "cliques no link": "link_clicks",
   "link clicks": "link_clicks",
 
+  // ── Revenue (Facebook) ────────────────────────────────────────────────────
   "ganhos aproximados com a monetização de conteúdo": "monetization_approx",
   "ganhos aproximados com a monetizacao de conteudo": "monetization_approx",
   "approximate earnings from content monetization": "monetization_approx",
@@ -91,8 +126,11 @@ const HEADER_MAP: Record<string, string> = {
   "impressoes do anuncio": "ad_impressions",
   "ad impressions": "ad_impressions",
 
+  // ── Video metrics ─────────────────────────────────────────────────────────
   "duracao (s)": "video_duration_s",
+  "duração (s)": "video_duration_s",
   "duration (s)": "video_duration_s",
+  "duration (sec)": "video_duration_s",
 
   "segundos de visualizacao": "watch_seconds_total",
   "total video view time (seconds)": "watch_seconds_total",
@@ -105,14 +143,19 @@ const normalizeHeader = (h: string) =>
   h
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type CsvSource = "facebook" | "instagram";
 
 export interface ParsedPostRow {
   external_post_id: string;
   external_page_id: string;
   page_name: string;
+  page_username: string | null;
   published_at: Date | null;
   title: string | null;
   description: string | null;
@@ -124,6 +167,8 @@ export interface ParsedPostRow {
   reactions: number;
   comments: number;
   shares: number;
+  saves: number;
+  follows_gained: number;
   clicks_total: number;
   clicks_other: number;
   link_clicks: number;
@@ -135,6 +180,7 @@ export interface ParsedPostRow {
   video_duration_s: number;
   watch_seconds_total: number;
   watch_seconds_avg: number;
+  source: CsvSource;
 }
 
 export interface RowError {
@@ -151,13 +197,31 @@ export interface ParseResult {
   detectedPages: Set<string>;
   periodStart: Date | null;
   periodEnd: Date | null;
+  source: CsvSource;
 }
 
+// ─── Source detection ─────────────────────────────────────────────────────────
+
 /**
- * Faz o parsing do CSV exportado pelo Facebook.
- * Aceita cabeçalhos em PT (com/sem acentos) e valores numéricos mistos.
+ * Detecta se o CSV é do Facebook ou do Instagram examinando o cabeçalho.
+ * Instagram CSVs têm colunas "Salvamentos", "Seguimentos" e "Account ID".
  */
-export function parseFacebookCsv(text: string): ParseResult {
+export function detectCsvSource(text: string): CsvSource {
+  const firstLine = text.split("\n")[0].normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  if (
+    firstLine.includes("salvamentos") ||
+    firstLine.includes("seguimentos") ||
+    firstLine.includes("account id") ||
+    firstLine.includes("nome de usuario da conta")
+  ) {
+    return "instagram";
+  }
+  return "facebook";
+}
+
+// ─── Core parser ──────────────────────────────────────────────────────────────
+
+function parseRows(text: string, source: CsvSource): ParseResult {
   const parsed = Papa.parse<Record<string, string>>(text, {
     header: true,
     skipEmptyLines: "greedy",
@@ -171,7 +235,7 @@ export function parseFacebookCsv(text: string): ParseResult {
   let periodEnd: Date | null = null;
 
   parsed.data.forEach((raw, idx) => {
-    const rowNumber = idx + 2; // +1 header +1 human
+    const rowNumber = idx + 2;
     const pick = (semanticKey: string): string => {
       for (const [h, k] of Object.entries(HEADER_MAP)) {
         if (k === semanticKey && raw[h] != null && raw[h] !== "") return String(raw[h]);
@@ -179,20 +243,29 @@ export function parseFacebookCsv(text: string): ParseResult {
       return "";
     };
 
+    // ── Instagram: skip daily breakdown rows (keep only "Total") ─────────────
+    if (source === "instagram") {
+      const rowDate = pick("row_date").toLowerCase().trim();
+      if (rowDate !== "" && rowDate !== "total") return;
+    }
+
+    // ── IDs ──────────────────────────────────────────────────────────────────
     const external_post_id = pick("external_post_id").trim();
     const external_page_id = pick("external_page_id").trim();
     const page_name = pick("page_name").trim();
+    const page_username = pick("page_username").trim() || null;
 
     if (!external_post_id || !external_page_id) {
       errors.push({
         row_number: rowNumber,
         field_name: !external_post_id ? "external_post_id" : "external_page_id",
-        error_message: "Identificação do post ou da página ausente.",
+        error_message: "Identificação do post ou da conta ausente.",
         raw_payload: raw,
       });
       return;
     }
 
+    // ── Date ─────────────────────────────────────────────────────────────────
     const publishedRaw = pick("published_at");
     const published_at = publishedRaw ? parseMixedDate(publishedRaw) : null;
     if (publishedRaw && !published_at) {
@@ -215,7 +288,8 @@ export function parseFacebookCsv(text: string): ParseResult {
     rows.push({
       external_post_id,
       external_page_id,
-      page_name: page_name || external_page_id,
+      page_name: page_name || (page_username ?? external_page_id),
+      page_username,
       published_at,
       title: pick("title") || null,
       description: pick("description") || null,
@@ -227,6 +301,8 @@ export function parseFacebookCsv(text: string): ParseResult {
       reactions: parseNumberLoose(pick("reactions")),
       comments: parseNumberLoose(pick("comments")),
       shares: parseNumberLoose(pick("shares")),
+      saves: parseNumberLoose(pick("saves")),
+      follows_gained: parseNumberLoose(pick("follows_gained")),
       clicks_total: parseNumberLoose(pick("clicks_total")),
       clicks_other: parseNumberLoose(pick("clicks_other")),
       link_clicks: parseNumberLoose(pick("link_clicks")),
@@ -238,10 +314,11 @@ export function parseFacebookCsv(text: string): ParseResult {
       video_duration_s: parseNumberLoose(pick("video_duration_s")),
       watch_seconds_total: parseNumberLoose(pick("watch_seconds_total")),
       watch_seconds_avg: parseNumberLoose(pick("watch_seconds_avg")),
+      source,
     });
   });
 
-  // Deduplicação por (page_id + post_id) dentro do próprio arquivo
+  // ── Deduplication ─────────────────────────────────────────────────────────
   const seen = new Set<string>();
   const deduped: ParsedPostRow[] = [];
   for (const r of rows) {
@@ -258,8 +335,28 @@ export function parseFacebookCsv(text: string): ParseResult {
     detectedPages,
     periodStart,
     periodEnd,
+    source,
   };
 }
+
+// ─── Public API ───────────────────────────────────────────────────────────────
+
+/** Detecta a fonte e faz o parsing automaticamente (Facebook ou Instagram). */
+export function parseAnyCsv(text: string): ParseResult {
+  const source = detectCsvSource(text);
+  return parseRows(text, source);
+}
+
+/** @deprecated Use parseAnyCsv instead. Kept for backward compatibility. */
+export function parseFacebookCsv(text: string): ParseResult {
+  return parseRows(text, "facebook");
+}
+
+export function parseInstagramCsv(text: string): ParseResult {
+  return parseRows(text, "instagram");
+}
+
+// ─── File utilities ───────────────────────────────────────────────────────────
 
 export async function hashFile(file: File): Promise<string> {
   const buf = await file.arrayBuffer();
