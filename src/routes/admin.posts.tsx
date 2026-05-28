@@ -56,6 +56,11 @@ const fmt = (n: number) =>
 
 const fmtPct = (n: number, dec = 1) => `${(n * 100).toFixed(dec)}%`;
 
+const fmtRound = (n: number) =>
+  n >= 1_000_000 ? `${Math.round(n / 1_000_000)}M`
+  : n >= 1_000 ? `${Math.round(n / 1_000)}k`
+  : `${Math.round(n)}`;
+
 /** Converte USD → BRL e formata como "R$ 1.234" ou "R$ 1,2k" */
 const fmtBRL = (usd: number, compact = true): string => {
   const brl = usd * USD_TO_BRL;
@@ -552,10 +557,10 @@ function AnalyticsPage() {
             />
             <KpiBlock
               label="Meta R$ 10k"
-              value={analytics.postsFor10k != null ? `${fmt(analytics.postsFor10k)} posts` : "—"}
+              value={analytics.postsFor10k != null ? fmtRound(analytics.postsFor10k) : "—"}
               sub={
                 analytics.postsFor10k != null
-                  ? `↗ ${fmt(Math.round(analytics.avgViewsPerPost))} views · ${analytics.avgPostsPerMonth.toFixed(0)} posts/mês`
+                  ? `posts · ${fmtRound(Math.round(analytics.avgViewsPerPost))} views/post · ${Math.round(analytics.avgPostsPerMonth)}/mês`
                   : "Sem dados suficientes"
               }
               icon={Zap}
