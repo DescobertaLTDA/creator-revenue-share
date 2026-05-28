@@ -752,26 +752,26 @@ function AnalyticsPage() {
               <div className="px-5 py-4 border-b border-[#f0f0f0]">
                 <h2 className="font-bold text-[#111]">Histórico Mensal</h2>
               </div>
-              <div className="overflow-x-auto overflow-y-auto max-h-[320px]">
-                <table className="w-full text-xs">
+              <div className="overflow-x-hidden overflow-y-auto max-h-[320px]">
+                <table className="w-full text-xs table-fixed">
                   <thead className="sticky top-0 bg-white z-10">
                     <tr className="border-b border-[#f5f5f5]">
-                      {["Mês", "Posts", "Views", "Receita", "RPM", "MoM"].map((h) => (
-                        <th key={h} className="px-4 py-2.5 text-left font-semibold text-[#bbb] uppercase tracking-wider text-[10px]">{h}</th>
+                      {[["Mês","w-[30%]"],["Posts","w-[13%]"],["Views","w-[15%]"],["Receita","w-[20%]"],["RPM","w-[12%]"],["MoM","w-[10%]"]].map(([h, w]) => (
+                        <th key={h} className={`${w} px-3 py-2.5 text-left font-semibold text-[#bbb] uppercase tracking-wider text-[10px]`}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {allMonthlyData.map((m, idx) => (
                       <tr key={m.month} className={`border-b border-[#f9f9f9] hover:bg-[#fafafa] transition-colors ${idx === 0 ? "bg-[#fff8f4]" : ""}`}>
-                        <td className="px-4 py-2.5 font-semibold text-[#111] whitespace-nowrap">
+                        <td className="px-3 py-2.5 font-semibold text-[#111] truncate">
                           {formatMonth(m.month).replace(/\/(\d{4})$/, (_, y) => `/${y.slice(2)}`)}
                         </td>
-                        <td className="px-4 py-2.5 text-[#666]">{m.posts}</td>
-                        <td className="px-4 py-2.5 text-[#666]">{fmt(m.views)}</td>
-                        <td className="px-4 py-2.5 font-semibold" style={{ color: GREEN }}>{fmtBRL(m.revenue)}</td>
-                        <td className="px-4 py-2.5 text-[#666]">{fmtBRL(m.rpm, false)}</td>
-                        <td className="px-4 py-2.5">
+                        <td className="px-3 py-2.5 text-[#666]">{m.posts}</td>
+                        <td className="px-3 py-2.5 text-[#666]">{fmt(m.views)}</td>
+                        <td className="px-3 py-2.5 font-semibold truncate" style={{ color: GREEN }}>{fmtBRL(m.revenue)}</td>
+                        <td className="px-3 py-2.5 text-[#666] truncate">{fmtBRL(m.rpm, false)}</td>
+                        <td className="px-3 py-2.5">
                           {m.momRevenue != null ? (
                             <span className={`inline-flex items-center gap-0.5 font-semibold ${m.momRevenue >= 0 ? "text-[#16a34a]" : "text-[#dc2626]"}`}>
                               {m.momRevenue >= 0 ? <ArrowUp size={10} /> : <ArrowDown size={10} />}
