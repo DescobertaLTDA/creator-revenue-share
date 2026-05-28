@@ -555,20 +555,9 @@ function AnalyticsPage() {
           <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
             {/* Chart */}
             <div className="xl:col-span-3 bg-white rounded-2xl border border-[#ececec] p-5 shadow-sm">
-              <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
-                <div>
-                  <h2 className="font-bold text-[#111]">Evolução de Views & Receita</h2>
-                  <p className="text-xs text-[#888] mt-0.5">Comparativo diário acumulado</p>
-                </div>
-                <div className="flex items-center gap-1">
-                  {(["7D", "30D", "90D", "12M"] as Period[]).map((p) => (
-                    <button key={p} onClick={() => setPeriod(p)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${period === p ? "text-white shadow-sm" : "text-[#888] hover:text-[#111]"}`}
-                      style={period === p ? { background: `linear-gradient(135deg, ${ORANGE}, #ff9a3c)` } : {}}>
-                      {p}
-                    </button>
-                  ))}
-                </div>
+              <div className="mb-4">
+                <h2 className="font-bold text-[#111]">Evolução de Views & Receita</h2>
+                <p className="text-xs text-[#888] mt-0.5">Comparativo diário acumulado</p>
               </div>
 
               {/* Series toggles */}
