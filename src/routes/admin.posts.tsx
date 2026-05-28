@@ -124,9 +124,12 @@ function KpiBlock({ label, value, sub, delta, deltaLabel, sparkline, icon: Icon,
       )}
       {sub && <p className="text-xs text-[#888]">{sub}</p>}
       {delta != null && (
-        <div className={`flex items-center gap-1 text-xs font-semibold ${delta >= 0 ? "text-[#16a34a]" : "text-[#dc2626]"}`}>
-          {delta >= 0 ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
-          <span>{delta >= 0 ? "+" : ""}{delta > 0 && delta < 1 ? delta.toFixed(2) : delta.toFixed(1)}{deltaLabel ?? "%"} vs mês anterior</span>
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className={`flex items-center gap-0.5 text-xs font-bold whitespace-nowrap ${delta >= 0 ? "text-[#16a34a]" : "text-[#dc2626]"}`}>
+            {delta >= 0 ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
+            {delta >= 0 ? "+" : ""}{delta > 0 && delta < 1 ? delta.toFixed(2) : delta.toFixed(1)}{deltaLabel ?? "%"}
+          </span>
+          <span className="text-[11px] text-[#aaa] whitespace-nowrap">vs mês ant.</span>
         </div>
       )}
       {sparkline && <div className="mt-1"><Sparkline data={sparkline} /></div>}
