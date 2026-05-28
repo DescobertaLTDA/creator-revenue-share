@@ -234,9 +234,9 @@ function RecordCard({
       {/* Footer */}
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold" style={{ color: pctColor }}>
-          {done ? "✓ atingida" : `${pct.toFixed(0)}%`}
+          {pct.toFixed(0)}%
         </span>
-        {!done && target > current && (
+        {target > current && (
           <span className="text-[10px] text-[#ccc]">−{fmtFn(target - current)}</span>
         )}
       </div>
