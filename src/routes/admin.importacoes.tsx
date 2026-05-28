@@ -781,7 +781,7 @@ function PlatformIcon({ source, size = 7 }: { source: CsvSource; size?: number }
     return (
       <div className={`${sizeClass} rounded-lg overflow-hidden shrink-0`}>
         <img
-          src="/assets/logo/instagram_logo_icon_186894.webp"
+          src="/assets/logo/Instagram_logo_2022.svg"
           alt="Instagram"
           className="h-full w-full object-cover"
         />

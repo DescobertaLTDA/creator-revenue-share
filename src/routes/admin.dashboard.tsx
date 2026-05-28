@@ -9,7 +9,7 @@ import { formatBRL, formatDateTime, formatMonth } from "@/lib/format";
 import {
   DollarSign, Eye, TrendingUp, Upload, ArrowRight,
   FileSpreadsheet, CheckCircle2, Clock, ChevronRight, ChevronLeft,
-  Target, Zap, ChevronDown, Users,
+  Target, Zap, Users,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -408,153 +408,6 @@ function DashSpeedometer({ score }: { score: number }) {
       <circle cx={cx} cy={cy} r="5" fill={color} />
       <circle cx={cx} cy={cy} r="2.5" fill="white" />
     </svg>
-  );
-}
-
-// ─── Platform logo helper ─────────────────────────────────────────────────────
-
-function PlatformLogo({ source, className = "h-4 w-4" }: { source?: "facebook" | "instagram"; className?: string }) {
-  if (source === "instagram") {
-    return <img src="/assets/logo/Instagram_logo_2022.svg" alt="Instagram" className={`${className} object-contain shrink-0 rounded`} />;
-  }
-  return <img src="/assets/logo/Facebook_Logo_2023.png" alt="Facebook" className={`${className} object-contain shrink-0`} />;
-}
-
-// ─── PageSelect ───────────────────────────────────────────────────────────────
-
-function PageSelect({
-  pages,
-  value,
-  onChange,
-}: {
-  pages: PageOption[];
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const dropRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDown(e: MouseEvent) {
-      if (triggerRef.current?.contains(e.target as Node) || dropRef.current?.contains(e.target as Node)) return;
-      setOpen(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: Event) => {
-      if (dropRef.current && e.target instanceof Node && dropRef.current.contains(e.target)) return;
-      setOpen(false);
-    };
-    window.addEventListener("scroll", close, true);
-    window.addEventListener("resize", () => setOpen(false));
-    return () => window.removeEventListener("scroll", close, true);
-  }, [open]);
-
-  function openDrop() {
-    if (!triggerRef.current) return;
-    const r = triggerRef.current.getBoundingClientRect();
-    setDropPos({ top: r.bottom + 4, left: r.left, width: Math.max(r.width, 220) });
-    setOpen((o) => !o);
-  }
-
-  const selected = value === "all" ? null : pages.find((p) => p.id === value) ?? null;
-  const fbPages = pages.filter((p) => (p.source ?? "facebook") === "facebook");
-  const igPages = pages.filter((p) => p.source === "instagram");
-
-  function Item({ page }: { page: PageOption }) {
-    const active = value === page.id;
-    return (
-      <button
-        onClick={() => { onChange(page.id); setOpen(false); }}
-        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
-          active ? "bg-[#F44708] text-white" : "text-[#1A0A00] hover:bg-[#FFF0E8]"
-        }`}
-      >
-        <PlatformLogo source={page.source} className={`h-4 w-4 ${active ? "opacity-90" : ""}`} />
-        <span className="truncate flex-1">{page.name}</span>
-        {active && <span className="text-white/60 text-xs">✓</span>}
-      </button>
-    );
-  }
-
-  function Group({ label, items }: { label: string; items: PageOption[] }) {
-    if (items.length === 0) return null;
-    const src = label === "Instagram" ? "instagram" : "facebook";
-    return (
-      <div>
-        <div className="flex items-center gap-1.5 px-3 py-1.5">
-          <PlatformLogo source={src} className="h-3 w-3" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-[#aaa]">{label}</span>
-        </div>
-        <div className="space-y-px">
-          {items.map((p) => <Item key={p.id} page={p} />)}
-        </div>
-      </div>
-    );
-  }
-
-  const hasBoth = fbPages.length > 0 && igPages.length > 0;
-
-  return (
-    <div className="w-full sm:min-w-[200px]">
-      <button
-        ref={triggerRef}
-        onClick={openDrop}
-        className={`w-full h-8 flex items-center gap-2 px-3 rounded-lg border text-sm transition-all bg-white ${
-          open ? "border-[#F44708] ring-2 ring-[#F44708]/15" : "border-[#E0E0E0] hover:border-[#FAA613]"
-        }`}
-      >
-        {selected ? (
-          <>
-            <PlatformLogo source={selected.source} className="h-4 w-4" />
-            <span className="flex-1 truncate text-left font-medium text-[#1A0A00]">{selected.name}</span>
-          </>
-        ) : (
-          <span className="flex-1 text-left text-[#6B6B6B]">Todas as páginas</span>
-        )}
-        <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[#6B6B6B] transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
-      </button>
-
-      {open && (
-        <div
-          ref={dropRef}
-          style={{ position: "fixed", top: dropPos.top, left: dropPos.left, minWidth: dropPos.width, zIndex: 9999 }}
-          className="bg-white border border-[#E0E0E0] rounded-xl shadow-lg overflow-hidden"
-        >
-          <div className="p-1.5 border-b border-[#f5f5f5]">
-            <button
-              onClick={() => { onChange("all"); setOpen(false); }}
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                value === "all" ? "bg-[#F44708] text-white" : "text-[#1A0A00] hover:bg-[#FFF0E8]"
-              }`}
-            >
-              <span className="flex-1 text-left">Todas as páginas</span>
-              {value === "all" && <span className="text-white/70 text-xs">✓</span>}
-            </button>
-          </div>
-
-          <div className="max-h-72 overflow-y-auto p-1.5 space-y-1">
-            {hasBoth ? (
-              <>
-                <Group label="Facebook" items={fbPages} />
-                <Group label="Instagram" items={igPages} />
-              </>
-            ) : (
-              <div className="space-y-px">
-                {pages.map((p) => <Item key={p.id} page={p} />)}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -1490,11 +1343,26 @@ function AdminDashboard() {
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end">
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-medium uppercase tracking-wider text-[#6B6B6B]">Página</label>
-            <PageSelect
-              pages={pages}
-              value={filterPage}
-              onChange={setFilterPage}
-            />
+            <select value={filterPage} onChange={(e) => setFilterPage(e.target.value)}
+              className="h-8 rounded-lg border border-[#E0E0E0] bg-white px-2 text-sm w-full sm:min-w-[200px]">
+              <option value="all">Todas as páginas</option>
+              {(() => {
+                const fb = pages.filter((p) => (p.source ?? "facebook") === "facebook");
+                const ig = pages.filter((p) => p.source === "instagram");
+                const hasBoth = fb.length > 0 && ig.length > 0;
+                if (!hasBoth) return pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>);
+                return (
+                  <>
+                    <optgroup label="Facebook">
+                      {fb.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </optgroup>
+                    <optgroup label="Instagram">
+                      {ig.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </optgroup>
+                  </>
+                );
+              })()}
+            </select>
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-medium uppercase tracking-wider text-[#6B6B6B]">Colaborador</label>
