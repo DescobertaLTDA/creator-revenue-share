@@ -337,6 +337,12 @@ function AnalyticsPage() {
     const avgRetentionPct = retentionCount > 0 ? (totalWatchSum / totalDurationSum) * 100 : 0;
     const engagementRate = totalViews > 0 ? totalReactions / totalViews : 0;
     const monthCount = monthAgg.size || 1;
+    const totalPostsCount = filteredRows.length;
+    const avgPostsPerMonth = totalPostsCount / monthCount;
+    const avgViewsPerPost  = totalPostsCount > 0 ? totalViews / totalPostsCount : 0;
+    // Receita média por post em BRL; posts necessários para R$10k
+    const revenuePerPostBRL = totalPostsCount > 0 ? (totalRevenue * USD_TO_BRL) / totalPostsCount : 0;
+    const postsFor10k = revenuePerPostBRL > 0 ? Math.ceil(10_000 / revenuePerPostBRL) : null;
 
     // Sparklines (last 30 days of each metric)
     const last30 = allChartData.slice(-30);
@@ -356,6 +362,7 @@ function AnalyticsPage() {
       totalRevenue, totalViews, totalReach, totalReactions,
       totalComments, totalShares, monetizedCount,
       rpm, avgCpm, avgRetentionPct, engagementRate, monthCount,
+      avgPostsPerMonth, avgViewsPerPost, revenuePerPostBRL, postsFor10k,
       videoCount, photoCount, videoViews, photoViews, videoRevenue, photoRevenue,
       allChartData, monthlyData: monthlyArr, topPosts,
       sparkViews, sparkRevenue, sparkRpm, sparkEng,
@@ -541,9 +548,13 @@ function AnalyticsPage() {
               icon={Heart}
             />
             <KpiBlock
-              label="CPM Médio"
-              value={analytics.avgCpm > 0 ? fmtBRL(analytics.avgCpm, false) : "—"}
-              sub={analytics.avgCpm > 0 ? "Custo por mil impressões" : "Sem dados de CPM"}
+              label="Meta R$ 10k"
+              value={analytics.postsFor10k != null ? `${analytics.postsFor10k} posts` : "—"}
+              sub={
+                analytics.postsFor10k != null
+                  ? `${fmt(Math.round(analytics.avgViewsPerPost))} views/post · ${analytics.avgPostsPerMonth.toFixed(0)}/mês`
+                  : "Sem dados suficientes"
+              }
               icon={Zap}
             />
           </div>
