@@ -356,6 +356,106 @@ export function parseInstagramCsv(text: string): ParseResult {
   return parseRows(text, "instagram");
 }
 
+// ─── Ganhos (daily revenue) parser ───────────────────────────────────────────
+
+export interface GanhosRow {
+  date: string;        // YYYY-MM-DD
+  revenue_usd: number; // "Primary" column value
+}
+
+export interface GanhosParseResult {
+  rows: GanhosRow[];
+  periodStart: string | null;
+  periodEnd: string | null;
+  isGanhos: true;
+}
+
+/**
+ * Parses the Facebook "Ganhos aproximados" daily CSV.
+ * Expected columns: Data, Primary, content_monetization, stars, subscriptions
+ * The first line is typically a title ("Ganhos aproximados"), not a header.
+ */
+export function parseGanhosCsv(text: string): GanhosParseResult | null {
+  // Remove BOM
+  const clean = text.replace(/^﻿/, "").trim();
+  const lines = clean.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+  // Find header line that contains "Data" and "Primary"
+  let headerIdx = -1;
+  let dateCol = -1;
+  let primaryCol = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    const result = Papa.parse(lines[i], { header: false });
+    const cols = ((result.data[0] as string[] | undefined) ?? []).map(c =>
+      c.toLowerCase().trim()
+    );
+    const di = cols.findIndex(c => c === "data" || c === "date");
+    const pi = cols.findIndex(c => c === "primary");
+    if (di >= 0 && pi >= 0) {
+      headerIdx = i;
+      dateCol = di;
+      primaryCol = pi;
+      break;
+    }
+  }
+
+  if (headerIdx < 0) return null;
+
+  const rows: GanhosRow[] = [];
+
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const result = Papa.parse(lines[i], { header: false });
+    const cols = (result.data[0] as string[] | undefined) ?? [];
+
+    const dateRaw = (cols[dateCol] ?? "").replace(/^"|"$/g, "").trim();
+    const primaryRaw = (cols[primaryCol] ?? "").replace(/^"|"$/g, "").trim();
+
+    if (!dateRaw || !primaryRaw) continue;
+
+    // Accept "2026-05-01T00:00:00" or "2026-05-01"
+    const date = dateRaw.slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+
+    const revenue_usd = parseFloat(primaryRaw);
+    if (isNaN(revenue_usd)) continue;
+
+    rows.push({ date, revenue_usd });
+  }
+
+  if (rows.length === 0) return null;
+
+  return {
+    rows,
+    periodStart: rows[0].date,
+    periodEnd: rows[rows.length - 1].date,
+    isGanhos: true,
+  };
+}
+
+/**
+ * Reads a File as text, handling UTF-8, UTF-16 LE/BE and BOM detection.
+ * Facebook's "Ganhos" CSVs are often UTF-16 LE with BOM.
+ */
+export async function readFileText(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+
+  // UTF-16 LE BOM: FF FE
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return new TextDecoder("utf-16le").decode(bytes.slice(2));
+  }
+  // UTF-16 BE BOM: FE FF
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return new TextDecoder("utf-16be").decode(bytes.slice(2));
+  }
+  // UTF-8 BOM: EF BB BF
+  if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+    return new TextDecoder("utf-8").decode(bytes.slice(3));
+  }
+  return new TextDecoder("utf-8").decode(bytes);
+}
+
 // ─── File utilities ───────────────────────────────────────────────────────────
 
 export async function hashFile(file: File): Promise<string> {

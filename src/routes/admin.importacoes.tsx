@@ -3,13 +3,13 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useWriteGuard } from "@/hooks/use-write-guard";
-import { parseAnyCsv, hashFile, type CsvSource } from "@/features/csv/parser";
+import { parseAnyCsv, parseGanhosCsv, readFileText, hashFile, type CsvSource, type GanhosParseResult } from "@/features/csv/parser";
 import { formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
 import {
   Upload, Loader2, Search, Settings2, CheckCircle2,
   AlertCircle, Clock, Database, Shield, Zap, RefreshCw, Activity,
-  MoreVertical, CloudUpload, TrendingUp, BarChart2, FileText,
+  MoreVertical, CloudUpload, TrendingUp, BarChart2, FileText, DollarSign, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -72,8 +72,16 @@ export default function DataPipelinePage() {
   const { profile } = useAuth();
   const { guard, WriteGuardDialog } = useWriteGuard();
   const fileRef = useRef<HTMLInputElement>(null);
+  const ganhosFileRef = useRef<HTMLInputElement>(null);
 
   const [uploading, setUploading] = useState(false);
+
+  // ── Ganhos import state ───────────────────────────────────────────────────
+  const [pages, setPages] = useState<{ id: string; nome: string }[]>([]);
+  const [ganhosPageId, setGanhosPageId] = useState("");
+  const [ganhosParsed, setGanhosParsed] = useState<GanhosParseResult | null>(null);
+  const [ganhosFileName, setGanhosFileName] = useState("");
+  const [ganhosUploading, setGanhosUploading] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; name: string } | null>(null);
   const [imports, setImports] = useState<ImportRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +92,86 @@ export default function DataPipelinePage() {
   const [revenueMap, setRevenueMap] = useState<Map<string, number>>(new Map());
   const [activeUploadStep, setActiveUploadStep] = useState(-1); // -1 = idle, 0-5 = live step
   const [page, setPage] = useState(1);
+
+  // Load pages for Ganhos selector
+  useEffect(() => {
+    supabase.from("pages").select("id, nome").order("nome").then(({ data }) => {
+      setPages((data ?? []) as { id: string; nome: string }[]);
+    });
+  }, []);
+
+  const handleGanhosFile = async (file: File) => {
+    setGanhosFileName(file.name);
+    setGanhosParsed(null);
+    try {
+      const text = await readFileText(file);
+      const result = parseGanhosCsv(text);
+      if (!result || result.rows.length === 0) {
+        toast.error("CSV inválido", { description: "Não foi possível encontrar dados de ganhos. Verifique se é o arquivo correto do Facebook." });
+        return;
+      }
+      setGanhosParsed(result);
+    } catch (err) {
+      toast.error("Erro ao ler o arquivo", { description: err instanceof Error ? err.message : String(err) });
+    } finally {
+      if (ganhosFileRef.current) ganhosFileRef.current.value = "";
+    }
+  };
+
+  const handleGanhosConfirm = async () => {
+    if (!ganhosParsed || !ganhosPageId || !profile) return;
+    setGanhosUploading(true);
+    const toastId = toast.loading("Salvando ganhos…");
+    try {
+      // Fetch existing entries for this page + date range to do upsert manually
+      const { data: existing } = await supabase
+        .from("daily_revenue_entries")
+        .select("id, entry_date")
+        .eq("page_id", ganhosPageId)
+        .gte("entry_date", ganhosParsed.periodStart!)
+        .lte("entry_date", ganhosParsed.periodEnd!);
+
+      const existingMap = new Map<string, string>(
+        (existing ?? []).map((r: { id: string; entry_date: string }) => [r.entry_date, r.id])
+      );
+
+      let updated = 0;
+      let inserted = 0;
+
+      for (const row of ganhosParsed.rows) {
+        const existingId = existingMap.get(row.date);
+        if (existingId) {
+          await supabase
+            .from("daily_revenue_entries")
+            .update({ actual_revenue_usd: row.revenue_usd, updated_by: profile.id, updated_at: new Date().toISOString() })
+            .eq("id", existingId);
+          updated++;
+        } else {
+          await supabase
+            .from("daily_revenue_entries")
+            .insert({
+              page_id: ganhosPageId,
+              entry_date: row.date,
+              actual_revenue_usd: row.revenue_usd,
+              distribution_mode: "hybrid",
+              created_by: profile.id,
+            });
+          inserted++;
+        }
+      }
+
+      toast.success("Ganhos importados!", {
+        id: toastId,
+        description: `${inserted} novos · ${updated} atualizados · ${ganhosParsed.rows.length} dias no total`,
+      });
+      setGanhosParsed(null);
+      setGanhosFileName("");
+    } catch (err) {
+      toast.error("Erro ao salvar", { id: toastId, description: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setGanhosUploading(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -121,7 +209,7 @@ export default function DataPipelinePage() {
     setActiveUploadStep(0);
     const toastId = toast.loading(`Processando ${file.name}…`);
     try {
-      const text = await file.text();
+      const text = await readFileText(file);
       const hash = await hashFile(file);
 
       const { data: existing } = await supabase
@@ -392,6 +480,104 @@ export default function DataPipelinePage() {
         />
       </div>
 
+
+      {/* ── Ganhos CSV card ── */}
+      <div className="rounded-2xl border border-border bg-card p-6">
+        <input
+          ref={ganhosFileRef} type="file" accept=".csv,text/csv" className="hidden"
+          onChange={(e) => e.target.files?.[0] && handleGanhosFile(e.target.files[0])}
+        />
+        <div className="flex items-start justify-between gap-3 mb-5">
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <div className="h-7 w-7 rounded-lg bg-green-100 flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-green-600" />
+              </div>
+              <p className="text-sm font-bold">Receita Real — Ganhos do Facebook</p>
+            </div>
+            <p className="text-xs text-muted-foreground ml-9">
+              Importe o CSV de <em>Ganhos aproximados</em> para preencher o histórico diário automaticamente.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3">
+          <select
+            value={ganhosPageId}
+            onChange={(e) => setGanhosPageId(e.target.value)}
+            className="h-9 rounded-lg border border-border bg-white px-3 text-sm flex-1 min-w-0"
+          >
+            <option value="">Selecionar página…</option>
+            {pages.map((p) => (
+              <option key={p.id} value={p.id}>{p.nome}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => ganhosFileRef.current?.click()}
+            disabled={!ganhosPageId || ganhosUploading}
+            className="h-9 px-4 rounded-lg border border-dashed border-[#F44708] text-[#F44708] text-sm font-medium hover:bg-[#FFF0E8] disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+          >
+            {ganhosFileName ? `📄 ${ganhosFileName}` : "Selecionar CSV de Ganhos"}
+          </button>
+        </div>
+
+        {ganhosParsed && (
+          <div className="mt-5">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">{ganhosParsed.rows.length} dias</span>
+                {" "}·{" "}
+                {ganhosParsed.periodStart?.split("-").reverse().join("/")} até{" "}
+                {ganhosParsed.periodEnd?.split("-").reverse().join("/")}
+                {" "}·{" "}
+                Total: <span className="font-semibold text-foreground">
+                  ${ganhosParsed.rows.reduce((s, r) => s + r.revenue_usd, 0).toFixed(2)}
+                </span>
+              </p>
+              <button onClick={() => { setGanhosParsed(null); setGanhosFileName(""); }}
+                className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-border overflow-hidden max-h-52 overflow-y-auto mb-4">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-muted/40">
+                  <tr className="border-b border-border">
+                    <th className="text-left px-4 py-2 font-bold text-muted-foreground uppercase tracking-wide">Data</th>
+                    <th className="text-right px-4 py-2 font-bold text-muted-foreground uppercase tracking-wide">Receita (USD)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ganhosParsed.rows.map((r) => (
+                    <tr key={r.date} className="border-t border-border/50">
+                      <td className="px-4 py-2 text-muted-foreground tabular-nums">
+                        {r.date.split("-").reverse().join("/")}
+                      </td>
+                      <td className="px-4 py-2 text-right font-semibold tabular-nums">
+                        ${r.revenue_usd.toFixed(4)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={handleGanhosConfirm}
+                disabled={ganhosUploading}
+                className="flex items-center gap-2 h-9 px-5 rounded-lg bg-green-600 text-white text-sm font-bold hover:bg-green-700 disabled:opacity-60 transition-colors"
+              >
+                {ganhosUploading
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando…</>
+                  : <><CheckCircle2 className="h-4 w-4" /> Confirmar importação</>
+                }
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ── Pipeline Stepper (full-width) ── */}
       <div className="rounded-2xl border border-border bg-card p-6">
