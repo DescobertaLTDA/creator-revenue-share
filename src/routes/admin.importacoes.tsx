@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import {
   Upload, Loader2, Search, Settings2, CheckCircle2,
   AlertCircle, Clock, Database, Shield, Zap, RefreshCw, Activity,
-  MoreVertical, CloudUpload, TrendingUp, BarChart2, FileText, DollarSign, X,
+  MoreVertical, CloudUpload, TrendingUp, BarChart2, FileText, DollarSign, X, Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -73,15 +73,22 @@ export default function DataPipelinePage() {
   const { guard, WriteGuardDialog } = useWriteGuard();
   const fileRef = useRef<HTMLInputElement>(null);
   const ganhosFileRef = useRef<HTMLInputElement>(null);
+  const viewsFileRef = useRef<HTMLInputElement>(null);
 
   const [uploading, setUploading] = useState(false);
 
-  // ── Ganhos import state ───────────────────────────────────────────────────
+  // ── Daily metric import state ─────────────────────────────────────────────
   const [pages, setPages] = useState<{ id: string; nome: string }[]>([]);
+  // Ganhos (revenue)
   const [ganhosPageId, setGanhosPageId] = useState("");
   const [ganhosParsed, setGanhosParsed] = useState<GanhosParseResult | null>(null);
   const [ganhosFileName, setGanhosFileName] = useState("");
   const [ganhosUploading, setGanhosUploading] = useState(false);
+  // Visualizações (views)
+  const [viewsPageId, setViewsPageId] = useState("");
+  const [viewsParsed, setViewsParsed] = useState<GanhosParseResult | null>(null);
+  const [viewsFileName, setViewsFileName] = useState("");
+  const [viewsUploading, setViewsUploading] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; name: string } | null>(null);
   const [imports, setImports] = useState<ImportRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,82 +107,87 @@ export default function DataPipelinePage() {
     });
   }, []);
 
-  const handleGanhosFile = async (file: File) => {
-    setGanhosFileName(file.name);
-    setGanhosParsed(null);
+  // ── Shared daily-metric import logic ─────────────────────────────────────
+  const parseDailyFile = async (
+    file: File,
+    setFileName: (n: string) => void,
+    setParsed: (r: GanhosParseResult | null) => void,
+    ref: React.RefObject<HTMLInputElement>,
+  ) => {
+    setFileName(file.name);
+    setParsed(null);
     try {
       const text = await readFileText(file);
       const result = parseGanhosCsv(text);
       if (!result || result.rows.length === 0) {
-        toast.error("CSV inválido", { description: "Não foi possível encontrar dados de ganhos. Verifique se é o arquivo correto do Facebook." });
+        toast.error("CSV inválido", { description: "Não foi possível encontrar dados. Verifique se é o arquivo correto do Facebook." });
         return;
       }
-      setGanhosParsed(result);
+      setParsed(result);
     } catch (err) {
       toast.error("Erro ao ler o arquivo", { description: err instanceof Error ? err.message : String(err) });
     } finally {
-      if (ganhosFileRef.current) ganhosFileRef.current.value = "";
+      if (ref.current) ref.current.value = "";
     }
   };
 
-  const handleGanhosConfirm = async () => {
-    if (!ganhosParsed || !ganhosPageId || !profile) return;
-    setGanhosUploading(true);
-    const toastId = toast.loading("Salvando ganhos…");
+  const confirmDailyImport = async (
+    parsed: GanhosParseResult,
+    pageId: string,
+    dbField: "actual_revenue_usd" | "actual_views",
+    label: string,
+    setUploading: (v: boolean) => void,
+    setParsed: (r: GanhosParseResult | null) => void,
+    setFileName: (n: string) => void,
+  ) => {
+    if (!profile) return;
+    setUploading(true);
+    const toastId = toast.loading(`Salvando ${label.toLowerCase()}…`);
     try {
-      // Fetch existing entries for this page + date range to do upsert manually
       const { data: existing } = await supabase
         .from("daily_revenue_entries")
         .select("id, entry_date")
-        .eq("page_id", ganhosPageId)
-        .gte("entry_date", ganhosParsed.periodStart!)
-        .lte("entry_date", ganhosParsed.periodEnd!);
+        .eq("page_id", pageId)
+        .gte("entry_date", parsed.periodStart!)
+        .lte("entry_date", parsed.periodEnd!);
 
       const existingMap = new Map<string, string>(
         (existing ?? []).map((r: { id: string; entry_date: string }) => [r.entry_date, r.id])
       );
 
-      let updated = 0;
-      let inserted = 0;
-
-      const isRevenue = ganhosParsed.type === "revenue";
-      const dbField = isRevenue ? "actual_revenue_usd" : "actual_views";
-
-      for (const row of ganhosParsed.rows) {
+      let updated = 0; let inserted = 0;
+      for (const row of parsed.rows) {
         const existingId = existingMap.get(row.date);
         if (existingId) {
-          await supabase
-            .from("daily_revenue_entries")
+          await supabase.from("daily_revenue_entries")
             .update({ [dbField]: row.value, updated_by: profile.id, updated_at: new Date().toISOString() })
             .eq("id", existingId);
           updated++;
         } else {
-          await supabase
-            .from("daily_revenue_entries")
-            .insert({
-              page_id: ganhosPageId,
-              entry_date: row.date,
-              [dbField]: row.value,
-              distribution_mode: "hybrid",
-              created_by: profile.id,
-            });
+          await supabase.from("daily_revenue_entries")
+            .insert({ page_id: pageId, entry_date: row.date, [dbField]: row.value, distribution_mode: "hybrid", created_by: profile.id });
           inserted++;
         }
       }
 
-      const label = isRevenue ? "Ganhos" : "Visualizações";
       toast.success(`${label} importados!`, {
         id: toastId,
-        description: `${inserted} novos · ${updated} atualizados · ${ganhosParsed.rows.length} dias no total`,
+        description: `${inserted} novos · ${updated} atualizados · ${parsed.rows.length} dias no total`,
       });
-      setGanhosParsed(null);
-      setGanhosFileName("");
+      setParsed(null);
+      setFileName("");
     } catch (err) {
       toast.error("Erro ao salvar", { id: toastId, description: err instanceof Error ? err.message : String(err) });
     } finally {
-      setGanhosUploading(false);
+      setUploading(false);
     }
   };
+
+  const handleGanhosFile = (file: File) => parseDailyFile(file, setGanhosFileName, setGanhosParsed, ganhosFileRef);
+  const handleGanhosConfirm = () => ganhosParsed && confirmDailyImport(ganhosParsed, ganhosPageId, "actual_revenue_usd", "Ganhos", setGanhosUploading, setGanhosParsed, setGanhosFileName);
+
+  const handleViewsFile = (file: File) => parseDailyFile(file, setViewsFileName, setViewsParsed, viewsFileRef);
+  const handleViewsConfirm = () => viewsParsed && confirmDailyImport(viewsParsed, viewsPageId, "actual_views", "Visualizações", setViewsUploading, setViewsParsed, setViewsFileName);
 
   const load = async () => {
     setLoading(true);
@@ -485,111 +497,55 @@ export default function DataPipelinePage() {
       </div>
 
 
-      {/* ── Ganhos CSV card ── */}
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <input
-          ref={ganhosFileRef} type="file" accept=".csv,text/csv" className="hidden"
-          onChange={(e) => e.target.files?.[0] && handleGanhosFile(e.target.files[0])}
+      {/* ── Daily metric import cards ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Card: Ganhos */}
+        <DailyImportCard
+          title="Ganhos Diários"
+          description={<>CSV de <em>Ganhos aproximados</em> → campo <strong>Receita real</strong></>}
+          iconBg="bg-green-100"
+          iconColor="text-green-600"
+          icon={<DollarSign className="h-4 w-4 text-green-600" />}
+          colLabel="Receita (USD)"
+          formatValue={(v) => `$${v.toFixed(4)}`}
+          formatTotal={(t) => `$${t.toFixed(2)}`}
+          pages={pages}
+          pageId={ganhosPageId}
+          onPageChange={setGanhosPageId}
+          parsed={ganhosParsed}
+          fileName={ganhosFileName}
+          uploading={ganhosUploading}
+          fileRef={ganhosFileRef}
+          onFileChange={handleGanhosFile}
+          onConfirm={handleGanhosConfirm}
+          onClear={() => { setGanhosParsed(null); setGanhosFileName(""); }}
         />
-        <div className="flex items-start justify-between gap-3 mb-5">
-          <div>
-            <div className="flex items-center gap-2 mb-0.5">
-              <div className="h-7 w-7 rounded-lg bg-green-100 flex items-center justify-center">
-                <DollarSign className="h-4 w-4 text-green-600" />
-              </div>
-              <p className="text-sm font-bold">Receita Real — Ganhos do Facebook</p>
-            </div>
-            <p className="text-xs text-muted-foreground ml-9">
-              Importe o CSV de <em>Ganhos aproximados</em> para preencher o histórico diário automaticamente.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-3">
-          <select
-            value={ganhosPageId}
-            onChange={(e) => setGanhosPageId(e.target.value)}
-            className="h-9 rounded-lg border border-border bg-white px-3 text-sm flex-1 min-w-0"
-          >
-            <option value="">Selecionar página…</option>
-            {pages.map((p) => (
-              <option key={p.id} value={p.id}>{p.nome}</option>
-            ))}
-          </select>
-          <button
-            onClick={() => ganhosFileRef.current?.click()}
-            disabled={!ganhosPageId || ganhosUploading}
-            className="h-9 px-4 rounded-lg border border-dashed border-[#F44708] text-[#F44708] text-sm font-medium hover:bg-[#FFF0E8] disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
-          >
-            {ganhosFileName ? `📄 ${ganhosFileName}` : "Selecionar CSV (Ganhos ou Visualizações)"}
-          </button>
-        </div>
-
-        {ganhosParsed && (() => {
-          const isRevenue = ganhosParsed.type === "revenue";
-          const colLabel = isRevenue ? "Receita (USD)" : "Views";
-          const total = ganhosParsed.rows.reduce((s, r) => s + r.value, 0);
-          const totalStr = isRevenue
-            ? `$${total.toFixed(2)}`
-            : total.toLocaleString("pt-BR");
-          return (
-          <div className="mt-5">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">{ganhosParsed.title}</span>
-                {" · "}
-                <span className="font-semibold text-foreground">{ganhosParsed.rows.length} dias</span>
-                {" · "}
-                {ganhosParsed.periodStart?.split("-").reverse().join("/")} até{" "}
-                {ganhosParsed.periodEnd?.split("-").reverse().join("/")}
-                {" · "}
-                Total: <span className="font-semibold text-foreground">{totalStr}</span>
-              </p>
-              <button onClick={() => { setGanhosParsed(null); setGanhosFileName(""); }}
-                className="text-muted-foreground hover:text-foreground transition-colors">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="rounded-xl border border-border overflow-hidden max-h-52 overflow-y-auto mb-4">
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-muted/40">
-                  <tr className="border-b border-border">
-                    <th className="text-left px-4 py-2 font-bold text-muted-foreground uppercase tracking-wide">Data</th>
-                    <th className="text-right px-4 py-2 font-bold text-muted-foreground uppercase tracking-wide">{colLabel}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ganhosParsed.rows.map((r) => (
-                    <tr key={r.date} className="border-t border-border/50">
-                      <td className="px-4 py-2 text-muted-foreground tabular-nums">
-                        {r.date.split("-").reverse().join("/")}
-                      </td>
-                      <td className="px-4 py-2 text-right font-semibold tabular-nums">
-                        {isRevenue ? `$${r.value.toFixed(4)}` : r.value.toLocaleString("pt-BR")}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                onClick={handleGanhosConfirm}
-                disabled={ganhosUploading}
-                className="flex items-center gap-2 h-9 px-5 rounded-lg bg-green-600 text-white text-sm font-bold hover:bg-green-700 disabled:opacity-60 transition-colors"
-              >
-                {ganhosUploading
-                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando…</>
-                  : <><CheckCircle2 className="h-4 w-4" /> Confirmar importação</>
-                }
-              </button>
-            </div>
-          </div>
-          );
-        })()}
+        {/* Card: Visualizações */}
+        <DailyImportCard
+          title="Visualizações Diárias"
+          description={<>CSV de <em>Visualizações</em> → campo <strong>Views manuais</strong></>}
+          iconBg="bg-blue-100"
+          iconColor="text-blue-600"
+          icon={<Eye className="h-4 w-4 text-blue-600" />}
+          colLabel="Views"
+          formatValue={(v) => v.toLocaleString("pt-BR")}
+          formatTotal={(t) => t.toLocaleString("pt-BR")}
+          pages={pages}
+          pageId={viewsPageId}
+          onPageChange={setViewsPageId}
+          parsed={viewsParsed}
+          fileName={viewsFileName}
+          uploading={viewsUploading}
+          fileRef={viewsFileRef}
+          onFileChange={handleViewsFile}
+          onConfirm={handleViewsConfirm}
+          onClear={() => { setViewsParsed(null); setViewsFileName(""); }}
+        />
       </div>
+      <input ref={ganhosFileRef} type="file" accept=".csv,text/csv" className="hidden"
+        onChange={(e) => e.target.files?.[0] && handleGanhosFile(e.target.files[0])} />
+      <input ref={viewsFileRef} type="file" accept=".csv,text/csv" className="hidden"
+        onChange={(e) => e.target.files?.[0] && handleViewsFile(e.target.files[0])} />
 
       {/* ── Pipeline Stepper (full-width) ── */}
       <div className="rounded-2xl border border-border bg-card p-6">
@@ -781,6 +737,118 @@ export default function DataPipelinePage() {
           )}
         </SheetContent>
       </Sheet>
+    </div>
+  );
+}
+
+// ─── Daily Import Card ────────────────────────────────────────────────────────
+
+function DailyImportCard({
+  title, description, iconBg, icon, colLabel,
+  formatValue, formatTotal,
+  pages, pageId, onPageChange,
+  parsed, fileName, uploading,
+  fileRef, onFileChange, onConfirm, onClear,
+}: {
+  title: string;
+  description: React.ReactNode;
+  iconBg: string;
+  iconColor: string;
+  icon: React.ReactNode;
+  colLabel: string;
+  formatValue: (v: number) => string;
+  formatTotal: (t: number) => string;
+  pages: { id: string; nome: string }[];
+  pageId: string;
+  onPageChange: (id: string) => void;
+  parsed: GanhosParseResult | null;
+  fileName: string;
+  uploading: boolean;
+  fileRef: React.RefObject<HTMLInputElement>;
+  onFileChange: (file: File) => void;
+  onConfirm: () => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 flex flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <div className={cn("h-7 w-7 rounded-lg flex items-center justify-center shrink-0", iconBg)}>
+          {icon}
+        </div>
+        <div>
+          <p className="text-sm font-bold leading-tight">{title}</p>
+          <p className="text-[11px] text-muted-foreground">{description}</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <select
+          value={pageId}
+          onChange={(e) => onPageChange(e.target.value)}
+          className="h-9 rounded-lg border border-border bg-white px-3 text-sm w-full"
+        >
+          <option value="">Selecionar página…</option>
+          {pages.map((p) => (
+            <option key={p.id} value={p.id}>{p.nome}</option>
+          ))}
+        </select>
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={!pageId || uploading}
+          className="h-9 px-4 rounded-lg border border-dashed border-border text-muted-foreground text-sm hover:border-[#F44708] hover:text-[#F44708] disabled:opacity-40 disabled:cursor-not-allowed transition-colors truncate"
+        >
+          {fileName ? `📄 ${fileName}` : "Selecionar CSV…"}
+        </button>
+      </div>
+
+      {parsed && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              <span className="font-semibold text-foreground">{parsed.rows.length} dias</span>
+              {" · "}
+              {parsed.periodStart?.split("-").reverse().join("/")} – {parsed.periodEnd?.split("-").reverse().join("/")}
+              {" · "}
+              Total: <span className="font-semibold text-foreground">
+                {formatTotal(parsed.rows.reduce((s, r) => s + r.value, 0))}
+              </span>
+            </span>
+            <button onClick={onClear} className="text-muted-foreground hover:text-foreground transition-colors ml-2 shrink-0">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-border overflow-hidden max-h-44 overflow-y-auto">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-muted/40">
+                <tr className="border-b border-border">
+                  <th className="text-left px-3 py-2 font-bold text-muted-foreground uppercase tracking-wide text-[10px]">Data</th>
+                  <th className="text-right px-3 py-2 font-bold text-muted-foreground uppercase tracking-wide text-[10px]">{colLabel}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parsed.rows.map((r) => (
+                  <tr key={r.date} className="border-t border-border/50">
+                    <td className="px-3 py-1.5 text-muted-foreground tabular-nums">{r.date.split("-").reverse().join("/")}</td>
+                    <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{formatValue(r.value)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <button
+            onClick={onConfirm}
+            disabled={uploading}
+            className="flex items-center justify-center gap-2 h-9 rounded-lg bg-green-600 text-white text-sm font-bold hover:bg-green-700 disabled:opacity-60 transition-colors"
+          >
+            {uploading
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando…</>
+              : <><CheckCircle2 className="h-4 w-4" /> Confirmar importação</>
+            }
+          </button>
+        </div>
+      )}
     </div>
   );
 }
