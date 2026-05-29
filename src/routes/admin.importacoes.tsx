@@ -138,12 +138,15 @@ export default function DataPipelinePage() {
       let updated = 0;
       let inserted = 0;
 
+      const isRevenue = ganhosParsed.type === "revenue";
+      const dbField = isRevenue ? "actual_revenue_usd" : "actual_views";
+
       for (const row of ganhosParsed.rows) {
         const existingId = existingMap.get(row.date);
         if (existingId) {
           await supabase
             .from("daily_revenue_entries")
-            .update({ actual_revenue_usd: row.revenue_usd, updated_by: profile.id, updated_at: new Date().toISOString() })
+            .update({ [dbField]: row.value, updated_by: profile.id, updated_at: new Date().toISOString() })
             .eq("id", existingId);
           updated++;
         } else {
@@ -152,7 +155,7 @@ export default function DataPipelinePage() {
             .insert({
               page_id: ganhosPageId,
               entry_date: row.date,
-              actual_revenue_usd: row.revenue_usd,
+              [dbField]: row.value,
               distribution_mode: "hybrid",
               created_by: profile.id,
             });
@@ -160,7 +163,8 @@ export default function DataPipelinePage() {
         }
       }
 
-      toast.success("Ganhos importados!", {
+      const label = isRevenue ? "Ganhos" : "Visualizações";
+      toast.success(`${label} importados!`, {
         id: toastId,
         description: `${inserted} novos · ${updated} atualizados · ${ganhosParsed.rows.length} dias no total`,
       });
@@ -517,22 +521,29 @@ export default function DataPipelinePage() {
             disabled={!ganhosPageId || ganhosUploading}
             className="h-9 px-4 rounded-lg border border-dashed border-[#F44708] text-[#F44708] text-sm font-medium hover:bg-[#FFF0E8] disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
           >
-            {ganhosFileName ? `📄 ${ganhosFileName}` : "Selecionar CSV de Ganhos"}
+            {ganhosFileName ? `📄 ${ganhosFileName}` : "Selecionar CSV (Ganhos ou Visualizações)"}
           </button>
         </div>
 
-        {ganhosParsed && (
+        {ganhosParsed && (() => {
+          const isRevenue = ganhosParsed.type === "revenue";
+          const colLabel = isRevenue ? "Receita (USD)" : "Views";
+          const total = ganhosParsed.rows.reduce((s, r) => s + r.value, 0);
+          const totalStr = isRevenue
+            ? `$${total.toFixed(2)}`
+            : total.toLocaleString("pt-BR");
+          return (
           <div className="mt-5">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">{ganhosParsed.title}</span>
+                {" · "}
                 <span className="font-semibold text-foreground">{ganhosParsed.rows.length} dias</span>
-                {" "}·{" "}
+                {" · "}
                 {ganhosParsed.periodStart?.split("-").reverse().join("/")} até{" "}
                 {ganhosParsed.periodEnd?.split("-").reverse().join("/")}
-                {" "}·{" "}
-                Total: <span className="font-semibold text-foreground">
-                  ${ganhosParsed.rows.reduce((s, r) => s + r.revenue_usd, 0).toFixed(2)}
-                </span>
+                {" · "}
+                Total: <span className="font-semibold text-foreground">{totalStr}</span>
               </p>
               <button onClick={() => { setGanhosParsed(null); setGanhosFileName(""); }}
                 className="text-muted-foreground hover:text-foreground transition-colors">
@@ -545,7 +556,7 @@ export default function DataPipelinePage() {
                 <thead className="sticky top-0 bg-muted/40">
                   <tr className="border-b border-border">
                     <th className="text-left px-4 py-2 font-bold text-muted-foreground uppercase tracking-wide">Data</th>
-                    <th className="text-right px-4 py-2 font-bold text-muted-foreground uppercase tracking-wide">Receita (USD)</th>
+                    <th className="text-right px-4 py-2 font-bold text-muted-foreground uppercase tracking-wide">{colLabel}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -555,7 +566,7 @@ export default function DataPipelinePage() {
                         {r.date.split("-").reverse().join("/")}
                       </td>
                       <td className="px-4 py-2 text-right font-semibold tabular-nums">
-                        ${r.revenue_usd.toFixed(4)}
+                        {isRevenue ? `$${r.value.toFixed(4)}` : r.value.toLocaleString("pt-BR")}
                       </td>
                     </tr>
                   ))}
@@ -576,7 +587,8 @@ export default function DataPipelinePage() {
               </button>
             </div>
           </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* ── Pipeline Stepper (full-width) ── */}
