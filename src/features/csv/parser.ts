@@ -358,27 +358,45 @@ export function parseInstagramCsv(text: string): ParseResult {
 
 // ─── Ganhos (daily revenue) parser ───────────────────────────────────────────
 
+/** Which daily metric the Facebook CSV contains. */
+export type GanhosType = "revenue" | "views";
+
 export interface GanhosRow {
-  date: string;        // YYYY-MM-DD
-  revenue_usd: number; // "Primary" column value
+  date: string;  // YYYY-MM-DD
+  value: number; // revenue_usd or view count, depending on `type`
 }
 
 export interface GanhosParseResult {
   rows: GanhosRow[];
   periodStart: string | null;
   periodEnd: string | null;
+  /** "revenue" → actual_revenue_usd, "views" → actual_views */
+  type: GanhosType;
+  /** Human-readable title from first line of CSV, e.g. "Ganhos aproximados" */
+  title: string;
   isGanhos: true;
 }
 
 /**
- * Parses the Facebook "Ganhos aproximados" daily CSV.
- * Expected columns: Data, Primary, content_monetization, stars, subscriptions
- * The first line is typically a title ("Ganhos aproximados"), not a header.
+ * Parses Facebook daily metric CSVs (Ganhos aproximados OR Visualizações).
+ * Both formats share the same structure: title line → "Data","Primary" header → rows.
+ * Detects the metric type from the title line.
  */
 export function parseGanhosCsv(text: string): GanhosParseResult | null {
   // Remove BOM
   const clean = text.replace(/^﻿/, "").trim();
   const lines = clean.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+  // First non-empty line is the report title (e.g. "Ganhos aproximados" or "Visualizações")
+  let titleRaw = "";
+  if (lines.length > 0) {
+    const r = Papa.parse(lines[0], { header: false });
+    titleRaw = ((r.data[0] as string[] | undefined)?.[0] ?? "").trim();
+  }
+
+  // Detect type from title
+  const titleNorm = titleRaw.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const type: GanhosType = titleNorm.includes("visualiza") ? "views" : "revenue";
 
   // Find header line that contains "Data" and "Primary"
   let headerIdx = -1;
@@ -417,10 +435,10 @@ export function parseGanhosCsv(text: string): GanhosParseResult | null {
     const date = dateRaw.slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
 
-    const revenue_usd = parseFloat(primaryRaw);
-    if (isNaN(revenue_usd)) continue;
+    const value = parseFloat(primaryRaw);
+    if (isNaN(value)) continue;
 
-    rows.push({ date, revenue_usd });
+    rows.push({ date, value });
   }
 
   if (rows.length === 0) return null;
@@ -429,6 +447,8 @@ export function parseGanhosCsv(text: string): GanhosParseResult | null {
     rows,
     periodStart: rows[0].date,
     periodEnd: rows[rows.length - 1].date,
+    type,
+    title: titleRaw,
     isGanhos: true,
   };
 }
