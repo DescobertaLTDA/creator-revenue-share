@@ -345,6 +345,48 @@ export default function DataPipelinePage() {
         }
       }
 
+      // ── Auto-link Reel Lab experiments ─────────────────────────────────────
+      {
+        const allPageIds = Array.from(pageIdMap.values());
+        const { data: allPostsForLab } = await supabase
+          .from("posts")
+          .select("id, description, title, page_id, views, published_date")
+          .in("page_id", allPageIds);
+        const { data: labReels } = await supabase
+          .from("reel_lab")
+          .select("id, tracking_code, status");
+        if (allPostsForLab && labReels && labReels.length > 0) {
+          const LAB_REGEX = /\[LAB-(\d+)\]/i;
+          for (const post of allPostsForLab) {
+            const text = `${post.title ?? ""} ${post.description ?? ""}`;
+            const match = text.match(LAB_REGEX);
+            if (!match) continue;
+            const code = `LAB-${match[1].padStart(3, "0")}`;
+            const reel = (labReels as { id: string; tracking_code: string; status: string }[]).find(
+              (r) => r.tracking_code.toUpperCase() === code.toUpperCase()
+            );
+            if (!reel) continue;
+            // Link post to reel_lab and mark as linkado
+            await supabase.from("reel_lab").update({
+              post_id: post.id,
+              status: "linkado",
+              published_at: post.published_date ? new Date(post.published_date).toISOString() : null,
+              updated_at: new Date().toISOString(),
+            }).eq("id", reel.id);
+            // Create a snapshot with current metrics from the CSV
+            if (post.views != null) {
+              await supabase.from("reel_lab_snapshots").insert({
+                lab_id: reel.id,
+                views: post.views,
+                day_since_publish: post.published_date
+                  ? Math.max(0, Math.floor((Date.now() - new Date(post.published_date).getTime()) / 86400000))
+                  : null,
+              });
+            }
+          }
+        }
+      }
+
       setActiveUploadStep(5);
       const status = parsed.errors.length === 0 ? "concluido" : parsed.errors.length === parsed.totalRows ? "falha" : "parcial";
       await supabase.from("csv_imports").update({ status, inserted_rows: inserted, updated_rows: updated }).eq("id", imp.id);
