@@ -28,6 +28,7 @@ import { Route as AdminBonusManualRouteImport } from './routes/admin.bonus-manua
 import { Route as AdminFechamentosIndexRouteImport } from './routes/admin.fechamentos.index'
 import { Route as AdminImportacoesIdRouteImport } from './routes/admin.importacoes.$id'
 import { Route as AdminFechamentosIdRouteImport } from './routes/admin.fechamentos.$id'
+import { Route as AdminEstudioRouteImport } from './routes/admin.estudio'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -124,6 +125,11 @@ const AdminFechamentosIdRoute = AdminFechamentosIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AdminFechamentosRoute,
 } as any)
+const AdminEstudioRoute = AdminEstudioRouteImport.update({
+  id: '/estudio',
+  path: '/estudio',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/admin/metas': typeof AdminMetasRoute
   '/admin/posts': typeof AdminPostsRoute
   '/admin/projecoes': typeof AdminProjecoesRoute
+  '/admin/estudio': typeof AdminEstudioRoute
   '/colaborador/dashboard': typeof ColaboradorDashboardRoute
   '/admin/fechamentos/$id': typeof AdminFechamentosIdRoute
   '/admin/importacoes/$id': typeof AdminImportacoesIdRoute
@@ -161,6 +168,7 @@ export interface FileRoutesByTo {
   '/admin/metas': typeof AdminMetasRoute
   '/admin/posts': typeof AdminPostsRoute
   '/admin/projecoes': typeof AdminProjecoesRoute
+  '/admin/estudio': typeof AdminEstudioRoute
   '/colaborador/dashboard': typeof ColaboradorDashboardRoute
   '/admin/fechamentos/$id': typeof AdminFechamentosIdRoute
   '/admin/importacoes/$id': typeof AdminImportacoesIdRoute
@@ -183,6 +191,7 @@ export interface FileRoutesById {
   '/admin/metas': typeof AdminMetasRoute
   '/admin/posts': typeof AdminPostsRoute
   '/admin/projecoes': typeof AdminProjecoesRoute
+  '/admin/estudio': typeof AdminEstudioRoute
   '/colaborador/dashboard': typeof ColaboradorDashboardRoute
   '/admin/fechamentos/$id': typeof AdminFechamentosIdRoute
   '/admin/importacoes/$id': typeof AdminImportacoesIdRoute
@@ -206,6 +215,7 @@ export interface FileRouteTypes {
     | '/admin/metas'
     | '/admin/posts'
     | '/admin/projecoes'
+    | '/admin/estudio'
     | '/colaborador/dashboard'
     | '/admin/fechamentos/$id'
     | '/admin/importacoes/$id'
@@ -226,6 +236,7 @@ export interface FileRouteTypes {
     | '/admin/metas'
     | '/admin/posts'
     | '/admin/projecoes'
+    | '/admin/estudio'
     | '/colaborador/dashboard'
     | '/admin/fechamentos/$id'
     | '/admin/importacoes/$id'
@@ -247,6 +258,7 @@ export interface FileRouteTypes {
     | '/admin/metas'
     | '/admin/posts'
     | '/admin/projecoes'
+    | '/admin/estudio'
     | '/colaborador/dashboard'
     | '/admin/fechamentos/$id'
     | '/admin/importacoes/$id'
@@ -374,6 +386,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminBonusManualRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/estudio': {
+      id: '/admin/estudio'
+      path: '/estudio'
+      fullPath: '/admin/estudio'
+      preLoaderRoute: typeof AdminEstudioRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/fechamentos/': {
       id: '/admin/fechamentos/'
       path: '/'
@@ -428,6 +447,7 @@ interface AdminRouteChildren {
   AdminCentralReceitaRoute: typeof AdminCentralReceitaRoute
   AdminColaboradoresRoute: typeof AdminColaboradoresRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminEstudioRoute: typeof AdminEstudioRoute
   AdminFechamentosRoute: typeof AdminFechamentosRouteWithChildren
   AdminImportacoesRoute: typeof AdminImportacoesRouteWithChildren
   AdminLandscapeRoute: typeof AdminLandscapeRoute
@@ -442,6 +462,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminCentralReceitaRoute: AdminCentralReceitaRoute,
   AdminColaboradoresRoute: AdminColaboradoresRoute,
   AdminDashboardRoute: AdminDashboardRoute,
+  AdminEstudioRoute: AdminEstudioRoute,
   AdminFechamentosRoute: AdminFechamentosRouteWithChildren,
   AdminImportacoesRoute: AdminImportacoesRouteWithChildren,
   AdminLandscapeRoute: AdminLandscapeRoute,
