@@ -55,10 +55,19 @@ interface SplitRule {
   active: boolean;
 }
 
+const USD_TO_BRL = 5.70;
+
 function fmt(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
   return String(n);
+}
+
+function fmtBRL(usd: number): string {
+  const brl = usd * USD_TO_BRL;
+  if (brl >= 1_000_000) return `R$${(brl / 1_000_000).toFixed(1)}M`;
+  if (brl >= 1_000) return `R$${(brl / 1_000).toFixed(1)}k`;
+  return `R$${brl.toFixed(2)}`;
 }
 
 function normalizeHashtag(raw: string): string {
@@ -273,6 +282,20 @@ function Page() {
       .from("split_rules")
       .select("page_id, effective_from, collaborator_pct, active");
 
+    // Daily revenue entries by page for the period (most reliable source)
+    const { data: dailyRevData } = await supabase
+      .from("daily_revenue_entries")
+      .select("page_id, actual_revenue_usd")
+      .gte("entry_date", filterFrom)
+      .lte("entry_date", filterTo);
+
+    const dailyRevByPage = new Map<string, number>();
+    for (const e of (dailyRevData ?? [])) {
+      if (e.page_id) {
+        dailyRevByPage.set(e.page_id, (dailyRevByPage.get(e.page_id) ?? 0) + Number(e.actual_revenue_usd ?? 0));
+      }
+    }
+
     const postToCollabs = new Map<string, Set<string>>();
     for (const pa of periodPaRows) {
       if (!postToCollabs.has(pa.post_id)) postToCollabs.set(pa.post_id, new Set());
@@ -285,20 +308,54 @@ function Page() {
       rulesByPage.get(r.page_id)!.push(r as SplitRule);
     }
 
-    const revenueByColab = new Map<string, number>();
+    // Posts grouped by page
+    const postsByPage = new Map<string, string[]>();
     for (const post of periodPosts) {
-      const val = Number(post.estimated_usd ?? post.monetization_approx ?? 0);
-      if (val <= 0) continue;
-      const rules = (rulesByPage.get(post.page_id) ?? [])
-        .filter((r) => r.active && (!r.effective_from || !post.published_at || r.effective_from <= post.published_at))
+      if (!postsByPage.has(post.page_id)) postsByPage.set(post.page_id, []);
+      postsByPage.get(post.page_id)!.push(post.id);
+    }
+
+    const revenueByColab = new Map<string, number>();
+
+    // PRIMARY: distribute daily_revenue_entries proportionally by post count per page
+    for (const [pageId, pageRevenue] of dailyRevByPage) {
+      if (pageRevenue <= 0) continue;
+      const postsInPage = postsByPage.get(pageId) ?? [];
+      if (postsInPage.length === 0) continue;
+
+      const rules = (rulesByPage.get(pageId) ?? [])
+        .filter((r) => r.active)
         .sort((a, b) => (b.effective_from ?? "").localeCompare(a.effective_from ?? ""));
       const pct = (rules[0]?.collaborator_pct ?? 100) / 100;
-      const collaboratorRevenue = val * pct;
-      const colabIds = Array.from(postToCollabs.get(post.id) ?? []);
-      if (colabIds.length > 0) {
-        const share = collaboratorRevenue / colabIds.length;
+      const revenuePerPost = (pageRevenue * pct) / postsInPage.length;
+
+      for (const postId of postsInPage) {
+        const colabIds = Array.from(postToCollabs.get(postId) ?? []);
+        if (colabIds.length === 0) continue;
+        const share = revenuePerPost / colabIds.length;
         for (const cid of colabIds) {
           revenueByColab.set(cid, (revenueByColab.get(cid) ?? 0) + share);
+        }
+      }
+    }
+
+    // FALLBACK: if no daily entries, use per-post monetization_approx / estimated_usd
+    if (dailyRevByPage.size === 0) {
+      for (const post of periodPosts) {
+        // Use || (not ??) so that 0.00 falls through to next field
+        const val = Number(post.monetization_approx) || Number(post.estimated_usd) || 0;
+        if (val <= 0) continue;
+        const rules = (rulesByPage.get(post.page_id) ?? [])
+          .filter((r) => r.active && (!r.effective_from || !post.published_at || r.effective_from <= post.published_at))
+          .sort((a, b) => (b.effective_from ?? "").localeCompare(a.effective_from ?? ""));
+        const pct = (rules[0]?.collaborator_pct ?? 100) / 100;
+        const collaboratorRevenue = val * pct;
+        const colabIds = Array.from(postToCollabs.get(post.id) ?? []);
+        if (colabIds.length > 0) {
+          const share = collaboratorRevenue / colabIds.length;
+          for (const cid of colabIds) {
+            revenueByColab.set(cid, (revenueByColab.get(cid) ?? 0) + share);
+          }
         }
       }
     }
@@ -637,9 +694,9 @@ function Page() {
                         {/* Receita */}
                         <td className="px-4 py-3 text-right tabular-nums">
                           <span className={`font-semibold ${r.receita > 0 ? "text-orange-500" : "text-muted-foreground"}`}>
-                            {r.receita > 0 ? `$${r.receita.toFixed(2)}` : "–"}
+                            {r.receita > 0 ? fmtBRL(r.receita) : "–"}
                           </span>
-                          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">USD</div>
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">BRL</div>
                         </td>
                         {/* Sparkline */}
                         <td className="px-4 py-3">
@@ -730,7 +787,7 @@ function Page() {
                         { label: "Views", value: fmt(r.total_views), hi: r.total_views === maxViews && maxViews > 0 },
                         { label: "Curt.", value: fmt(r.total_reactions), hi: r.total_reactions === maxReactions && maxReactions > 0 },
                         { label: "Com.", value: fmt(r.total_comments), hi: r.total_comments === maxComments && maxComments > 0 },
-                        { label: "USD", value: r.receita > 0 ? `$${r.receita.toFixed(2)}` : "–", hi: r.receita > 0 },
+                        { label: "BRL", value: r.receita > 0 ? fmtBRL(r.receita) : "–", hi: r.receita > 0 },
                       ].map(({ label, value, hi }) => (
                         <div key={label} className="bg-muted/50 rounded-lg px-2 py-2 flex flex-col items-center gap-0.5">
                           <span className={`font-semibold text-sm ${hi ? "text-orange-500" : ""}`}>{value}</span>
