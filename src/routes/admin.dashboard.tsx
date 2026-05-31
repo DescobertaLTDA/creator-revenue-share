@@ -1312,432 +1312,373 @@ function AdminDashboard() {
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
-  return (
-    <div className="space-y-5">
+  // ── Hero sparkline (30-day revenue curve) ──────────────────────────────────
+  const heroSparkData = chartData.slice(-30).map((d) => d.receita);
 
-      {/* ── Tab header ── */}
-      <div className="flex items-start justify-between gap-3 flex-wrap">
+  // ── Insights ──────────────────────────────────────────────────────────────
+  const insightTopColab = activeCollabCards.find((c) => c.posts > 0);
+  const insightPeakDay = chartData.length > 0
+    ? chartData.reduce((best, d) => d.receita > best.receita ? d : best, chartData[0])
+    : null;
+  const manualDelta = showManual ? totalMonth - effectiveTotalMonthCsv : 0;
+  const manualDeltaPct = effectiveTotalMonthCsv > 0.001 ? (manualDelta / effectiveTotalMonthCsv) * 100 : 0;
+
+  const avgScoreVal = !loading && pageStatsWithGlobalScores.length > 0
+    ? Math.round(pageStatsWithGlobalScores.reduce((s, p) => s + p.score, 0) / pageStatsWithGlobalScores.length)
+    : 0;
+
+  return (
+    <div className="space-y-6">
+
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight text-[#1A0A00]">
             Bem-vindo, {profile?.nome?.split(" ")[0] ?? "usuário"} 👋
           </h1>
-          <p className="text-sm text-[#6B6B6B] mt-0.5">
+          <p className="text-sm text-[#6B6B6B] mt-1">
             {activeMonthRef ? formatMonth(activeMonthRef) : "—"}
-            {usdBrl && <span className="ml-2 text-[#6B6B6B]">· USD 1 = {formatBRL(usdBrl)}</span>}
+            {usdBrl && <span className="ml-2">· USD 1 = {formatBRL(usdBrl)}</span>}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <div className="flex rounded-lg border border-[#E0E0E0] overflow-hidden text-sm">
+          <div className="flex rounded-xl border border-[#E0E0E0] overflow-hidden text-sm bg-white">
             <button onClick={() => setActiveTab("overview")}
-              className={`px-3 py-1.5 font-medium transition-colors ${activeTab === "overview" ? "bg-[#F44708] text-white" : "text-[#6B6B6B] hover:bg-[#FFF0E8]"}`}>
-              Visão Geral
+              className={`flex items-center gap-1.5 px-3 py-2 font-medium transition-colors ${activeTab === "overview" ? "bg-[#F44708] text-white" : "text-[#6B6B6B] hover:bg-[#FFF0E8]"}`}>
+              <TrendingUp className="h-3.5 w-3.5" /> Visão Geral
             </button>
             <button onClick={() => setActiveTab("charts")}
-              className={`px-3 py-1.5 font-medium transition-colors ${activeTab === "charts" ? "bg-[#F44708] text-white" : "text-[#6B6B6B] hover:bg-[#FFF0E8]"}`}>
-              Gráficos
+              className={`flex items-center gap-1.5 px-3 py-2 font-medium transition-colors ${activeTab === "charts" ? "bg-[#F44708] text-white" : "text-[#6B6B6B] hover:bg-[#FFF0E8]"}`}>
+              <Eye className="h-3.5 w-3.5" /> Gráficos
             </button>
           </div>
           <button onClick={() => navigate({ to: "/admin/importacoes" })}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#F44708] to-[#FAA613] text-white text-sm font-medium rounded-xl hover:from-[#D93D07] hover:to-[#E09010] transition-all">
-            <Upload className="h-3.5 w-3.5" />
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#F44708] to-[#FF5A00] text-white text-sm font-semibold rounded-xl shadow-[0_4px_14px_rgba(244,71,8,0.35)] hover:from-[#D93D07] transition-all">
+            <Upload className="h-4 w-4" />
             <span className="hidden sm:inline">Importar CSV</span>
           </button>
         </div>
       </div>
 
-      {/* ── Filtros ── */}
-      <div className="border border-[#E0E0E0] rounded-xl px-4 py-3 bg-white">
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end">
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-medium uppercase tracking-wider text-[#6B6B6B]">Página</label>
-            <select value={filterPage} onChange={(e) => setFilterPage(e.target.value)}
-              className="h-8 rounded-lg border border-[#E0E0E0] bg-white px-2 text-sm w-full sm:min-w-[200px]">
-              <option value="all">Todas as páginas</option>
-              {(() => {
-                const fb = pages.filter((p) => (p.source ?? "facebook") === "facebook");
-                const ig = pages.filter((p) => p.source === "instagram");
-                const hasBoth = fb.length > 0 && ig.length > 0;
-                if (!hasBoth) return pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>);
-                return (
-                  <>
-                    <optgroup label="Facebook">
-                      {fb.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </optgroup>
-                    <optgroup label="Instagram">
-                      {ig.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </optgroup>
-                  </>
-                );
-              })()}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-medium uppercase tracking-wider text-[#6B6B6B]">Colaborador</label>
-            <select value={filterColab} onChange={(e) => setFilterColab(e.target.value)}
-              className="h-8 rounded-lg border border-[#E0E0E0] bg-white px-2 text-sm w-full sm:min-w-[160px]">
-              <option value="all">Todos</option>
-              <option value={SEM_COLAB_ID}>Sem colaborador</option>
-              {colabs.map((c) => <option key={c.id} value={c.id}>{c.nome}{c.hashtag ? ` (#${c.hashtag})` : ""}</option>)}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-medium uppercase tracking-wider text-[#6B6B6B]">De</label>
-            <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
-              className="h-8 rounded-lg border border-[#E0E0E0] bg-white px-2 text-sm" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-medium uppercase tracking-wider text-[#6B6B6B]">Até</label>
-            <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
-              className="h-8 rounded-lg border border-[#E0E0E0] bg-white px-2 text-sm" />
-          </div>
-          {(filterPage !== "all" || filterColab !== "all") && (
-            <button onClick={() => { setFilterPage("all"); setFilterColab("all"); }}
-              className="h-8 px-3 rounded-lg text-xs text-[#6B6B6B] border border-[#E0E0E0] hover:bg-[#FFF0E8] transition-colors">
-              Limpar
-            </button>
-          )}
-          {/* Manual data toggle */}
-          <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
-            <label className="text-[10px] font-medium uppercase tracking-wider text-[#6B6B6B]">Dados manuais</label>
-            <button
-              onClick={() => setShowManual((v) => !v)}
-              className="h-8 flex items-center focus:outline-none"
-              aria-pressed={showManual}
-            >
-              <div className={`relative flex items-center h-8 w-[72px] rounded-full px-1 transition-colors duration-200 ${showManual ? "bg-[#F44708]" : "bg-[#D0D0D0]"}`}>
-                {/* track label */}
-                <span className={`absolute text-[10px] font-bold text-white tracking-wide transition-all duration-200 ${showManual ? "left-2.5" : "right-2.5"}`}>
-                  {showManual ? "ON" : "OFF"}
-                </span>
-                {/* thumb */}
-                <span className={`relative z-10 h-6 w-6 rounded-full bg-white shadow-md transition-all duration-200 shrink-0 ${showManual ? "translate-x-[36px]" : "translate-x-0"}`} />
-              </div>
-            </button>
-          </div>
-        </div>
-      </div>
-
       {activeTab === "charts" && !loading && chartData.length > 0 && (
-        <Suspense fallback={<div className="h-48 bg-[#FFF0E8] rounded-xl animate-pulse" />}>
+        <Suspense fallback={<div className="h-48 bg-[#FFF0E8] rounded-2xl animate-pulse" />}>
           <DashboardCharts data={chartData} />
         </Suspense>
       )}
 
       {activeTab === "overview" && (
         <>
-          {/* ── KPI Strip ── */}
-          {(() => {
-            const avgScore = !loading && pageStatsWithGlobalScores.length > 0
-              ? Math.round(pageStatsWithGlobalScores.reduce((s, p) => s + p.score, 0) / pageStatsWithGlobalScores.length)
-              : 0;
-            const scoreColor = avgScore >= 75 ? "#16a34a" : avgScore >= 50 ? "#f59e0b" : avgScore >= 25 ? "#f97316" : "#F44708";
-            return (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {/* Receita do Período */}
-                <KpiCard
-                  label="Receita do Período"
-                  value={loading ? <Sk w="w-28" h="h-7" /> : usdBrl ? formatBRL(totalMonth * usdBrl) : `$${totalMonth.toFixed(2)}`}
-                  sub={loading ? <Sk w="w-20" h="h-3" /> : usdBrl && !loading ? `$${totalMonth.toFixed(2)} USD` : null}
-                  delta={showManual && !loading ? totalMonth - effectiveTotalMonthCsv : 0}
-                  fmtDelta={(n) => usdBrl ? formatBRL(Math.abs(n) * usdBrl) : `$${Math.abs(n).toFixed(2)}`}
-                  icon={DollarSign}
-                />
-                {/* RPM Médio */}
-                <KpiCard
-                  label="RPM Médio"
-                  value={loading ? <Sk w="w-24" h="h-7" /> : usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(4)}`}
-                  sub={loading ? <Sk w="w-32" h="h-3" /> : "por mil visualizações"}
-                  delta={showManual && !loading ? avgRpm - csvAvgRpm : 0}
-                  fmtDelta={(n) => usdBrl ? formatBRL(Math.abs(n) * usdBrl) : `$${Math.abs(n).toFixed(4)}`}
-                  icon={Zap}
-                />
-                {/* Visualizações */}
-                <KpiCard
-                  label="Visualizações"
-                  value={loading ? <Sk w="w-20" h="h-7" /> : fmt(totalViews)}
-                  sub={loading ? <Sk w="w-16" h="h-3" /> : `${kpis.totalPosts.toLocaleString("pt-BR")} posts`}
-                  delta={showManual && !loading ? totalViews - effectiveCsvTotalViews : 0}
-                  fmtDelta={(n) => fmt(Math.abs(n))}
-                  icon={Eye}
-                />
-                {/* Score Médio — com velocímetro */}
-                <div className="bg-white border border-[#E0E0E0] rounded-2xl p-5 transition-colors flex flex-col">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-xs font-medium text-[#6B6B6B] uppercase tracking-wider">Score Médio</p>
-                    <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#FFF0E8] to-[#FFD9C0] flex items-center justify-center">
-                      <TrendingUp className="h-4 w-4 text-[#F44708]" />
-                    </div>
-                  </div>
+
+          {/* ═══════════════ HERO CARD ═══════════════ */}
+          <div className="relative w-full rounded-3xl overflow-hidden text-white"
+            style={{ background: "linear-gradient(135deg,#FF5A00 0%,#FF3D00 100%)", boxShadow: "0 20px 50px rgba(255,90,0,.18)" }}>
+            <div className="pointer-events-none absolute -top-16 -right-16 h-64 w-64 rounded-full bg-white/5" />
+            <div className="pointer-events-none absolute -bottom-12 -left-12 h-48 w-48 rounded-full bg-white/5" />
+            <div className="relative p-8 pb-6">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[.15em] text-white/70 mb-3">Receita do Período</p>
                   {loading ? (
-                    <div className="mt-2 space-y-2">
-                      <Sk w="w-16" h="h-7" />
-                      <Sk w="w-24" h="h-3" />
+                    <div className="space-y-2">
+                      <div className="h-16 w-64 rounded-xl bg-white/20 animate-pulse" />
+                      <div className="h-4 w-32 rounded bg-white/15 animate-pulse" />
                     </div>
                   ) : (
-                    <div className="flex items-end gap-3">
-                      <DashSpeedometer score={avgScore} />
-                      <div className="pb-1">
-                        <p className="text-2xl font-bold tabular-nums" style={{ color: scoreColor }}>{avgScore}<span className="text-sm font-normal text-[#6B6B6B]">/100</span></p>
-                        <p className="text-xs text-[#6B6B6B] mt-0.5">{pageStatsWithGlobalScores.length} páginas</p>
+                    <>
+                      <p className="font-extrabold leading-none tabular-nums" style={{ fontSize: 64 }}>
+                        {usdBrl ? formatBRL(totalMonth * usdBrl) : `$${totalMonth.toFixed(2)}`}
+                      </p>
+                      <div className="flex items-center gap-3 mt-3 flex-wrap">
+                        {usdBrl && <span className="text-base font-semibold text-white/80 tabular-nums">${totalMonth.toFixed(2)} USD</span>}
+                        {showManual && manualDelta > 0.001 && (
+                          <span className="flex items-center gap-1 bg-white/15 rounded-full px-3 py-1 text-sm font-bold">
+                            ▲ {manualDeltaPct > 0 ? `${manualDeltaPct.toFixed(0)}%` : ""} vs CSV puro
+                          </span>
+                        )}
                       </div>
-                    </div>
+                    </>
                   )}
                 </div>
-              </div>
-            );
-          })()}
-
-          {/* ── Colaboradores ── */}
-          {loading && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-              {[1,2,3,4].map((i) => (
-                <div key={i} className="bg-white border border-[#E0E0E0] rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Sk w="w-9" h="h-9" className="rounded-full shrink-0" />
-                    <Sk w="w-20" h="h-4" />
+                {!loading && heroSparkData.length >= 2 && (
+                  <div className="shrink-0 hidden sm:block">
+                    <HeroSparkline data={heroSparkData} />
                   </div>
-                  <Sk w="w-16" h="h-6" />
-                  <Sk w="w-24" h="h-3" />
-                  <Sk w="w-full" h="h-3" />
-                </div>
-              ))}
-            </div>
-          )}
-          {!loading && activeCollabCards.filter((c) => c.posts > 0).length > 0 && (() => {
-            const visibleCards = activeCollabCards.filter((c) => c.posts > 0);
-            const receitaOnById = new Map(collabCards.map((c) => [c.id, c.receita]));
-            const receitaOffById = new Map(collabCardsCsv.map((c) => [c.id, c.receita]));
-            return (
-              <ColabSection
-                cards={visibleCards}
-                sparklineByColab={sparklineByColab}
-                usdBrl={usdBrl}
-                onCardClick={(id) => setAuditColabId(id)}
-                receitaOnById={receitaOnById}
-                receitaOffById={receitaOffById}
-                showDelta={showManual}
-              />
-            );
-          })()}
-
-          {/* ── Gráfico skeleton ── */}
-          {loading && (
-            <div className="bg-white border border-[#E0E0E0] rounded-2xl p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1.5"><Sk w="w-32" h="h-4" /><Sk w="w-48" h="h-3" /></div>
-                <div className="flex gap-1">{[1,2,3,4,5,6].map(i => <Sk key={i} w="w-14" h="h-7" className="rounded-lg" />)}</div>
-              </div>
-              <Sk w="w-full" h="h-52" className="rounded-xl" />
-            </div>
-          )}
-
-          {/* ── Gráfico com abas de métricas ── */}
-          {!loading && (() => {
-            const METRIC_TABS = METRIC_TABS_DEF;
-
-            const fmtMetricVal = (v: number) => {
-              if (chartMetric === "receita") return usdBrl ? formatBRL(v * usdBrl) : `$${v.toFixed(4)}`;
-              return v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M`
-                : v >= 1_000 ? `${(v / 1_000).toFixed(1)}k`
-                : v.toLocaleString("pt-BR");
-            };
-
-            const activeDataset = filterPage === "all"
-              ? (chartMetric === "seguidores" ? multiPageFollowersDataset : multiPageAllMetrics?.[chartMetric] ?? null)
-              : null;
-
-            return (
-              <div className="bg-white border border-[#E0E0E0] rounded-2xl p-5">
-                {/* Header: title + tabs */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                  <div>
-                    <h2 className="text-sm font-semibold">
-                      {filterPage === "all" ? "Métricas por Página" : "Métricas" + (chartMetric === "receita" ? " + Projeção" : "")}
-                    </h2>
-                    <p className="text-xs text-[#6B6B6B] mt-0.5">
-                      {filterPage === "all" ? "Uma área por página" : chartMetric === "receita" ? "Histórico real e projeção 28 dias" : "Histórico do período"}
-                    </p>
-                  </div>
-                  {/* Tabs */}
-                  <div className="flex flex-wrap gap-1">
-                    {METRIC_TABS.map(({ key, label }) => (
-                      <button
-                        key={key}
-                        onClick={() => setChartMetric(key)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
-                          chartMetric === key
-                            ? "bg-[#F44708] text-white"
-                            : "text-[#6B6B6B] border border-[#E0E0E0] hover:bg-[#FFF0E8]"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    {filterPage === "all" && activeDataset && activeDataset.data.length > 0 ? (
-                      <ComposedChart
-                        data={chartMetric === "receita" && showManual
-                          ? activeDataset.data.map((row) => ({ ...row, __actual: dailyActualByDia.get(row.dia) ?? null }))
-                          : chartMetric === "views" && showManual
-                          ? activeDataset.data.map((row) => {
-                              const extra: Record<string, number | null> = {};
-                              for (const pid of activeDataset.pageIds) {
-                                extra[`__actual_${pid}`] = dailyActualViewsByPage.get(pid)?.get(row.dia) ?? null;
-                              }
-                              return { ...row, ...extra };
-                            })
-                          : activeDataset.data}
-                        margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
-                      >
-                        <defs>
-                          {activeDataset.pageIds.map((pid, i) => (
-                            <linearGradient key={pid} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor={PAGE_COLORS[i % PAGE_COLORS.length]} stopOpacity={0.45} />
-                              <stop offset="95%" stopColor={PAGE_COLORS[i % PAGE_COLORS.length]} stopOpacity={0.05} />
-                            </linearGradient>
-                          ))}
-                          <linearGradient id="gradActualMulti" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#F44708" stopOpacity={0.75} />
-                            <stop offset="95%" stopColor="#F44708" stopOpacity={0.15} />
-                          </linearGradient>
-                        </defs>
-                        <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#6B6B6B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
-                        <YAxis hide />
-                        <Tooltip
-                          formatter={(v: any, name: string) => {
-                            if (v === null || Number(v) === 0) return null as any;
-                            return [fmtMetricVal(Number(v)), name];
-                          }}
-                          labelStyle={{ color: "#1A0A00", fontSize: 11, fontWeight: 600 }}
-                          contentStyle={{ border: "1px solid #E0E0E0", borderRadius: 12, fontSize: 11, boxShadow: "none" }}
-                        />
-                        <Legend content={() => null} />
-                        {activeDataset.pageIds.map((pid, i) => (
-                          <Area
-                            key={pid}
-                            type="monotone"
-                            dataKey={pid}
-                            name={activeDataset.pageNameById.get(pid) ?? "Sem nome"}
-                            stroke="none"
-                            strokeWidth={0}
-                            fill={`url(#grad-${i})`}
-                            dot={false}
-                            connectNulls
-                          />
-                        ))}
-                        {chartMetric === "receita" && showManual && (
-                          <Area
-                            type="monotone"
-                            dataKey="__actual"
-                            name="Real Recebido"
-                            stroke="none"
-                            strokeWidth={0}
-                            fill="url(#gradActualMulti)"
-                            dot={false}
-                            connectNulls
-                            legendType="none"
-                          />
-                        )}
-                        {chartMetric === "views" && showManual && activeDataset.pageIds.map((pid, i) => (
-                          <Area
-                            key={`__actual_${pid}`}
-                            type="monotone"
-                            dataKey={`__actual_${pid}`}
-                            name={`${activeDataset.pageNameById.get(pid) ?? "Sem nome"} (manual)`}
-                            stroke="none"
-                            strokeWidth={0}
-                            fill={PAGE_COLORS[i % PAGE_COLORS.length]}
-                            fillOpacity={0.5}
-                            dot={false}
-                            connectNulls
-                            legendType="none"
-                          />
-                        ))}
-                      </ComposedChart>
-                    ) : filterPage !== "all" && chartMetric === "receita" ? (
-                      <ComposedChart
-                        data={showManual ? projectionChartData.map((row) => ({ ...row, actual: dailyActualByDia.get(row.dia) ?? null })) : projectionChartData}
-                        margin={{ top: 4, right: 0, left: 0, bottom: 0 }}
-                      >
-                        <defs>
-                          <linearGradient id="gradReal" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#F44708" stopOpacity={0.25} />
-                            <stop offset="95%" stopColor="#F44708" stopOpacity={0} />
-                          </linearGradient>
-                          <linearGradient id="gradProj" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#FAC46A" stopOpacity={0.25} />
-                            <stop offset="95%" stopColor="#FAC46A" stopOpacity={0} />
-                          </linearGradient>
-                          <linearGradient id="gradActual" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#F44708" stopOpacity={0.75} />
-                            <stop offset="95%" stopColor="#F44708" stopOpacity={0.15} />
-                          </linearGradient>
-                        </defs>
-                        <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#6B6B6B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
-                        <YAxis hide />
-                        <Tooltip
-                          formatter={(v: any) => v !== null ? (usdBrl ? formatBRL(Number(v) * usdBrl) : `$${Number(v).toFixed(4)}`) : "—"}
-                          labelStyle={{ color: "#1A0A00", fontSize: 11 }}
-                          contentStyle={{ border: "1px solid #E0E0E0", borderRadius: 10, fontSize: 11 }}
-                        />
-                        <Legend content={() => null} />
-                        <Area type="monotone" dataKey="real" stroke="none" strokeWidth={0} fill="url(#gradReal)" dot={false} connectNulls={false} legendType="none" />
-                        <Area type="monotone" dataKey="proj" stroke="none" strokeWidth={0} fill="url(#gradProj)" dot={false} connectNulls={false} legendType="none" />
-                        {showManual && <Area type="monotone" dataKey="actual" stroke="none" strokeWidth={0} fill="url(#gradActual)" dot={false} connectNulls={false} legendType="none" />}
-                      </ComposedChart>
-                    ) : singlePageMetricData && singlePageMetricData.length > 0 ? (
-                      <ComposedChart
-                        data={chartMetric === "views" && showManual
-                          ? singlePageMetricData.map((row) => ({ ...row, actual: dailyActualViewsByDia.get(row.dia) ?? null }))
-                          : singlePageMetricData}
-                        margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
-                      >
-                        <defs>
-                          <linearGradient id="gradSingle" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#F44708" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#F44708" stopOpacity={0} />
-                          </linearGradient>
-                          <linearGradient id="gradSingleActual" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#F44708" stopOpacity={0.75} />
-                            <stop offset="95%" stopColor="#F44708" stopOpacity={0.15} />
-                          </linearGradient>
-                        </defs>
-                        <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#6B6B6B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
-                        <YAxis hide />
-                        <Tooltip
-                          formatter={(v: any, name: string) => {
-                            if (v === null) return null as any;
-                            const label = name === "actual" ? "Views Manuais" : (METRIC_TABS.find((t) => t.key === chartMetric)?.label ?? chartMetric);
-                            return [fmtMetricVal(Number(v)), label];
-                          }}
-                          labelStyle={{ color: "#1A0A00", fontSize: 11 }}
-                          contentStyle={{ border: "1px solid #E0E0E0", borderRadius: 10, fontSize: 11 }}
-                        />
-                        <Legend content={() => null} />
-                        <Area type="monotone" dataKey="value" stroke="none" strokeWidth={0} fill="url(#gradSingle)" dot={false} connectNulls legendType="none" />
-                        {chartMetric === "views" && showManual && (
-                          <Area type="monotone" dataKey="actual" stroke="none" strokeWidth={0} fill="url(#gradSingleActual)" dot={false} connectNulls legendType="none" />
-                        )}
-                      </ComposedChart>
-                    ) : (
-                      <AreaChart data={[]} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                        <XAxis tick={{ fontSize: 10, fill: "#6B6B6B" }} axisLine={false} tickLine={false} />
-                        <YAxis hide />
-                      </AreaChart>
-                    )}
-                  </ResponsiveContainer>
-                </div>
-
-                {filterPage === "all" && !activeDataset && (
-                  <p className="text-center text-xs text-[#6B6B6B] mt-2">Nenhum dado para esta métrica no período</p>
                 )}
               </div>
-            );
-          })()}
+              <div className="mt-8 pt-6 border-t border-white/20 grid grid-cols-3 gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-1">RPM Médio</p>
+                  {loading ? <div className="h-7 w-24 rounded bg-white/20 animate-pulse" />
+                    : <p className="text-xl font-bold tabular-nums">{usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(4)}`}</p>}
+                  <p className="text-xs text-white/50 mt-0.5">por mil views</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-1">Visualizações</p>
+                  {loading ? <div className="h-7 w-20 rounded bg-white/20 animate-pulse" />
+                    : <p className="text-xl font-bold tabular-nums">{fmt(totalViews)}</p>}
+                  <p className="text-xs text-white/50 mt-0.5">{kpis.totalPosts} posts</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-1">Score Médio</p>
+                  {loading ? <div className="h-7 w-16 rounded bg-white/20 animate-pulse" />
+                    : <p className="text-xl font-bold tabular-nums">{avgScoreVal}<span className="text-sm font-normal text-white/60">/100</span></p>}
+                  <p className="text-xs text-white/50 mt-0.5">{pageStatsWithGlobalScores.length} páginas</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ═══════════════ FILTER BAR ═══════════════ */}
+          <div className="flex items-center gap-3 bg-white border border-[#EFEFEF] rounded-2xl px-5 flex-wrap min-h-[64px]"
+            style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+            <div className="flex flex-col gap-0.5 py-3 min-w-0">
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Página</label>
+              <select value={filterPage} onChange={(e) => setFilterPage(e.target.value)}
+                className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer min-w-[160px] max-w-[200px]">
+                <option value="all">Todas as páginas</option>
+                {(() => {
+                  const fb = pages.filter((p) => (p.source ?? "facebook") === "facebook");
+                  const ig = pages.filter((p) => p.source === "instagram");
+                  const hasBoth = fb.length > 0 && ig.length > 0;
+                  if (!hasBoth) return pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>);
+                  return (<>
+                    <optgroup label="Facebook">{fb.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</optgroup>
+                    <optgroup label="Instagram">{ig.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</optgroup>
+                  </>);
+                })()}
+              </select>
+            </div>
+            <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
+            <div className="flex flex-col gap-0.5 py-3">
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Colaborador</label>
+              <select value={filterColab} onChange={(e) => setFilterColab(e.target.value)}
+                className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer min-w-[120px]">
+                <option value="all">Todos</option>
+                <option value={SEM_COLAB_ID}>Sem colaborador</option>
+                {colabs.map((c) => <option key={c.id} value={c.id}>{c.nome}{c.hashtag ? ` (#${c.hashtag})` : ""}</option>)}
+              </select>
+            </div>
+            <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
+            <div className="flex flex-col gap-0.5 py-3">
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">De</label>
+              <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
+                className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer" />
+            </div>
+            <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
+            <div className="flex flex-col gap-0.5 py-3">
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Até</label>
+              <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
+                className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer" />
+            </div>
+            <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
+            <div className="flex flex-col gap-0.5 py-3">
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Dados Manuais</label>
+              <button onClick={() => setShowManual((v) => !v)} className="flex items-center focus:outline-none" aria-pressed={showManual}>
+                <div className={`relative flex items-center h-7 w-[68px] rounded-full px-1 transition-colors duration-200 ${showManual ? "bg-[#F44708]" : "bg-[#D0D0D0]"}`}>
+                  <span className={`absolute text-[10px] font-bold text-white tracking-wide transition-all duration-200 ${showManual ? "left-2.5" : "right-2.5"}`}>{showManual ? "ON" : "OFF"}</span>
+                  <span className={`relative z-10 h-5 w-5 rounded-full bg-white shadow-md transition-all duration-200 shrink-0 ${showManual ? "translate-x-[34px]" : "translate-x-0"}`} />
+                </div>
+              </button>
+            </div>
+            {(filterPage !== "all" || filterColab !== "all") && (
+              <><div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
+              <button onClick={() => { setFilterPage("all"); setFilterColab("all"); }}
+                className="text-xs font-medium text-[#F44708] hover:text-[#D93D07] transition-colors py-3">
+                Limpar filtros
+              </button></>
+            )}
+          </div>
+
+          {/* ═══════════════ MAIN GRID ═══════════════ */}
+          <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6">
+
+            {/* LEFT: Analytics chart */}
+            {loading ? (
+              <div className="bg-white border border-[#F1F1F1] rounded-2xl p-6 space-y-4" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2"><Sk w="w-40" h="h-5" /><Sk w="w-56" h="h-3" /></div>
+                  <div className="flex gap-1">{[1,2,3,4,5,6].map(i => <Sk key={i} w="w-16" h="h-7" className="rounded-full" />)}</div>
+                </div>
+                <Sk w="w-full" h="h-[340px]" className="rounded-xl" />
+              </div>
+            ) : (() => {
+              const fmtMetricVal = (v: number) => {
+                if (chartMetric === "receita") return usdBrl ? formatBRL(v * usdBrl) : `$${v.toFixed(4)}`;
+                return v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `${(v / 1_000).toFixed(1)}k` : v.toLocaleString("pt-BR");
+              };
+              const activeDataset = filterPage === "all"
+                ? (chartMetric === "seguidores" ? multiPageFollowersDataset : multiPageAllMetrics?.[chartMetric] ?? null)
+                : null;
+              return (
+                <div className="bg-white border border-[#F1F1F1] rounded-2xl p-6" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
+                    <div>
+                      <h2 className="text-base font-bold text-[#1A0A00]">
+                        {filterPage === "all" ? "Métricas por Página" : "Métricas" + (chartMetric === "receita" ? " + Projeção" : "")}
+                      </h2>
+                      <p className="text-xs text-[#9B9B9B] mt-0.5">
+                        {filterPage === "all" ? "Acompanhe a evolução das principais métricas ao longo do tempo." : chartMetric === "receita" ? "Histórico real e projeção 28 dias" : "Histórico do período"}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-1 shrink-0">
+                      {METRIC_TABS_DEF.map(({ key, label }) => (
+                        <button key={key} onClick={() => setChartMetric(key)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${chartMetric === key ? "bg-[#F44708] text-white shadow-sm" : "text-[#6B6B6B] bg-[#F5F5F5] hover:bg-[#FFF0E8] hover:text-[#F44708]"}`}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ height: 340 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      {filterPage === "all" && activeDataset && activeDataset.data.length > 0 ? (
+                        <ComposedChart data={chartMetric === "receita" && showManual ? activeDataset.data.map((row) => ({ ...row, __actual: dailyActualByDia.get(row.dia) ?? null })) : chartMetric === "views" && showManual ? activeDataset.data.map((row) => { const extra: Record<string, number | null> = {}; for (const pid of activeDataset.pageIds) extra[`__actual_${pid}`] = dailyActualViewsByPage.get(pid)?.get(row.dia) ?? null; return { ...row, ...extra }; }) : activeDataset.data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                          <defs>
+                            {activeDataset.pageIds.map((pid, i) => (<linearGradient key={pid} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={PAGE_COLORS[i % PAGE_COLORS.length]} stopOpacity={0.35} /><stop offset="95%" stopColor={PAGE_COLORS[i % PAGE_COLORS.length]} stopOpacity={0.03} /></linearGradient>))}
+                            <linearGradient id="gradActualMulti" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#F44708" stopOpacity={0.7} /><stop offset="95%" stopColor="#F44708" stopOpacity={0.1} /></linearGradient>
+                          </defs>
+                          <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9B9B9B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
+                          <YAxis hide />
+                          <Tooltip formatter={(v: any, name: string) => { if (v === null || Number(v) === 0) return null as any; return [fmtMetricVal(Number(v)), name]; }} labelStyle={{ color: "#1A0A00", fontSize: 11, fontWeight: 600 }} contentStyle={{ border: "1px solid #F1F1F1", borderRadius: 12, fontSize: 11, boxShadow: "0 8px 24px rgba(0,0,0,.08)" }} />
+                          <Legend content={() => null} />
+                          {activeDataset.pageIds.map((pid, i) => (<Area key={pid} type="monotone" dataKey={pid} name={activeDataset.pageNameById.get(pid) ?? "Sem nome"} stroke="none" strokeWidth={0} fill={`url(#grad-${i})`} dot={false} connectNulls />))}
+                          {chartMetric === "receita" && showManual && (<Area type="monotone" dataKey="__actual" name="Real Recebido" stroke="none" strokeWidth={0} fill="url(#gradActualMulti)" dot={false} connectNulls legendType="none" />)}
+                          {chartMetric === "views" && showManual && activeDataset.pageIds.map((pid, i) => (<Area key={`__actual_${pid}`} type="monotone" dataKey={`__actual_${pid}`} name={`${activeDataset.pageNameById.get(pid) ?? ""} (manual)`} stroke="none" strokeWidth={0} fill={PAGE_COLORS[i % PAGE_COLORS.length]} fillOpacity={0.5} dot={false} connectNulls legendType="none" />))}
+                        </ComposedChart>
+                      ) : filterPage !== "all" && chartMetric === "receita" ? (
+                        <ComposedChart data={showManual ? projectionChartData.map((row) => ({ ...row, actual: dailyActualByDia.get(row.dia) ?? null })) : projectionChartData} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="gradReal" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#F44708" stopOpacity={0.2} /><stop offset="95%" stopColor="#F44708" stopOpacity={0} /></linearGradient>
+                            <linearGradient id="gradProj" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#FAC46A" stopOpacity={0.2} /><stop offset="95%" stopColor="#FAC46A" stopOpacity={0} /></linearGradient>
+                            <linearGradient id="gradActual" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#F44708" stopOpacity={0.7} /><stop offset="95%" stopColor="#F44708" stopOpacity={0.1} /></linearGradient>
+                          </defs>
+                          <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9B9B9B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
+                          <YAxis hide />
+                          <Tooltip formatter={(v: any) => v !== null ? (usdBrl ? formatBRL(Number(v) * usdBrl) : `$${Number(v).toFixed(4)}`) : "—"} labelStyle={{ color: "#1A0A00", fontSize: 11 }} contentStyle={{ border: "1px solid #F1F1F1", borderRadius: 10, fontSize: 11, boxShadow: "0 8px 24px rgba(0,0,0,.08)" }} />
+                          <Legend content={() => null} />
+                          <Area type="monotone" dataKey="real" stroke="none" strokeWidth={0} fill="url(#gradReal)" dot={false} connectNulls={false} legendType="none" />
+                          <Area type="monotone" dataKey="proj" stroke="none" strokeWidth={0} fill="url(#gradProj)" dot={false} connectNulls={false} legendType="none" />
+                          {showManual && <Area type="monotone" dataKey="actual" stroke="none" strokeWidth={0} fill="url(#gradActual)" dot={false} connectNulls={false} legendType="none" />}
+                        </ComposedChart>
+                      ) : singlePageMetricData && singlePageMetricData.length > 0 ? (
+                        <ComposedChart data={chartMetric === "views" && showManual ? singlePageMetricData.map((row) => ({ ...row, actual: dailyActualViewsByDia.get(row.dia) ?? null })) : singlePageMetricData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="gradSingle" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#F44708" stopOpacity={0.25} /><stop offset="95%" stopColor="#F44708" stopOpacity={0} /></linearGradient>
+                            <linearGradient id="gradSingleActual" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#F44708" stopOpacity={0.7} /><stop offset="95%" stopColor="#F44708" stopOpacity={0.1} /></linearGradient>
+                          </defs>
+                          <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9B9B9B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
+                          <YAxis hide />
+                          <Tooltip formatter={(v: any, name: string) => { if (v === null) return null as any; const label = name === "actual" ? "Views Manuais" : (METRIC_TABS_DEF.find((t) => t.key === chartMetric)?.label ?? chartMetric); return [fmtMetricVal(Number(v)), label]; }} labelStyle={{ color: "#1A0A00", fontSize: 11 }} contentStyle={{ border: "1px solid #F1F1F1", borderRadius: 10, fontSize: 11, boxShadow: "0 8px 24px rgba(0,0,0,.08)" }} />
+                          <Legend content={() => null} />
+                          <Area type="monotone" dataKey="value" stroke="none" strokeWidth={0} fill="url(#gradSingle)" dot={false} connectNulls legendType="none" />
+                          {chartMetric === "views" && showManual && (<Area type="monotone" dataKey="actual" stroke="none" strokeWidth={0} fill="url(#gradSingleActual)" dot={false} connectNulls legendType="none" />)}
+                        </ComposedChart>
+                      ) : (
+                        <AreaChart data={[]} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                          <XAxis tick={{ fontSize: 10, fill: "#9B9B9B" }} axisLine={false} tickLine={false} /><YAxis hide />
+                        </AreaChart>
+                      )}
+                    </ResponsiveContainer>
+                  </div>
+                  {filterPage === "all" && !activeDataset && (<p className="text-center text-xs text-[#9B9B9B] mt-3">Nenhum dado para esta métrica no período</p>)}
+                </div>
+              );
+            })()}
+
+            {/* RIGHT: Collaborator ranking */}
+            <div className="bg-white border border-[#F1F1F1] rounded-2xl p-6 flex flex-col" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h2 className="text-base font-bold text-[#1A0A00]">Ranking</h2>
+                  <p className="text-xs text-[#9B9B9B] mt-0.5">Colaboradores no período</p>
+                </div>
+                <button onClick={() => navigate({ to: "/admin/colaboradores" })} className="text-xs font-semibold text-[#F44708] hover:text-[#D93D07] transition-colors">Ver todos →</button>
+              </div>
+              {loading ? (
+                <div className="space-y-3">
+                  {[1,2,3,4,5].map(i => (
+                    <div key={i} className="flex items-center gap-3">
+                      <Sk w="w-5" h="h-5" className="rounded shrink-0" />
+                      <Sk w="w-8" h="h-8" className="rounded-full shrink-0" />
+                      <div className="flex-1 space-y-1"><Sk w="w-24" h="h-3" /><Sk w="w-16" h="h-2.5" /></div>
+                      <Sk w="w-14" h="h-4" className="shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex-1 space-y-1 overflow-y-auto">
+                  {activeCollabCards.filter((c) => c.posts > 0).slice(0, 10).map((card, i) => {
+                    const spark = sparklineByColab.get(card.id) ?? Array(14).fill(0);
+                    const receitaOn = collabCards.find(c => c.id === card.id)?.receita ?? card.receita;
+                    const receitaOff = collabCardsCsv.find(c => c.id === card.id)?.receita ?? card.receita;
+                    const delta = showManual && receitaOff > 0.001 ? ((receitaOn - receitaOff) / receitaOff) * 100 : null;
+                    const rankColors = ["text-amber-500", "text-slate-400", "text-orange-400"];
+                    return (
+                      <button key={card.id} onClick={() => setAuditColabId(card.id)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#FFF8F5] transition-colors text-left">
+                        <span className={`text-xs font-black w-4 text-center shrink-0 ${rankColors[i] ?? "text-[#C0C0C0]"}`}>{i + 1}</span>
+                        <ColabInitials nome={card.nome} idx={i} size={32} avatarUrl={card.avatar_url} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-[#1A0A00] truncate leading-tight">{card.nome}</p>
+                          <p className="text-[11px] text-[#9B9B9B] tabular-nums">{fmt(card.views)} views</p>
+                        </div>
+                        <RankingSparkline data={spark} />
+                        <div className="text-right shrink-0 min-w-[64px]">
+                          <p className="text-sm font-bold text-[#1A0A00] tabular-nums">{usdBrl ? formatBRL(card.receita * usdBrl) : `$${card.receita.toFixed(2)}`}</p>
+                          {delta !== null && (<span className={`text-[10px] font-bold ${delta >= 0 ? "text-emerald-600" : "text-red-500"}`}>{delta >= 0 ? "▲" : "▼"}{Math.abs(delta).toFixed(0)}%</span>)}
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {activeCollabCards.filter((c) => c.posts > 0).length === 0 && (<p className="text-center text-xs text-[#9B9B9B] py-8">Nenhum colaborador no período</p>)}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ═══════════════ INSIGHTS ═══════════════ */}
+          {!loading && (insightTopColab || insightPeakDay || manualDelta > 0.001) && (
+            <div className="rounded-2xl border border-[#FFE1CC] p-5" style={{ background: "#FFF7F2" }}>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-6 w-6 rounded-lg bg-[#F44708]/10 flex items-center justify-center">
+                  <Zap className="h-3.5 w-3.5 text-[#F44708]" />
+                </div>
+                <h3 className="text-sm font-bold text-[#1A0A00]">Insights do período</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {insightTopColab && (
+                  <div className="flex items-start gap-3">
+                    <div className="h-8 w-8 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 mt-0.5"><Users className="h-4 w-4 text-amber-600" /></div>
+                    <div>
+                      <p className="text-xs font-semibold text-[#1A0A00]">Top colaborador</p>
+                      <p className="text-sm font-bold text-[#F44708]">{insightTopColab.nome}</p>
+                      <p className="text-xs text-[#9B9B9B] mt-0.5">{usdBrl ? formatBRL(insightTopColab.receita * usdBrl) : `$${insightTopColab.receita.toFixed(2)}`} · {insightTopColab.posts} posts</p>
+                    </div>
+                  </div>
+                )}
+                {insightPeakDay && insightPeakDay.receita > 0 && (
+                  <div className="flex items-start gap-3">
+                    <div className="h-8 w-8 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5"><TrendingUp className="h-4 w-4 text-emerald-600" /></div>
+                    <div>
+                      <p className="text-xs font-semibold text-[#1A0A00]">Pico de receita</p>
+                      <p className="text-sm font-bold text-[#1A0A00]">{usdBrl ? formatBRL(insightPeakDay.receita * usdBrl) : `$${insightPeakDay.receita.toFixed(2)}`}</p>
+                      <p className="text-xs text-[#9B9B9B] mt-0.5">em {insightPeakDay.dia}</p>
+                    </div>
+                  </div>
+                )}
+                {manualDelta > 0.001 && (
+                  <div className="flex items-start gap-3">
+                    <div className="h-8 w-8 rounded-xl bg-blue-100 flex items-center justify-center shrink-0 mt-0.5"><DollarSign className="h-4 w-4 text-blue-600" /></div>
+                    <div>
+                      <p className="text-xs font-semibold text-[#1A0A00]">Correções manuais</p>
+                      <p className="text-sm font-bold text-[#1A0A00]">+{usdBrl ? formatBRL(manualDelta * usdBrl) : `$${manualDelta.toFixed(2)}`}</p>
+                      <p className="text-xs text-[#9B9B9B] mt-0.5">acima do CSV puro</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
         </>
       )}
@@ -2019,5 +1960,56 @@ function ColabSection({ cards, sparklineByColab, usdBrl, onCardClick, receitaOnB
         ))}
       </div>
     </div>
+  );
+}
+
+// ─── HeroSparkline ────────────────────────────────────────────────────────────
+
+function HeroSparkline({ data }: { data: number[] }) {
+  const w = 200; const h = 64;
+  if (data.length < 2) return null;
+  const max = Math.max(...data, 0.001);
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - 4 - (v / max) * (h - 8);
+    return [x, y] as [number, number];
+  });
+  const polyPts = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const [lx, ly] = pts[pts.length - 1];
+  const [fx] = pts[0];
+  const areaD = `M${pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" L")} L${lx.toFixed(1)},${h} L${fx.toFixed(1)},${h} Z`;
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block", opacity: 0.85 }}>
+      <defs>
+        <linearGradient id="heroGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="white" stopOpacity={0.3} />
+          <stop offset="100%" stopColor="white" stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <path d={areaD} fill="url(#heroGrad)" />
+      <polyline points={polyPts} fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={lx} cy={ly} r={3} fill="white" />
+    </svg>
+  );
+}
+
+// ─── RankingSparkline ─────────────────────────────────────────────────────────
+
+function RankingSparkline({ data }: { data: number[] }) {
+  const w = 40; const h = 20;
+  if (!data || data.every((v) => v === 0)) return <div style={{ width: w, height: h }} />;
+  const max = Math.max(...data, 0.001);
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - 2 - (v / max) * (h - 4);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const last = data[data.length - 1];
+  const first = data[0];
+  const up = last >= first;
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block", flexShrink: 0 }}>
+      <polyline points={pts.join(" ")} fill="none" stroke={up ? "#16a34a" : "#dc2626"} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
