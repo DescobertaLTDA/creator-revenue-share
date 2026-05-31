@@ -455,21 +455,19 @@ export default function DataPipelinePage() {
       />
 
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight">Data Pipeline</h1>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Data Pipeline</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Sincronização inteligente dos dados de monetização da plataforma.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-border bg-white text-xs font-medium text-muted-foreground hover:bg-muted transition-colors">
-            <Settings2 className="h-3.5 w-3.5" /> Configurações de import
+          <button className="hidden sm:flex items-center gap-1.5 h-9 px-3 rounded-xl border border-border bg-white text-xs font-medium text-muted-foreground hover:bg-muted transition-colors shrink-0">
+            <Settings2 className="h-3.5 w-3.5" /> Configurações
           </button>
           <button
             onClick={guard(() => fileRef.current?.click())}
             disabled={uploading}
-            className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-[#F44708] text-white text-sm font-bold hover:bg-[#E03A07] transition-colors disabled:opacity-60"
+            className="flex items-center justify-center gap-1.5 h-9 flex-1 sm:flex-none sm:px-4 rounded-xl bg-[#F44708] text-white text-sm font-bold hover:bg-[#E03A07] transition-colors disabled:opacity-60"
           >
             {uploading
               ? <><Loader2 className="h-4 w-4 animate-spin" /> {bulkProgress ? `${bulkProgress.current}/${bulkProgress.total}` : "Processando…"}</>
@@ -523,8 +521,8 @@ export default function DataPipelinePage() {
       )}
 
       {/* ── Pipeline Stepper (full-width) ── */}
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
           <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pipeline de processamento</p>
           {activeUploadStep >= 0 ? (
             <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
@@ -551,41 +549,45 @@ export default function DataPipelinePage() {
       {/* ── Imports Table ── */}
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         {/* Tab bar + search */}
-        <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-0 flex-wrap">
-          <div className="flex items-center gap-0.5">
-            {([
-              { key: "all", label: "Todos", count: tabCounts.all },
-              { key: "concluido", label: "Concluídos", count: tabCounts.concluido },
-              { key: "processando", label: "Processando", count: tabCounts.processando },
-              { key: "erro", label: "Com erros", count: tabCounts.erro },
-            ] as const).map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors",
-                  activeTab === tab.key
-                    ? "text-[#F44708] border-b-2 border-[#F44708] rounded-none bg-transparent"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {tab.label}
-                <span className={cn(
-                  "text-[10px] font-bold px-1.5 py-0.5 rounded-full",
-                  activeTab === tab.key ? "bg-[#FAA613]/15 text-[#F44708]" : "bg-muted text-muted-foreground"
-                )}>
-                  {tab.count}
-                </span>
-              </button>
-            ))}
+        <div className="px-4 pt-4 pb-0">
+          {/* Tabs — scrollable on mobile */}
+          <div className="overflow-x-auto scrollbar-none -mx-4 px-4">
+            <div className="flex items-center gap-0.5 min-w-max border-b border-border">
+              {([
+                { key: "all", label: "Todos", count: tabCounts.all },
+                { key: "concluido", label: "Concluídos", count: tabCounts.concluido },
+                { key: "processando", label: "Processando", count: tabCounts.processando },
+                { key: "erro", label: "Erros", count: tabCounts.erro },
+              ] as const).map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap",
+                    activeTab === tab.key
+                      ? "text-[#F44708] border-b-2 border-[#F44708] bg-transparent"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {tab.label}
+                  <span className={cn(
+                    "text-[10px] font-bold px-1.5 py-0.5 rounded-full",
+                    activeTab === tab.key ? "bg-[#FAA613]/15 text-[#F44708]" : "bg-muted text-muted-foreground"
+                  )}>
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex items-center gap-2 pb-1">
-            <div className="relative">
+          {/* Search — full width on mobile, right-aligned on desktop */}
+          <div className="flex items-center gap-2 py-2">
+            <div className="relative flex-1 sm:flex-none">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
                 value={q} onChange={e => setQ(e.target.value)}
                 placeholder="Buscar arquivo..."
-                className="h-8 w-48 bg-muted/50 rounded-lg pl-8 pr-3 text-xs border border-border focus:outline-none focus:ring-1 focus:ring-[#F44708]/30"
+                className="h-8 w-full sm:w-48 bg-muted/50 rounded-lg pl-8 pr-3 text-xs border border-border focus:outline-none focus:ring-1 focus:ring-[#F44708]/30"
               />
             </div>
           </div>
@@ -601,7 +603,33 @@ export default function DataPipelinePage() {
           </div>
         ) : (
           <>
-            <table className="w-full text-xs">
+            {/* Mobile card list */}
+            <div className="sm:hidden divide-y divide-border border-t border-border">
+              {paginated.map(imp => (
+                <div
+                  key={imp.id}
+                  onClick={() => setSelectedId(imp.id)}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/20",
+                    selectedId === imp.id && "bg-[#FFF8F0]"
+                  )}
+                >
+                  <PlatformIcon source={imp.source ?? "facebook"} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-foreground truncate">{imp.file_name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {fmtPeriod(imp.period_start, imp.period_end)}
+                      {" · "}
+                      <span className="tabular-nums">{imp.valid_rows.toLocaleString()} linhas</span>
+                    </p>
+                  </div>
+                  <StatusPill status={imp.status} />
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <table className="hidden sm:table w-full text-xs">
               <thead>
                 <tr className="border-t border-border bg-muted/20">
                   <th className="text-left pl-5 pr-3 py-2.5 font-bold uppercase tracking-wider text-muted-foreground w-[35%]">Arquivo</th>
@@ -919,59 +947,90 @@ function PipelineStepper({ imp, activeStep }: { imp: ImportRow | null; activeSte
     : 6;
   const isError = !isLive && imp!.status === "falha";
 
+  const currentStepLabel = isLive
+    ? STEPS[activeStep]?.label
+    : isError ? `Erro em: ${STEPS[Math.max(0, stepsComplete - 1)]?.label}`
+    : "Concluído";
+
   return (
-    <div className="flex items-start w-full">
-      {STEPS.map((step, i) => {
-        const done   = i < stepsComplete;
-        const active = isLive ? i === activeStep : (i === stepsComplete - 1 && imp!.status === "processando");
-        const error  = isError && i === stepsComplete - 1;
-
-        let sub: string | null = null;
-        if (active) sub = "Em andamento…";
-        else if (error) sub = "Erro";
-        else if (done) sub = "Concluído";
-
-        return (
-          <div key={step.key} className="flex-1 flex flex-col items-center min-w-0">
-            {/* Dot row with symmetric connectors */}
-            <div className="flex items-center w-full">
-              <div className={cn("h-0.5 flex-1 transition-all duration-500", i === 0 ? "opacity-0" : done ? "bg-green-400" : "bg-border")} />
-              <div className={cn(
-                "h-7 w-7 rounded-full flex items-center justify-center shrink-0 border-2 transition-all duration-500",
-                done   ? "bg-green-500 border-green-500 text-white" :
-                active ? "bg-[#F44708] border-[#F44708] text-white" :
-                error  ? "bg-red-500 border-red-500 text-white" :
-                         "bg-card border-border"
-              )}>
-                {done   ? <CheckCircle2 className="h-4 w-4" />
-                : active ? <Loader2 className="h-4 w-4 animate-spin" />
-                : error  ? <AlertCircle className="h-4 w-4" />
-                : <div className="h-2 w-2 rounded-full bg-border" />}
+    <>
+      {/* ── Desktop: full stepper ── */}
+      <div className="hidden sm:flex items-start w-full">
+        {STEPS.map((step, i) => {
+          const done   = i < stepsComplete;
+          const active = isLive ? i === activeStep : (i === stepsComplete - 1 && imp!.status === "processando");
+          const error  = isError && i === stepsComplete - 1;
+          let sub: string | null = null;
+          if (active) sub = "Em andamento…";
+          else if (error) sub = "Erro";
+          else if (done) sub = "Concluído";
+          return (
+            <div key={step.key} className="flex-1 flex flex-col items-center min-w-0">
+              <div className="flex items-center w-full">
+                <div className={cn("h-0.5 flex-1 transition-all duration-500", i === 0 ? "opacity-0" : done ? "bg-green-400" : "bg-border")} />
+                <div className={cn(
+                  "h-7 w-7 rounded-full flex items-center justify-center shrink-0 border-2 transition-all duration-500",
+                  done   ? "bg-green-500 border-green-500 text-white" :
+                  active ? "bg-[#F44708] border-[#F44708] text-white" :
+                  error  ? "bg-red-500 border-red-500 text-white" :
+                           "bg-card border-border"
+                )}>
+                  {done   ? <CheckCircle2 className="h-4 w-4" />
+                  : active ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : error  ? <AlertCircle className="h-4 w-4" />
+                  : <div className="h-2 w-2 rounded-full bg-border" />}
+                </div>
+                <div className={cn("h-0.5 flex-1 transition-all duration-500", i === STEPS.length - 1 ? "opacity-0" : done ? "bg-green-400" : "bg-border")} />
               </div>
-              <div className={cn("h-0.5 flex-1 transition-all duration-500", i === STEPS.length - 1 ? "opacity-0" : done ? "bg-green-400" : "bg-border")} />
-            </div>
-            {/* Centered label */}
-            <div className="mt-3 text-center px-1 w-full">
-              <p className={cn(
-                "text-[11px] font-semibold leading-tight truncate",
-                done   ? "text-foreground" :
-                active ? "text-[#F44708]" :
-                error  ? "text-red-600" :
-                         "text-muted-foreground"
-              )}>{step.label}</p>
-              {sub && (
+              <div className="mt-3 text-center px-1 w-full">
                 <p className={cn(
-                  "text-[10px] font-medium mt-0.5",
-                  active ? "text-[#F44708] animate-pulse" :
-                  error  ? "text-red-500" :
-                           "text-green-600"
-                )}>{sub}</p>
-              )}
+                  "text-[11px] font-semibold leading-tight truncate",
+                  done ? "text-foreground" : active ? "text-[#F44708]" : error ? "text-red-600" : "text-muted-foreground"
+                )}>{step.label}</p>
+                {sub && (
+                  <p className={cn(
+                    "text-[10px] font-medium mt-0.5",
+                    active ? "text-[#F44708] animate-pulse" : error ? "text-red-500" : "text-green-600"
+                  )}>{sub}</p>
+                )}
+              </div>
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+
+      {/* ── Mobile: compact progress bar ── */}
+      <div className="sm:hidden space-y-2">
+        <div className="flex items-center justify-between text-xs">
+          <span className={cn("font-medium", isError ? "text-red-600" : isLive ? "text-[#F44708]" : "text-green-600")}>
+            {currentStepLabel}
+          </span>
+          <span className="text-muted-foreground tabular-nums">{Math.min(stepsComplete, 6)}/{STEPS.length}</span>
+        </div>
+        <div className="h-2 rounded-full bg-border overflow-hidden">
+          <div
+            className={cn(
+              "h-full rounded-full transition-all duration-500",
+              isError ? "bg-red-500" : isLive ? "bg-[#F44708]" : "bg-green-500"
+            )}
+            style={{ width: `${(Math.min(stepsComplete, 6) / STEPS.length) * 100}%` }}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          {STEPS.map((step, i) => {
+            const done = i < stepsComplete;
+            const active = isLive ? i === activeStep : false;
+            const error = isError && i === stepsComplete - 1;
+            return (
+              <div key={step.key} className={cn(
+                "h-2 w-2 rounded-full shrink-0 transition-colors",
+                done ? "bg-green-500" : active ? "bg-[#F44708]" : error ? "bg-red-500" : "bg-border"
+              )} />
+            );
+          })}
+        </div>
+      </div>
+    </>
   );
 }
 
