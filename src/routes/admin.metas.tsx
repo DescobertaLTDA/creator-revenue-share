@@ -6,7 +6,7 @@ import { formatBRL } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   Target, Plus, Trash2, Pencil, CheckCircle2, Clock,
-  XCircle, Archive, Loader2, AlertTriangle, TrendingUp, Lock, ShieldCheck,
+  XCircle, Archive, Loader2, AlertTriangle, TrendingUp, Lock,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -293,26 +293,18 @@ export function MetasPage() {
         </button>
       </div>
 
-      {/* System goals section */}
-      {systemGoals.length > 0 && (
-        <Section
-          title="Meta do Sistema"
-          count={systemGoals.length}
-          icon={<ShieldCheck className="h-3.5 w-3.5 text-orange-500" />}
-        >
-          {systemGoals.map((g) => (
-            <GoalCard key={g.id} g={g} onEdit={() => {}} onArchive={() => {}} onDelete={() => {}} />
-          ))}
-        </Section>
-      )}
+      {/* System goals — compact dedicated card */}
+      {systemGoals.map((g) => (
+        <SystemGoalCard key={g.id} g={g} />
+      ))}
 
-      {/* Empty state for user goals */}
-      {userGoals.length === 0 && (
+      {/* Empty state — only when there are no user goals AND no system goals visible */}
+      {userGoals.length === 0 && systemGoals.length === 0 && (
         <div className="rounded-xl border border-border bg-card p-12 flex flex-col items-center gap-3 text-center">
           <div className="h-12 w-12 rounded-full bg-orange-500/10 flex items-center justify-center">
             <Target className="h-6 w-6 text-orange-500" />
           </div>
-          <p className="font-semibold">Nenhuma meta personalizada</p>
+          <p className="font-semibold">Nenhuma meta criada</p>
           <p className="text-sm text-muted-foreground max-w-xs">
             Defina uma meta de receita com prazo e acompanhe o progresso automaticamente.
           </p>
@@ -441,6 +433,64 @@ function Section({
     </div>
   );
 }
+
+// ─── System goal compact card ─────────────────────────────────────────────────
+
+function SystemGoalCard({ g }: { g: GoalProgress }) {
+  const pct = Math.min(100, Number(g.progress_percentage));
+  const isCompleted = g.calculated_status === "COMPLETED";
+
+  const barColor =
+    isCompleted         ? "bg-emerald-500" :
+    pct >= 70           ? "bg-emerald-500" :
+    pct >= 40           ? "bg-amber-400"   : "bg-red-400";
+
+  const pctColor =
+    isCompleted         ? "text-emerald-600" :
+    pct >= 70           ? "text-emerald-600" :
+    pct >= 40           ? "text-amber-500"   : "text-red-500";
+
+  return (
+    <div className="rounded-2xl border border-orange-200 dark:border-orange-800 bg-card p-4 flex flex-col gap-3">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="shrink-0 h-8 w-8 rounded-full bg-orange-500/10 flex items-center justify-center">
+            <Lock className="h-3.5 w-3.5 text-orange-500" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-tight">{g.title}</p>
+            <p className="text-[11px] text-muted-foreground">
+              Meta mensal do sistema · {fmtDate(g.start_date)} → {fmtDate(g.end_date)}
+            </p>
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className={`text-xl font-bold tabular-nums ${pctColor}`}>{pct.toFixed(0)}%</p>
+          {isCompleted && (
+            <p className="text-[10px] text-emerald-600 font-semibold">Pagamento liberado ✓</p>
+          )}
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="space-y-1.5">
+        <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-700 ${barColor}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <div className="flex justify-between text-xs text-muted-foreground tabular-nums">
+          <span className="font-medium text-foreground">{fmtUsd(Number(g.current_amount))}</span>
+          <span>de {fmtUsd(Number(g.target_amount))}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── User goal card ───────────────────────────────────────────────────────────
 
 function GoalCard({ g, onEdit, onArchive, onDelete }: {
   g: GoalProgress;
