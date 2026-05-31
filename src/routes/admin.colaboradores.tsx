@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Users, Plus, Loader2, Hash, Trash2, Camera, UserCircle,
-  Search, MoreVertical, Flame, CheckCircle2, MessageSquare,
+  Search, MoreVertical, Flame, CheckCircle2, MessageSquare, CalendarDays,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/colaboradores")({
@@ -39,12 +39,20 @@ interface Col {
   total_reactions: number;
   total_comments: number;
   sparkline: number[]; // views per month, last 6 months (index 0 = oldest)
+  receita: number; // USD revenue in selected period
 }
 
 interface PostLite {
   id: string;
   title: string | null;
   description: string | null;
+}
+
+interface SplitRule {
+  page_id: string;
+  effective_from: string | null;
+  collaborator_pct: number;
+  active: boolean;
 }
 
 function fmt(n: number): string {
@@ -176,6 +184,17 @@ function Page() {
   const [tab, setTab] = useState<"todos" | "ativos" | "em-alta">("todos");
   const [q, setQ] = useState("");
 
+  // Date filter — defaults to day 1 → last day of current month
+  const [filterFrom, setFilterFrom] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  });
+  const [filterTo, setFilterTo] = useState<string>(() => {
+    const d = new Date();
+    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    return `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, "0")}-${String(last.getDate()).padStart(2, "0")}`;
+  });
+
   // Form state
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -232,16 +251,68 @@ function Page() {
       }
     }
 
+    // ── Period revenue per collaborator ─────────────────────────────────────
+    const periodPosts = await fetchAllRows<{
+      id: string; page_id: string; published_at: string | null;
+      estimated_usd: number | null; monetization_approx: number | null;
+    }>(() =>
+      supabase.from("posts")
+        .select("id, page_id, published_at, estimated_usd, monetization_approx")
+        .gte("published_at", filterFrom)
+        .lte("published_at", filterTo + "T23:59:59")
+    );
+
+    const periodPostIds = periodPosts.map((p) => p.id);
+    const periodPaRows = periodPostIds.length > 0
+      ? await fetchAllRows<{ post_id: string; collaborator_id: string }>(() =>
+          supabase.from("post_authors").select("post_id, collaborator_id").in("post_id", periodPostIds)
+        )
+      : [];
+
+    const { data: splitRulesData } = await supabase
+      .from("split_rules")
+      .select("page_id, effective_from, collaborator_pct, active");
+
+    const postToCollabs = new Map<string, Set<string>>();
+    for (const pa of periodPaRows) {
+      if (!postToCollabs.has(pa.post_id)) postToCollabs.set(pa.post_id, new Set());
+      postToCollabs.get(pa.post_id)!.add(pa.collaborator_id);
+    }
+
+    const rulesByPage = new Map<string, SplitRule[]>();
+    for (const r of (splitRulesData ?? [])) {
+      if (!rulesByPage.has(r.page_id)) rulesByPage.set(r.page_id, []);
+      rulesByPage.get(r.page_id)!.push(r as SplitRule);
+    }
+
+    const revenueByColab = new Map<string, number>();
+    for (const post of periodPosts) {
+      const val = Number(post.estimated_usd ?? post.monetization_approx ?? 0);
+      if (val <= 0) continue;
+      const rules = (rulesByPage.get(post.page_id) ?? [])
+        .filter((r) => r.active && (!r.effective_from || !post.published_at || r.effective_from <= post.published_at))
+        .sort((a, b) => (b.effective_from ?? "").localeCompare(a.effective_from ?? ""));
+      const pct = (rules[0]?.collaborator_pct ?? 100) / 100;
+      const collaboratorRevenue = val * pct;
+      const colabIds = Array.from(postToCollabs.get(post.id) ?? []);
+      if (colabIds.length > 0) {
+        const share = collaboratorRevenue / colabIds.length;
+        for (const cid of colabIds) {
+          revenueByColab.set(cid, (revenueByColab.get(cid) ?? 0) + share);
+        }
+      }
+    }
+
     const built: Col[] = cols.map((c) => {
       const m = metricsMap[c.id] ?? { post_count: 0, total_views: 0, total_reactions: 0, total_comments: 0, months: Array(6).fill(0) };
-      return { ...c, categoria: c.categoria ?? null, post_count: m.post_count, total_views: m.total_views, total_reactions: m.total_reactions, total_comments: m.total_comments, sparkline: m.months };
+      return { ...c, categoria: c.categoria ?? null, post_count: m.post_count, total_views: m.total_views, total_reactions: m.total_reactions, total_comments: m.total_comments, sparkline: m.months, receita: parseFloat((revenueByColab.get(c.id) ?? 0).toFixed(2)) };
     });
 
     setRows(built);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [filterFrom, filterTo]);
 
   // Sort by views desc for ranking
   const sorted = [...rows].sort((a, b) => b.total_views - a.total_views);
@@ -435,6 +506,26 @@ function Page() {
         </form>
       )}
 
+      {/* Date filter */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
+        <span className="text-sm text-muted-foreground">Período:</span>
+        <input
+          type="date"
+          value={filterFrom}
+          onChange={(e) => setFilterFrom(e.target.value)}
+          className="border border-border rounded-md px-2 py-1 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+        <span className="text-sm text-muted-foreground">até</span>
+        <input
+          type="date"
+          value={filterTo}
+          onChange={(e) => setFilterTo(e.target.value)}
+          className="border border-border rounded-md px-2 py-1 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+        <span className="text-xs text-muted-foreground italic">Receita calculada sobre os posts publicados neste período</span>
+      </div>
+
       {/* Tabs + search */}
       <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
         <div className="flex items-center gap-1.5">
@@ -484,6 +575,7 @@ function Page() {
                     <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Views</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Curtidas</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Comentários</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-orange-500">Receita</th>
                     <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Performance</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
                     {isAdmin && <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ações</th>}
@@ -541,6 +633,13 @@ function Page() {
                             {fmt(r.total_comments)}
                           </span>
                           <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Comentários</div>
+                        </td>
+                        {/* Receita */}
+                        <td className="px-4 py-3 text-right tabular-nums">
+                          <span className={`font-semibold ${r.receita > 0 ? "text-orange-500" : "text-muted-foreground"}`}>
+                            {r.receita > 0 ? `$${r.receita.toFixed(2)}` : "–"}
+                          </span>
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">USD</div>
                         </td>
                         {/* Sparkline */}
                         <td className="px-4 py-3">
@@ -625,12 +724,13 @@ function Page() {
                         )}
                       </div>
                     </div>
-                    <div className="grid grid-cols-4 gap-2 tabular-nums">
+                    <div className="grid grid-cols-5 gap-2 tabular-nums">
                       {[
                         { label: "Posts", value: fmt(r.post_count), hi: false },
                         { label: "Views", value: fmt(r.total_views), hi: r.total_views === maxViews && maxViews > 0 },
                         { label: "Curt.", value: fmt(r.total_reactions), hi: r.total_reactions === maxReactions && maxReactions > 0 },
                         { label: "Com.", value: fmt(r.total_comments), hi: r.total_comments === maxComments && maxComments > 0 },
+                        { label: "USD", value: r.receita > 0 ? `$${r.receita.toFixed(2)}` : "–", hi: r.receita > 0 },
                       ].map(({ label, value, hi }) => (
                         <div key={label} className="bg-muted/50 rounded-lg px-2 py-2 flex flex-col items-center gap-0.5">
                           <span className={`font-semibold text-sm ${hi ? "text-orange-500" : ""}`}>{value}</span>
