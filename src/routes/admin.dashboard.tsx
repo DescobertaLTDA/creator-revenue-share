@@ -1559,7 +1559,7 @@ function AdminDashboard() {
           })()}
 
           {/* ═══════════════ MAIN GRID ═══════════════ */}
-          <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6 xl:items-start">
 
             {/* LEFT: Analytics chart — Receita + 3 cenários de projeção */}
             {loading ? (
@@ -1661,7 +1661,7 @@ function AdminDashboard() {
                 </div>
               ) : (
                 <div className="flex-1 space-y-1 overflow-y-auto">
-                  {activeCollabCards.filter((c) => c.posts > 0).slice(0, 10).map((card, i) => {
+                  {activeCollabCards.filter((c) => c.posts > 0).slice(0, 5).map((card, i) => {
                     const spark = sparklineByColab.get(card.id) ?? Array(14).fill(0);
                     const receitaOn = collabCards.find(c => c.id === card.id)?.receita ?? card.receita;
                     const receitaOff = collabCardsCsv.find(c => c.id === card.id)?.receita ?? card.receita;
