@@ -1147,12 +1147,13 @@ function AdminDashboard() {
       proj: null, optimistic: null, conservative: null,
     }));
     const last = chartDataCsv[chartDataCsv.length - 1];
-    const todayStr = new Date().toISOString().slice(0, 10);
-    // Always project 28 days forward from today, regardless of the date filter
+    const today = new Date();
+    const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const daysLeftInMonth = lastDayOfMonth - today.getDate(); // 0 on last day → no projection
     const futuro: FutRow[] = [];
-    for (let i = 1; i <= 28; i++) {
-      const d = new Date(todayStr);
-      d.setDate(d.getDate() + i);
+    for (let i = 1; i <= daysLeftInMonth; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
       const [, mo, dy] = d.toISOString().slice(0, 10).split("-");
       futuro.push({
         dia: `${dy}/${mo}`, real: null,
@@ -1161,14 +1162,14 @@ function AdminDashboard() {
         conservative: projections.today * 0.65,
       });
     }
-    if (last) hist[hist.length - 1] = {
+    if (last && daysLeftInMonth > 0) hist[hist.length - 1] = {
       ...hist[hist.length - 1],
       proj: projections.today,
       optimistic: projections.today * 1.72,
       conservative: projections.today * 0.65,
     };
     return [...hist, ...futuro];
-  }, [chartDataCsv, projections, filterTo]);
+  }, [chartDataCsv, projections]);
 
   // Map "dd/mm" → actual_revenue_usd for overlay on revenue charts (filtered by selected page)
   const dailyActualByDia = useMemo(() => {
@@ -1574,7 +1575,7 @@ function AdminDashboard() {
                     Histórico real dos últimos 30 dias e 3 cenários de projeção
                   </p>
                 </div>
-                <div className="h-[220px] sm:h-[300px]">
+                <div className="h-[200px] sm:h-[260px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart
                       data={showManual ? projectionChartData.map((row) => ({ ...row, actual: dailyActualByDia.get(row.dia) ?? null })) : projectionChartData}
@@ -1594,8 +1595,8 @@ function AdminDashboard() {
                           <stop offset="95%" stopColor="#F44708" stopOpacity={0.05} />
                         </linearGradient>
                       </defs>
-                      <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9B9B9B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
-                      <YAxis hide />
+                      <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9B9B9B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} height={20} />
+                      <YAxis hide domain={[0, (dataMax: number) => dataMax * 1.05]} />
                       <Tooltip
                         formatter={(v: any, name: string) => {
                           if (v === null || v === undefined) return null as any;
