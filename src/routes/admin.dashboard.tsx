@@ -1428,18 +1428,6 @@ function AdminDashboard() {
                           </span>
                         )}
                       </div>
-                      {/* User's personal revenue — shown only when linked to a collaborator */}
-                      {myCard && (
-                        <div className="mt-3 sm:mt-4 inline-flex items-center gap-3 bg-white/10 rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5">
-                          <div>
-                            <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-white/60 mb-0.5">Sua receita</p>
-                            <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">
-                              {usdBrl ? formatBRL(myReceita * usdBrl) : `$${myReceita.toFixed(2)}`}
-                            </p>
-                            {usdBrl && <p className="text-[10px] sm:text-xs text-white/65 tabular-nums mt-0.5">${myReceita.toFixed(2)} USD</p>}
-                          </div>
-                        </div>
-                      )}
                     </>
                   )}
                 </div>
@@ -1449,8 +1437,8 @@ function AdminDashboard() {
                   </div>
                 )}
               </div>
-              {/* Bottom: 3 secondary metrics */}
-              <div className="mt-5 sm:mt-8 pt-4 sm:pt-6 border-t border-white/20 grid grid-cols-3 gap-2 sm:gap-4">
+              {/* Bottom: metrics — 4 cols when user has collaborator, 3 otherwise */}
+              <div className={`mt-5 sm:mt-8 pt-4 sm:pt-6 border-t border-white/20 grid gap-2 sm:gap-4 ${myCard ? "grid-cols-4" : "grid-cols-3"}`}>
                 <div>
                   <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">RPM</p>
                   {loading ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
@@ -1469,6 +1457,14 @@ function AdminDashboard() {
                     : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{avgScoreVal}<span className="text-xs font-normal text-white/60">/100</span></p>}
                   <p className="text-[9px] sm:text-xs text-white/50 mt-0.5">{pageStatsWithGlobalScores.length} págs</p>
                 </div>
+                {myCard && (
+                  <div>
+                    <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Sua Receita</p>
+                    {loading ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
+                      : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{usdBrl ? formatBRL(myReceita * usdBrl) : `$${myReceita.toFixed(2)}`}</p>}
+                    {usdBrl && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums">${myReceita.toFixed(2)} USD</p>}
+                  </div>
+                )}
               </div>
             </div>
           </div>
