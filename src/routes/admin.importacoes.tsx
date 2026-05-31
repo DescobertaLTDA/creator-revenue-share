@@ -72,23 +72,14 @@ export default function DataPipelinePage() {
   const { profile } = useAuth();
   const { guard, WriteGuardDialog } = useWriteGuard();
   const fileRef = useRef<HTMLInputElement>(null);
-  const ganhosFileRef = useRef<HTMLInputElement>(null);
-  const viewsFileRef = useRef<HTMLInputElement>(null);
 
   const [uploading, setUploading] = useState(false);
 
-  // ── Daily metric import state ─────────────────────────────────────────────
+  // ── Daily metric import state (unified) ──────────────────────────────────
   const [pages, setPages] = useState<{ id: string; nome: string }[]>([]);
-  // Ganhos (revenue)
-  const [ganhosPageId, setGanhosPageId] = useState("");
-  const [ganhosParsed, setGanhosParsed] = useState<GanhosParseResult | null>(null);
-  const [ganhosFileName, setGanhosFileName] = useState("");
-  const [ganhosUploading, setGanhosUploading] = useState(false);
-  // Visualizações (views)
-  const [viewsPageId, setViewsPageId] = useState("");
-  const [viewsParsed, setViewsParsed] = useState<GanhosParseResult | null>(null);
-  const [viewsFileName, setViewsFileName] = useState("");
-  const [viewsUploading, setViewsUploading] = useState(false);
+  const [pendingDaily, setPendingDaily] = useState<{ parsed: GanhosParseResult; fileName: string } | null>(null);
+  const [dailyPageId, setDailyPageId] = useState("");
+  const [dailyConfirming, setDailyConfirming] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; name: string } | null>(null);
   const [imports, setImports] = useState<ImportRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,44 +98,15 @@ export default function DataPipelinePage() {
     });
   }, []);
 
-  // ── Shared daily-metric import logic ─────────────────────────────────────
-  const parseDailyFile = async (
-    file: File,
-    setFileName: (n: string) => void,
-    setParsed: (r: GanhosParseResult | null) => void,
-    ref: React.RefObject<HTMLInputElement>,
-  ) => {
-    setFileName(file.name);
-    setParsed(null);
-    try {
-      const text = await readFileText(file);
-      const result = parseGanhosCsv(text);
-      if (!result || result.rows.length === 0) {
-        toast.error("CSV inválido", { description: "Não foi possível encontrar dados. Verifique se é o arquivo correto do Facebook." });
-        return;
-      }
-      setParsed(result);
-    } catch (err) {
-      toast.error("Erro ao ler o arquivo", { description: err instanceof Error ? err.message : String(err) });
-    } finally {
-      if (ref.current) ref.current.value = "";
-    }
-  };
-
-  const confirmDailyImport = async (
-    parsed: GanhosParseResult,
-    pageId: string,
-    dbField: "actual_revenue_usd" | "actual_views",
-    label: string,
-    setUploading: (v: boolean) => void,
-    setParsed: (r: GanhosParseResult | null) => void,
-    setFileName: (n: string) => void,
-  ) => {
+  // ── Daily-metric import: detect & confirm ────────────────────────────────
+  const confirmDailyImport = async (parsed: GanhosParseResult, pageId: string) => {
     if (!profile) return;
-    setUploading(true);
+    setDailyConfirming(true);
+    const dbField = parsed.type === "revenue" ? "actual_revenue_usd" : "actual_views";
+    const label = parsed.type === "revenue" ? "Ganhos" : "Visualizações";
     const toastId = toast.loading(`Salvando ${label.toLowerCase()}…`);
     try {
-      const { data: existing } = await supabase
+      const { data: existing } = await (supabase as any)
         .from("daily_revenue_entries")
         .select("id, entry_date")
         .eq("page_id", pageId)
@@ -159,12 +121,12 @@ export default function DataPipelinePage() {
       for (const row of parsed.rows) {
         const existingId = existingMap.get(row.date);
         if (existingId) {
-          await supabase.from("daily_revenue_entries")
+          await (supabase as any).from("daily_revenue_entries")
             .update({ [dbField]: row.value, updated_by: profile.id, updated_at: new Date().toISOString() })
             .eq("id", existingId);
           updated++;
         } else {
-          await supabase.from("daily_revenue_entries")
+          await (supabase as any).from("daily_revenue_entries")
             .insert({ page_id: pageId, entry_date: row.date, [dbField]: row.value, distribution_mode: "hybrid", created_by: profile.id });
           inserted++;
         }
@@ -174,20 +136,14 @@ export default function DataPipelinePage() {
         id: toastId,
         description: `${inserted} novos · ${updated} atualizados · ${parsed.rows.length} dias no total`,
       });
-      setParsed(null);
-      setFileName("");
+      setPendingDaily(null);
+      setDailyPageId("");
     } catch (err) {
       toast.error("Erro ao salvar", { id: toastId, description: err instanceof Error ? err.message : String(err) });
     } finally {
-      setUploading(false);
+      setDailyConfirming(false);
     }
   };
-
-  const handleGanhosFile = (file: File) => parseDailyFile(file, setGanhosFileName, setGanhosParsed, ganhosFileRef);
-  const handleGanhosConfirm = () => ganhosParsed && confirmDailyImport(ganhosParsed, ganhosPageId, "actual_revenue_usd", "Ganhos", setGanhosUploading, setGanhosParsed, setGanhosFileName);
-
-  const handleViewsFile = (file: File) => parseDailyFile(file, setViewsFileName, setViewsParsed, viewsFileRef);
-  const handleViewsConfirm = () => viewsParsed && confirmDailyImport(viewsParsed, viewsPageId, "actual_views", "Visualizações", setViewsUploading, setViewsParsed, setViewsFileName);
 
   const load = async () => {
     setLoading(true);
@@ -221,6 +177,19 @@ export default function DataPipelinePage() {
 
   const onUpload = async (file: File, fromBulk = false) => {
     if (!profile) return;
+
+    // ── Detect daily metric CSVs (Ganhos / Visualizações) ─────────────────
+    try {
+      const text = await readFileText(file);
+      const daily = parseGanhosCsv(text);
+      if (daily && daily.rows.length > 0) {
+        setPendingDaily({ parsed: daily, fileName: file.name });
+        setDailyPageId("");
+        if (fileRef.current) fileRef.current.value = "";
+        return;
+      }
+    } catch { /* not a daily CSV, continue to normal pipeline */ }
+
     if (!fromBulk) setUploading(true);
     setActiveUploadStep(0);
     const toastId = toast.loading(`Processando ${file.name}…`);
@@ -539,55 +508,19 @@ export default function DataPipelinePage() {
       </div>
 
 
-      {/* ── Daily metric import cards ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Card: Ganhos */}
-        <DailyImportCard
-          title="Ganhos Diários"
-          description={<>CSV de <em>Ganhos aproximados</em> → campo <strong>Receita real</strong></>}
-          iconBg="bg-green-100"
-          iconColor="text-green-600"
-          icon={<DollarSign className="h-4 w-4 text-green-600" />}
-          colLabel="Receita (USD)"
-          formatValue={(v) => `$${v.toFixed(4)}`}
-          formatTotal={(t) => `$${t.toFixed(2)}`}
+      {/* Daily metric modal — shown when a Ganhos/Views CSV is detected */}
+      {pendingDaily && (
+        <DailyConfirmModal
+          parsed={pendingDaily.parsed}
+          fileName={pendingDaily.fileName}
           pages={pages}
-          pageId={ganhosPageId}
-          onPageChange={setGanhosPageId}
-          parsed={ganhosParsed}
-          fileName={ganhosFileName}
-          uploading={ganhosUploading}
-          fileRef={ganhosFileRef}
-          onFileChange={handleGanhosFile}
-          onConfirm={handleGanhosConfirm}
-          onClear={() => { setGanhosParsed(null); setGanhosFileName(""); }}
+          pageId={dailyPageId}
+          onPageChange={setDailyPageId}
+          confirming={dailyConfirming}
+          onConfirm={() => confirmDailyImport(pendingDaily.parsed, dailyPageId)}
+          onClose={() => { setPendingDaily(null); setDailyPageId(""); }}
         />
-        {/* Card: Visualizações */}
-        <DailyImportCard
-          title="Visualizações Diárias"
-          description={<>CSV de <em>Visualizações</em> → campo <strong>Views manuais</strong></>}
-          iconBg="bg-blue-100"
-          iconColor="text-blue-600"
-          icon={<Eye className="h-4 w-4 text-blue-600" />}
-          colLabel="Views"
-          formatValue={(v) => v.toLocaleString("pt-BR")}
-          formatTotal={(t) => t.toLocaleString("pt-BR")}
-          pages={pages}
-          pageId={viewsPageId}
-          onPageChange={setViewsPageId}
-          parsed={viewsParsed}
-          fileName={viewsFileName}
-          uploading={viewsUploading}
-          fileRef={viewsFileRef}
-          onFileChange={handleViewsFile}
-          onConfirm={handleViewsConfirm}
-          onClear={() => { setViewsParsed(null); setViewsFileName(""); }}
-        />
-      </div>
-      <input ref={ganhosFileRef} type="file" accept=".csv,text/csv" className="hidden"
-        onChange={(e) => e.target.files?.[0] && handleGanhosFile(e.target.files[0])} />
-      <input ref={viewsFileRef} type="file" accept=".csv,text/csv" className="hidden"
-        onChange={(e) => e.target.files?.[0] && handleViewsFile(e.target.files[0])} />
+      )}
 
       {/* ── Pipeline Stepper (full-width) ── */}
       <div className="rounded-2xl border border-border bg-card p-6">
@@ -785,113 +718,135 @@ export default function DataPipelinePage() {
 
 // ─── Daily Import Card ────────────────────────────────────────────────────────
 
-function DailyImportCard({
-  title, description, iconBg, icon, colLabel,
-  formatValue, formatTotal,
-  pages, pageId, onPageChange,
-  parsed, fileName, uploading,
-  fileRef, onFileChange, onConfirm, onClear,
+// ─── Daily Confirm Modal ──────────────────────────────────────────────────────
+
+function DailyConfirmModal({
+  parsed, fileName, pages, pageId, onPageChange, confirming, onConfirm, onClose,
 }: {
-  title: string;
-  description: React.ReactNode;
-  iconBg: string;
-  iconColor: string;
-  icon: React.ReactNode;
-  colLabel: string;
-  formatValue: (v: number) => string;
-  formatTotal: (t: number) => string;
+  parsed: GanhosParseResult;
+  fileName: string;
   pages: { id: string; nome: string }[];
   pageId: string;
   onPageChange: (id: string) => void;
-  parsed: GanhosParseResult | null;
-  fileName: string;
-  uploading: boolean;
-  fileRef: React.RefObject<HTMLInputElement>;
-  onFileChange: (file: File) => void;
+  confirming: boolean;
   onConfirm: () => void;
-  onClear: () => void;
+  onClose: () => void;
 }) {
+  const isRevenue = parsed.type === "revenue";
+  const total = parsed.rows.reduce((s, r) => s + r.value, 0);
+  const colLabel = isRevenue ? "Receita (USD)" : "Views";
+  const formatValue = isRevenue
+    ? (v: number) => `$${v.toFixed(4)}`
+    : (v: number) => v.toLocaleString("pt-BR");
+  const formatTotal = isRevenue
+    ? (v: number) => `$${v.toFixed(2)}`
+    : (v: number) => v.toLocaleString("pt-BR");
+
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 flex flex-col gap-4">
-      <div className="flex items-center gap-2">
-        <div className={cn("h-7 w-7 rounded-lg flex items-center justify-center shrink-0", iconBg)}>
-          {icon}
-        </div>
-        <div>
-          <p className="text-sm font-bold leading-tight">{title}</p>
-          <p className="text-[11px] text-muted-foreground">{description}</p>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <select
-          value={pageId}
-          onChange={(e) => onPageChange(e.target.value)}
-          className="h-9 rounded-lg border border-border bg-white px-3 text-sm w-full"
-        >
-          <option value="">Selecionar página…</option>
-          {pages.map((p) => (
-            <option key={p.id} value={p.id}>{p.nome}</option>
-          ))}
-        </select>
-        <button
-          onClick={() => fileRef.current?.click()}
-          disabled={!pageId || uploading}
-          className="h-9 px-4 rounded-lg border border-dashed border-border text-muted-foreground text-sm hover:border-[#F44708] hover:text-[#F44708] disabled:opacity-40 disabled:cursor-not-allowed transition-colors truncate"
-        >
-          {fileName ? `📄 ${fileName}` : "Selecionar CSV…"}
-        </button>
-      </div>
-
-      {parsed && (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>
-              <span className="font-semibold text-foreground">{parsed.rows.length} dias</span>
-              {" · "}
-              {parsed.periodStart?.split("-").reverse().join("/")} – {parsed.periodEnd?.split("-").reverse().join("/")}
-              {" · "}
-              Total: <span className="font-semibold text-foreground">
-                {formatTotal(parsed.rows.reduce((s, r) => s + r.value, 0))}
-              </span>
-            </span>
-            <button onClick={onClear} className="text-muted-foreground hover:text-foreground transition-colors ml-2 shrink-0">
-              <X className="h-3.5 w-3.5" />
-            </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-card rounded-2xl border border-border shadow-2xl flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <div className={cn(
+              "h-8 w-8 rounded-lg flex items-center justify-center shrink-0",
+              isRevenue ? "bg-green-100" : "bg-blue-100"
+            )}>
+              {isRevenue
+                ? <DollarSign className="h-4 w-4 text-green-600" />
+                : <Eye className="h-4 w-4 text-blue-600" />}
+            </div>
+            <div>
+              <p className="text-sm font-bold leading-tight">
+                {isRevenue ? "Ganhos diários detectados" : "Visualizações diárias detectadas"}
+              </p>
+              <p className="text-[11px] text-muted-foreground truncate max-w-[240px]">📄 {fileName}</p>
+            </div>
           </div>
-
-          <div className="rounded-xl border border-border overflow-hidden max-h-44 overflow-y-auto">
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-muted/40">
-                <tr className="border-b border-border">
-                  <th className="text-left px-3 py-2 font-bold text-muted-foreground uppercase tracking-wide text-[10px]">Data</th>
-                  <th className="text-right px-3 py-2 font-bold text-muted-foreground uppercase tracking-wide text-[10px]">{colLabel}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {parsed.rows.map((r) => (
-                  <tr key={r.date} className="border-t border-border/50">
-                    <td className="px-3 py-1.5 text-muted-foreground tabular-nums">{r.date.split("-").reverse().join("/")}</td>
-                    <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{formatValue(r.value)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <button
-            onClick={onConfirm}
-            disabled={uploading}
-            className="flex items-center justify-center gap-2 h-9 rounded-lg bg-green-600 text-white text-sm font-bold hover:bg-green-700 disabled:opacity-60 transition-colors"
-          >
-            {uploading
-              ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando…</>
-              : <><CheckCircle2 className="h-4 w-4" /> Confirmar importação</>
-            }
+          <button onClick={onClose} className="p-1.5 rounded-md text-muted-foreground hover:bg-accent">
+            <X className="h-4 w-4" />
           </button>
         </div>
-      )}
+
+        {/* Summary chips */}
+        <div className="flex items-center gap-2 flex-wrap px-5 py-3 bg-muted/30 border-b border-border">
+          <Chip label={`${parsed.rows.length} dias`} />
+          {parsed.periodStart && parsed.periodEnd && (
+            <Chip label={`${parsed.periodStart.split("-").reverse().join("/")} – ${parsed.periodEnd.split("-").reverse().join("/")}`} />
+          )}
+          <Chip label={`Total: ${formatTotal(total)}`} accent />
+        </div>
+
+        {/* Preview table */}
+        <div className="overflow-y-auto max-h-52 border-b border-border">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 bg-muted/60">
+              <tr>
+                <th className="text-left px-4 py-2 font-bold text-muted-foreground uppercase tracking-wide text-[10px]">Data</th>
+                <th className="text-right px-4 py-2 font-bold text-muted-foreground uppercase tracking-wide text-[10px]">{colLabel}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {parsed.rows.map((r) => (
+                <tr key={r.date} className="border-t border-border/40">
+                  <td className="px-4 py-1.5 text-muted-foreground tabular-nums">{r.date.split("-").reverse().join("/")}</td>
+                  <td className="px-4 py-1.5 text-right font-semibold tabular-nums">{formatValue(r.value)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Page selector + confirm */}
+        <div className="px-5 py-4 space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-foreground mb-1.5 block">
+              Para qual página esses dados pertencem?
+            </label>
+            <select
+              value={pageId}
+              onChange={(e) => onPageChange(e.target.value)}
+              className="h-10 rounded-lg border border-border bg-background px-3 text-sm w-full focus:outline-none focus:ring-1 focus:ring-[#F44708]/50"
+            >
+              <option value="">Selecionar página…</option>
+              {pages.map((p) => (
+                <option key={p.id} value={p.id}>{p.nome}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="flex-1 h-10 rounded-lg border border-border text-sm text-muted-foreground hover:bg-accent transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={!pageId || confirming}
+              className="flex-1 h-10 rounded-lg bg-[#F44708] text-white text-sm font-bold hover:bg-[#E03A07] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+            >
+              {confirming
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando…</>
+                : <><CheckCircle2 className="h-4 w-4" /> Confirmar</>}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
+  );
+}
+
+function Chip({ label, accent }: { label: string; accent?: boolean }) {
+  return (
+    <span className={cn(
+      "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium",
+      accent ? "bg-[#F44708]/10 text-[#F44708]" : "bg-muted text-muted-foreground"
+    )}>
+      {label}
+    </span>
   );
 }
 
