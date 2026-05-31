@@ -1148,14 +1148,12 @@ function AdminDashboard() {
     }));
     const last = chartDataCsv[chartDataCsv.length - 1];
     const todayStr = new Date().toISOString().slice(0, 10);
-    const projEnd = filterTo && filterTo > todayStr ? filterTo : todayStr;
+    // Always project 28 days forward from today, regardless of the date filter
     const futuro: FutRow[] = [];
     for (let i = 1; i <= 28; i++) {
       const d = new Date(todayStr);
       d.setDate(d.getDate() + i);
-      const dateStr = d.toISOString().slice(0, 10);
-      if (dateStr > projEnd) break;
-      const [, mo, dy] = dateStr.split("-");
+      const [, mo, dy] = d.toISOString().slice(0, 10).split("-");
       futuro.push({
         dia: `${dy}/${mo}`, real: null,
         proj: projections.today,
