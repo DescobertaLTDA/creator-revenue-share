@@ -55,19 +55,24 @@ interface SplitRule {
   active: boolean;
 }
 
-const USD_TO_BRL = 5.70;
-
 function fmt(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
   return String(n);
 }
 
-function fmtBRL(usd: number): string {
-  const brl = usd * USD_TO_BRL;
+function fmtBRL(usd: number, rate = 5.70): string {
+  const brl = usd * rate;
   if (brl >= 1_000_000) return `R$${(brl / 1_000_000).toFixed(1)}M`;
   if (brl >= 1_000) return `R$${(brl / 1_000).toFixed(1)}k`;
   return `R$${brl.toFixed(2)}`;
+}
+
+function fetchUsdBrl(): Promise<number | null> {
+  return fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL")
+    .then((r) => r.json())
+    .then((d) => parseFloat(d.USDBRL.bid))
+    .catch(() => null);
 }
 
 function normalizeHashtag(raw: string): string {
@@ -192,6 +197,11 @@ function Page() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"todos" | "ativos" | "em-alta">("todos");
   const [q, setQ] = useState("");
+  const [usdBrl, setUsdBrl] = useState(5.70);
+
+  useEffect(() => {
+    fetchUsdBrl().then((v) => { if (v) setUsdBrl(v); });
+  }, []);
 
   // Date filter — defaults to day 1 → last day of current month
   const [filterFrom, setFilterFrom] = useState<string>(() => {
@@ -260,7 +270,7 @@ function Page() {
       }
     }
 
-    // ── Period revenue per collaborator ─────────────────────────────────────
+    // ── Period revenue per collaborator (same algorithm as Dashboard Ranking) ──
     const periodPosts = await fetchAllRows<{
       id: string; page_id: string; published_at: string | null;
       estimated_usd: number | null; monetization_approx: number | null;
@@ -271,30 +281,39 @@ function Page() {
         .lte("published_at", filterTo + "T23:59:59")
     );
 
+    // Previous month's posts — used to distribute daily correction by views (same as Dashboard)
+    const [pfY, pfM] = filterFrom.split("-").map(Number);
+    const prevMonthStart = new Date(pfY, pfM - 2, 1);
+    const prevFrom = `${prevMonthStart.getFullYear()}-${String(prevMonthStart.getMonth() + 1).padStart(2, "0")}-01`;
+    const prevLastDay = new Date(pfY, pfM - 1, 0);
+    const prevTo = `${prevLastDay.getFullYear()}-${String(prevLastDay.getMonth() + 1).padStart(2, "0")}-${String(prevLastDay.getDate()).padStart(2, "0")}`;
+
+    const prevPosts = await fetchAllRows<{ id: string; views: number | null }>(() =>
+      supabase.from("posts").select("id, views")
+        .gte("published_at", prevFrom).lte("published_at", prevTo + "T23:59:59")
+    );
+
     const periodPostIds = periodPosts.map((p) => p.id);
-    const periodPaRows = periodPostIds.length > 0
-      ? await fetchAllRows<{ post_id: string; collaborator_id: string }>(() =>
-          supabase.from("post_authors").select("post_id, collaborator_id").in("post_id", periodPostIds)
-        )
-      : [];
+    const prevPostIds = prevPosts.map((p) => p.id);
 
-    const { data: splitRulesData } = await supabase
-      .from("split_rules")
-      .select("page_id, effective_from, collaborator_pct, active");
+    const [periodPaRows, prevPaRows] = await Promise.all([
+      periodPostIds.length > 0
+        ? fetchAllRows<{ post_id: string; collaborator_id: string }>(() =>
+            supabase.from("post_authors").select("post_id, collaborator_id").in("post_id", periodPostIds)
+          )
+        : Promise.resolve([]),
+      prevPostIds.length > 0
+        ? fetchAllRows<{ post_id: string; collaborator_id: string }>(() =>
+            supabase.from("post_authors").select("post_id, collaborator_id").in("post_id", prevPostIds)
+          )
+        : Promise.resolve([]),
+    ]);
 
-    // Daily revenue entries by page for the period (most reliable source)
-    const { data: dailyRevData } = await supabase
-      .from("daily_revenue_entries")
-      .select("page_id, actual_revenue_usd")
-      .gte("entry_date", filterFrom)
-      .lte("entry_date", filterTo);
-
-    const dailyRevByPage = new Map<string, number>();
-    for (const e of (dailyRevData ?? [])) {
-      if (e.page_id) {
-        dailyRevByPage.set(e.page_id, (dailyRevByPage.get(e.page_id) ?? 0) + Number(e.actual_revenue_usd ?? 0));
-      }
-    }
+    const [{ data: splitRulesData }, { data: dailyRevData }] = await Promise.all([
+      supabase.from("split_rules").select("page_id, effective_from, collaborator_pct, active").eq("active", true),
+      supabase.from("daily_revenue_entries").select("entry_date, actual_revenue_usd")
+        .gte("entry_date", filterFrom).lte("entry_date", filterTo),
+    ]);
 
     const postToCollabs = new Map<string, Set<string>>();
     for (const pa of periodPaRows) {
@@ -302,60 +321,71 @@ function Page() {
       postToCollabs.get(pa.post_id)!.add(pa.collaborator_id);
     }
 
+    const prevPostToCollabs = new Map<string, Set<string>>();
+    for (const pa of prevPaRows) {
+      if (!prevPostToCollabs.has(pa.post_id)) prevPostToCollabs.set(pa.post_id, new Set());
+      prevPostToCollabs.get(pa.post_id)!.add(pa.collaborator_id);
+    }
+
     const rulesByPage = new Map<string, SplitRule[]>();
     for (const r of (splitRulesData ?? [])) {
       if (!rulesByPage.has(r.page_id)) rulesByPage.set(r.page_id, []);
       rulesByPage.get(r.page_id)!.push(r as SplitRule);
     }
-
-    // Posts grouped by page
-    const postsByPage = new Map<string, string[]>();
-    for (const post of periodPosts) {
-      if (!postsByPage.has(post.page_id)) postsByPage.set(post.page_id, []);
-      postsByPage.get(post.page_id)!.push(post.id);
+    for (const [, rules] of rulesByPage) {
+      rules.sort((a, b) => (b.effective_from ?? "").localeCompare(a.effective_from ?? ""));
     }
 
+    // Step 1: per-post CSV revenue per collaborator + CSV totals by date
     const revenueByColab = new Map<string, number>();
+    const byDayCSV = new Map<string, number>(); // date → sum of post revenues that day
 
-    // PRIMARY: distribute daily_revenue_entries proportionally by post count per page
-    for (const [pageId, pageRevenue] of dailyRevByPage) {
-      if (pageRevenue <= 0) continue;
-      const postsInPage = postsByPage.get(pageId) ?? [];
-      if (postsInPage.length === 0) continue;
-
-      const rules = (rulesByPage.get(pageId) ?? [])
-        .filter((r) => r.active)
-        .sort((a, b) => (b.effective_from ?? "").localeCompare(a.effective_from ?? ""));
+    for (const post of periodPosts) {
+      // Use || (not ??) so estimated_usd=0.00 falls through to monetization_approx
+      const val = Number(post.monetization_approx) || Number(post.estimated_usd) || 0;
+      const day = (post.published_at ?? "").slice(0, 10);
+      if (day) byDayCSV.set(day, (byDayCSV.get(day) ?? 0) + val);
+      if (val <= 0) continue;
+      const rules = (rulesByPage.get(post.page_id) ?? [])
+        .filter((r) => !r.effective_from || !post.published_at || r.effective_from <= post.published_at);
       const pct = (rules[0]?.collaborator_pct ?? 100) / 100;
-      const revenuePerPost = (pageRevenue * pct) / postsInPage.length;
-
-      for (const postId of postsInPage) {
-        const colabIds = Array.from(postToCollabs.get(postId) ?? []);
-        if (colabIds.length === 0) continue;
-        const share = revenuePerPost / colabIds.length;
+      const collaboratorRevenue = val * pct;
+      const colabIds = Array.from(postToCollabs.get(post.id) ?? []);
+      if (colabIds.length > 0) {
+        const share = collaboratorRevenue / colabIds.length;
         for (const cid of colabIds) {
           revenueByColab.set(cid, (revenueByColab.get(cid) ?? 0) + share);
         }
       }
     }
 
-    // FALLBACK: if no daily entries, use per-post monetization_approx / estimated_usd
-    if (dailyRevByPage.size === 0) {
-      for (const post of periodPosts) {
-        // Use || (not ??) so that 0.00 falls through to next field
-        const val = Number(post.monetization_approx) || Number(post.estimated_usd) || 0;
-        if (val <= 0) continue;
-        const rules = (rulesByPage.get(post.page_id) ?? [])
-          .filter((r) => r.active && (!r.effective_from || !post.published_at || r.effective_from <= post.published_at))
-          .sort((a, b) => (b.effective_from ?? "").localeCompare(a.effective_from ?? ""));
-        const pct = (rules[0]?.collaborator_pct ?? 100) / 100;
-        const collaboratorRevenue = val * pct;
-        const colabIds = Array.from(postToCollabs.get(post.id) ?? []);
-        if (colabIds.length > 0) {
-          const share = collaboratorRevenue / colabIds.length;
-          for (const cid of colabIds) {
-            revenueByColab.set(cid, (revenueByColab.get(cid) ?? 0) + share);
-          }
+    // Step 2: previous month views per collaborator (for bonus weighting)
+    const prevViewsByColab = new Map<string, number>();
+    for (const post of prevPosts) {
+      const views = Number(post.views ?? 0);
+      if (views <= 0) continue;
+      for (const cid of (prevPostToCollabs.get(post.id) ?? [])) {
+        prevViewsByColab.set(cid, (prevViewsByColab.get(cid) ?? 0) + views);
+      }
+    }
+    const totalPrevViews = Array.from(prevViewsByColab.values()).reduce((a, b) => a + b, 0);
+
+    // Step 3: daily correction = actual_revenue_usd − posts revenue for each day
+    let totalDailyBonus = 0;
+    for (const e of (dailyRevData ?? [])) {
+      totalDailyBonus += Number(e.actual_revenue_usd ?? 0) - (byDayCSV.get(e.entry_date) ?? 0);
+    }
+
+    // Step 4: distribute positive correction weighted by previous month views
+    if (totalDailyBonus > 0) {
+      if (totalPrevViews > 0) {
+        for (const [cid, views] of prevViewsByColab.entries()) {
+          revenueByColab.set(cid, (revenueByColab.get(cid) ?? 0) + (views / totalPrevViews) * totalDailyBonus);
+        }
+      } else if (ids.length > 0) {
+        const share = totalDailyBonus / ids.length;
+        for (const id of ids) {
+          revenueByColab.set(id, (revenueByColab.get(id) ?? 0) + share);
         }
       }
     }
@@ -694,7 +724,7 @@ function Page() {
                         {/* Receita */}
                         <td className="px-4 py-3 text-right tabular-nums">
                           <span className={`font-semibold ${r.receita > 0 ? "text-orange-500" : "text-muted-foreground"}`}>
-                            {r.receita > 0 ? fmtBRL(r.receita) : "–"}
+                            {r.receita > 0 ? fmtBRL(r.receita, usdBrl) : "–"}
                           </span>
                           <div className="text-[10px] text-muted-foreground uppercase tracking-wide">BRL</div>
                         </td>
@@ -787,7 +817,7 @@ function Page() {
                         { label: "Views", value: fmt(r.total_views), hi: r.total_views === maxViews && maxViews > 0 },
                         { label: "Curt.", value: fmt(r.total_reactions), hi: r.total_reactions === maxReactions && maxReactions > 0 },
                         { label: "Com.", value: fmt(r.total_comments), hi: r.total_comments === maxComments && maxComments > 0 },
-                        { label: "BRL", value: r.receita > 0 ? fmtBRL(r.receita) : "–", hi: r.receita > 0 },
+                        { label: "BRL", value: r.receita > 0 ? fmtBRL(r.receita, usdBrl) : "–", hi: r.receita > 0 },
                       ].map(({ label, value, hi }) => (
                         <div key={label} className="bg-muted/50 rounded-lg px-2 py-2 flex flex-col items-center gap-0.5">
                           <span className={`font-semibold text-sm ${hi ? "text-orange-500" : ""}`}>{value}</span>
