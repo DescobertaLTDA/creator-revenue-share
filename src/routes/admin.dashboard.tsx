@@ -1636,49 +1636,6 @@ function AdminDashboard() {
             </div>
           </div>
 
-          {/* ═══════════════ INSIGHTS ═══════════════ */}
-          {!loading && (insightTopColab || insightPeakDay || manualDelta > 0.001) && (
-            <div className="rounded-2xl border border-[#FFE1CC] p-5" style={{ background: "#FFF7F2" }}>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="h-6 w-6 rounded-lg bg-[#F44708]/10 flex items-center justify-center">
-                  <Zap className="h-3.5 w-3.5 text-[#F44708]" />
-                </div>
-                <h3 className="text-sm font-bold text-[#1A0A00]">Insights do período</h3>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {insightTopColab && (
-                  <div className="flex items-start gap-3">
-                    <div className="h-8 w-8 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 mt-0.5"><Users className="h-4 w-4 text-amber-600" /></div>
-                    <div>
-                      <p className="text-xs font-semibold text-[#1A0A00]">Top colaborador</p>
-                      <p className="text-sm font-bold text-[#F44708]">{insightTopColab.nome}</p>
-                      <p className="text-xs text-[#9B9B9B] mt-0.5">{usdBrl ? formatBRL(insightTopColab.receita * usdBrl) : `$${insightTopColab.receita.toFixed(2)}`} · {insightTopColab.posts} posts</p>
-                    </div>
-                  </div>
-                )}
-                {insightPeakDay && insightPeakDay.receita > 0 && (
-                  <div className="flex items-start gap-3">
-                    <div className="h-8 w-8 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5"><TrendingUp className="h-4 w-4 text-emerald-600" /></div>
-                    <div>
-                      <p className="text-xs font-semibold text-[#1A0A00]">Pico de receita</p>
-                      <p className="text-sm font-bold text-[#1A0A00]">{usdBrl ? formatBRL(insightPeakDay.receita * usdBrl) : `$${insightPeakDay.receita.toFixed(2)}`}</p>
-                      <p className="text-xs text-[#9B9B9B] mt-0.5">em {insightPeakDay.dia}</p>
-                    </div>
-                  </div>
-                )}
-                {manualDelta > 0.001 && (
-                  <div className="flex items-start gap-3">
-                    <div className="h-8 w-8 rounded-xl bg-blue-100 flex items-center justify-center shrink-0 mt-0.5"><DollarSign className="h-4 w-4 text-blue-600" /></div>
-                    <div>
-                      <p className="text-xs font-semibold text-[#1A0A00]">Correções manuais</p>
-                      <p className="text-sm font-bold text-[#1A0A00]">+{usdBrl ? formatBRL(manualDelta * usdBrl) : `$${manualDelta.toFixed(2)}`}</p>
-                      <p className="text-xs text-[#9B9B9B] mt-0.5">acima do CSV puro</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
         </>
       )}
