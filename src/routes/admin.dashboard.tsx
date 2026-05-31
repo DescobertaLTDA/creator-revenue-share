@@ -127,6 +127,12 @@ interface PageStat {
   imageCount: number;
 }
 
+// ─── Skeleton shimmer ─────────────────────────────────────────────────────────
+
+function Sk({ w = "w-full", h = "h-4", className = "" }: { w?: string; h?: string; className?: string }) {
+  return <div className={`animate-pulse rounded-md bg-[#E8E8E8] ${w} ${h} ${className}`} />;
+}
+
 const SEM_COLAB_ID = "__sem_colaborador__";
 
 const METRIC_TABS_DEF = [
@@ -463,34 +469,35 @@ function AdminDashboard() {
     };
 
     const doLoad = async (background: boolean) => {
+      // Scope posts query to current filter range to avoid paginating ALL historical posts.
+      // Extra 90-day buffer back so collaborator bonus computation has prior-month data.
+      const dateFrom = (() => {
+        if (!filterFrom) return "2020-01-01";
+        const d = new Date(filterFrom);
+        d.setDate(d.getDate() - 90);
+        return d.toISOString().slice(0, 10);
+      })();
+      const dateTo = filterTo || new Date().toISOString().slice(0, 10);
+
       const [posts, pas, { data: pagesData }, { data: colabsData }, { data: rulesData }, { data: imports }] =
         await Promise.all([
           fetchAllRows<RawPost>(() =>
             supabase.from("posts").select(
               "id, page_id, published_at, monetization_approx, estimated_usd, views, reach, reactions, comments, shares, title, post_type, permalink, source"
-            )
+            ).gte("published_at", dateFrom).lte("published_at", dateTo + "T23:59:59")
           ),
           fetchAllRows<PostAuthorRow>(() =>
             supabase.from("post_authors").select("post_id, collaborator_id")
           ),
           supabase.from("pages").select("id, nome"),
-          supabase.from("collaborators").select("id, nome, hashtag").eq("ativo", true),
+          // Include avatar_url in same query — avoids a sequential round-trip
+          (supabase as any).from("collaborators").select("id, nome, hashtag, avatar_url").eq("ativo", true),
           supabase.from("split_rules").select("page_id, effective_from, collaborator_pct, active").eq("active", true),
           supabase.from("csv_imports")
             .select("id, file_name, status, created_at, valid_rows, total_rows, detected_pages_count")
             .order("created_at", { ascending: false })
             .limit(5),
         ]);
-
-      // Fetch avatar_url separately (non-blocking — column may not exist yet)
-      const avatarMap = new Map<string, string>();
-      try {
-        const { data: avatarRows, error: avatarErr } = await (supabase as any)
-          .from("collaborators").select("id, avatar_url").eq("ativo", true);
-        if (!avatarErr && avatarRows) {
-          for (const r of avatarRows) if (r.avatar_url) avatarMap.set(r.id, r.avatar_url);
-        }
-      } catch { /* column doesn't exist yet — safe to ignore */ }
 
       const fresh: DashCache = {
         posts,
@@ -510,7 +517,7 @@ function AdminDashboard() {
             return { id: p.id, name: p.nome, source };
           });
         })(),
-        colabs: (colabsData ?? []).map((c: any) => ({ id: c.id, nome: c.nome, hashtag: c.hashtag, avatar_url: avatarMap.get(c.id) ?? null })),
+        colabs: (colabsData ?? []).map((c: any) => ({ id: c.id, nome: c.nome, hashtag: c.hashtag, avatar_url: c.avatar_url ?? null })),
         splitRules: (rulesData as SplitRule[]) ?? [],
         imports: (imports ?? []) as RecentImport[],
         ts: Date.now(),
@@ -1429,8 +1436,8 @@ function AdminDashboard() {
                 {/* Receita do Período */}
                 <KpiCard
                   label="Receita do Período"
-                  value={loading ? "—" : usdBrl ? formatBRL(totalMonth * usdBrl) : `$${totalMonth.toFixed(2)}`}
-                  sub={usdBrl && !loading ? `$${totalMonth.toFixed(2)} USD` : null}
+                  value={loading ? <Sk w="w-28" h="h-7" /> : usdBrl ? formatBRL(totalMonth * usdBrl) : `$${totalMonth.toFixed(2)}`}
+                  sub={loading ? <Sk w="w-20" h="h-3" /> : usdBrl && !loading ? `$${totalMonth.toFixed(2)} USD` : null}
                   delta={showManual && !loading ? totalMonth - effectiveTotalMonthCsv : 0}
                   fmtDelta={(n) => usdBrl ? formatBRL(Math.abs(n) * usdBrl) : `$${Math.abs(n).toFixed(2)}`}
                   icon={DollarSign}
@@ -1438,8 +1445,8 @@ function AdminDashboard() {
                 {/* RPM Médio */}
                 <KpiCard
                   label="RPM Médio"
-                  value={loading ? "—" : usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(4)}`}
-                  sub="por mil visualizações"
+                  value={loading ? <Sk w="w-24" h="h-7" /> : usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(4)}`}
+                  sub={loading ? <Sk w="w-32" h="h-3" /> : "por mil visualizações"}
                   delta={showManual && !loading ? avgRpm - csvAvgRpm : 0}
                   fmtDelta={(n) => usdBrl ? formatBRL(Math.abs(n) * usdBrl) : `$${Math.abs(n).toFixed(4)}`}
                   icon={Zap}
@@ -1447,8 +1454,8 @@ function AdminDashboard() {
                 {/* Visualizações */}
                 <KpiCard
                   label="Visualizações"
-                  value={loading ? "—" : fmt(totalViews)}
-                  sub={`${kpis.totalPosts.toLocaleString("pt-BR")} posts`}
+                  value={loading ? <Sk w="w-20" h="h-7" /> : fmt(totalViews)}
+                  sub={loading ? <Sk w="w-16" h="h-3" /> : `${kpis.totalPosts.toLocaleString("pt-BR")} posts`}
                   delta={showManual && !loading ? totalViews - effectiveCsvTotalViews : 0}
                   fmtDelta={(n) => fmt(Math.abs(n))}
                   icon={Eye}
@@ -1462,7 +1469,10 @@ function AdminDashboard() {
                     </div>
                   </div>
                   {loading ? (
-                    <p className="text-2xl font-bold text-[#1A0A00] mt-2">—</p>
+                    <div className="mt-2 space-y-2">
+                      <Sk w="w-16" h="h-7" />
+                      <Sk w="w-24" h="h-3" />
+                    </div>
                   ) : (
                     <div className="flex items-end gap-3">
                       <DashSpeedometer score={avgScore} />
@@ -1478,6 +1488,21 @@ function AdminDashboard() {
           })()}
 
           {/* ── Colaboradores ── */}
+          {loading && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {[1,2,3,4].map((i) => (
+                <div key={i} className="bg-white border border-[#E0E0E0] rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Sk w="w-9" h="h-9" className="rounded-full shrink-0" />
+                    <Sk w="w-20" h="h-4" />
+                  </div>
+                  <Sk w="w-16" h="h-6" />
+                  <Sk w="w-24" h="h-3" />
+                  <Sk w="w-full" h="h-3" />
+                </div>
+              ))}
+            </div>
+          )}
           {!loading && activeCollabCards.filter((c) => c.posts > 0).length > 0 && (() => {
             const visibleCards = activeCollabCards.filter((c) => c.posts > 0);
             const receitaOnById = new Map(collabCards.map((c) => [c.id, c.receita]));
@@ -1495,8 +1520,19 @@ function AdminDashboard() {
             );
           })()}
 
+          {/* ── Gráfico skeleton ── */}
+          {loading && (
+            <div className="bg-white border border-[#E0E0E0] rounded-2xl p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1.5"><Sk w="w-32" h="h-4" /><Sk w="w-48" h="h-3" /></div>
+                <div className="flex gap-1">{[1,2,3,4,5,6].map(i => <Sk key={i} w="w-14" h="h-7" className="rounded-lg" />)}</div>
+              </div>
+              <Sk w="w-full" h="h-52" className="rounded-xl" />
+            </div>
+          )}
+
           {/* ── Gráfico com abas de métricas ── */}
-          {(() => {
+          {!loading && (() => {
             const METRIC_TABS = METRIC_TABS_DEF;
 
             const fmtMetricVal = (v: number) => {
