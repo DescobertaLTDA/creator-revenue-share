@@ -1568,14 +1568,14 @@ function AdminDashboard() {
                 <Sk w="w-full" h="h-[220px] sm:h-[340px]" className="rounded-xl" />
               </div>
             ) : (
-              <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
-                <div className="mb-4 sm:mb-5">
+              <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6 flex flex-col" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+                <div className="mb-4 sm:mb-5 shrink-0">
                   <h2 className="text-sm sm:text-base font-bold text-[#1A0A00]">Receita + Projeção</h2>
                   <p className="text-xs text-[#9B9B9B] mt-0.5 hidden sm:block">
                     Histórico real dos últimos 30 dias e 3 cenários de projeção
                   </p>
                 </div>
-                <div className="h-[200px] sm:h-[260px]">
+                <div className="flex-1 min-h-[180px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart
                       data={showManual ? projectionChartData.map((row) => ({ ...row, actual: dailyActualByDia.get(row.dia) ?? null })) : projectionChartData}
@@ -1622,7 +1622,7 @@ function AdminDashboard() {
                   </ResponsiveContainer>
                 </div>
                 {/* Scenario legend */}
-                <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-[#F1F1F1]">
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-[#F1F1F1] shrink-0">
                   <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
                     <span className="h-0.5 w-5 bg-[#F44708] rounded-full inline-block" />Real
                   </span>
