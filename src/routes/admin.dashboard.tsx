@@ -1331,30 +1331,32 @@ function AdminDashboard() {
     <div className="space-y-6">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#1A0A00]">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-[#1A0A00] truncate">
             Bem-vindo, {profile?.nome?.split(" ")[0] ?? "usuário"} 👋
           </h1>
-          <p className="text-sm text-[#6B6B6B] mt-1">
+          <p className="text-xs sm:text-sm text-[#6B6B6B] mt-0.5 truncate">
             {activeMonthRef ? formatMonth(activeMonthRef) : "—"}
-            {usdBrl && <span className="ml-2">· USD 1 = {formatBRL(usdBrl)}</span>}
+            {usdBrl && <span className="ml-2 hidden sm:inline">· USD 1 = {formatBRL(usdBrl)}</span>}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="flex rounded-xl border border-[#E0E0E0] overflow-hidden text-sm bg-white">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex rounded-xl border border-[#E0E0E0] overflow-hidden text-xs sm:text-sm bg-white">
             <button onClick={() => setActiveTab("overview")}
-              className={`flex items-center gap-1.5 px-3 py-2 font-medium transition-colors ${activeTab === "overview" ? "bg-[#F44708] text-white" : "text-[#6B6B6B] hover:bg-[#FFF0E8]"}`}>
-              <TrendingUp className="h-3.5 w-3.5" /> Visão Geral
+              className={`flex items-center gap-1 px-2.5 sm:px-3 py-2 font-medium transition-colors ${activeTab === "overview" ? "bg-[#F44708] text-white" : "text-[#6B6B6B] hover:bg-[#FFF0E8]"}`}>
+              <TrendingUp className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <span className="hidden xs:inline sm:inline">Visão Geral</span>
             </button>
             <button onClick={() => setActiveTab("charts")}
-              className={`flex items-center gap-1.5 px-3 py-2 font-medium transition-colors ${activeTab === "charts" ? "bg-[#F44708] text-white" : "text-[#6B6B6B] hover:bg-[#FFF0E8]"}`}>
-              <Eye className="h-3.5 w-3.5" /> Gráficos
+              className={`flex items-center gap-1 px-2.5 sm:px-3 py-2 font-medium transition-colors ${activeTab === "charts" ? "bg-[#F44708] text-white" : "text-[#6B6B6B] hover:bg-[#FFF0E8]"}`}>
+              <Eye className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <span className="hidden xs:inline sm:inline">Gráficos</span>
             </button>
           </div>
           <button onClick={() => navigate({ to: "/admin/importacoes" })}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#F44708] to-[#FF5A00] text-white text-sm font-semibold rounded-xl shadow-[0_4px_14px_rgba(244,71,8,0.35)] hover:from-[#D93D07] transition-all">
-            <Upload className="h-4 w-4" />
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gradient-to-r from-[#F44708] to-[#FF5A00] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-[0_4px_14px_rgba(244,71,8,0.35)] hover:from-[#D93D07] transition-all">
+            <Upload className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             <span className="hidden sm:inline">Importar CSV</span>
           </button>
         </div>
@@ -1370,29 +1372,31 @@ function AdminDashboard() {
         <>
 
           {/* ═══════════════ HERO CARD ═══════════════ */}
-          <div className="relative w-full rounded-3xl overflow-hidden text-white"
+          <div className="relative w-full rounded-2xl sm:rounded-3xl overflow-hidden text-white"
             style={{ background: "linear-gradient(135deg,#FF5A00 0%,#FF3D00 100%)", boxShadow: "0 20px 50px rgba(255,90,0,.18)" }}>
             <div className="pointer-events-none absolute -top-16 -right-16 h-64 w-64 rounded-full bg-white/5" />
             <div className="pointer-events-none absolute -bottom-12 -left-12 h-48 w-48 rounded-full bg-white/5" />
-            <div className="relative p-8 pb-6">
-              <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="relative p-5 sm:p-8 pb-4 sm:pb-6">
+              {/* Top: label + sparkline */}
+              <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-[.15em] text-white/70 mb-3">Receita do Período</p>
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[.15em] text-white/70 mb-2 sm:mb-3">Receita do Período</p>
                   {loading ? (
                     <div className="space-y-2">
-                      <div className="h-16 w-64 rounded-xl bg-white/20 animate-pulse" />
-                      <div className="h-4 w-32 rounded bg-white/15 animate-pulse" />
+                      <div className="h-10 sm:h-16 w-48 sm:w-64 rounded-xl bg-white/20 animate-pulse" />
+                      <div className="h-3 sm:h-4 w-24 sm:w-32 rounded bg-white/15 animate-pulse" />
                     </div>
                   ) : (
                     <>
-                      <p className="font-extrabold leading-none tabular-nums" style={{ fontSize: 64 }}>
+                      <p className="font-extrabold leading-none tabular-nums"
+                        style={{ fontSize: "clamp(32px, 9vw, 64px)" }}>
                         {usdBrl ? formatBRL(totalMonth * usdBrl) : `$${totalMonth.toFixed(2)}`}
                       </p>
-                      <div className="flex items-center gap-3 mt-3 flex-wrap">
-                        {usdBrl && <span className="text-base font-semibold text-white/80 tabular-nums">${totalMonth.toFixed(2)} USD</span>}
+                      <div className="flex items-center gap-2 sm:gap-3 mt-2 sm:mt-3 flex-wrap">
+                        {usdBrl && <span className="text-xs sm:text-base font-semibold text-white/80 tabular-nums">${totalMonth.toFixed(2)} USD</span>}
                         {showManual && manualDelta > 0.001 && (
-                          <span className="flex items-center gap-1 bg-white/15 rounded-full px-3 py-1 text-sm font-bold">
-                            ▲ {manualDeltaPct > 0 ? `${manualDeltaPct.toFixed(0)}%` : ""} vs CSV puro
+                          <span className="flex items-center gap-1 bg-white/15 rounded-full px-2.5 sm:px-3 py-0.5 sm:py-1 text-xs sm:text-sm font-bold">
+                            ▲ {manualDeltaPct > 0 ? `${manualDeltaPct.toFixed(0)}%` : ""} vs CSV
                           </span>
                         )}
                       </div>
@@ -1405,101 +1409,158 @@ function AdminDashboard() {
                   </div>
                 )}
               </div>
-              <div className="mt-8 pt-6 border-t border-white/20 grid grid-cols-3 gap-4">
+              {/* Bottom: 3 secondary metrics */}
+              <div className="mt-5 sm:mt-8 pt-4 sm:pt-6 border-t border-white/20 grid grid-cols-3 gap-2 sm:gap-4">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-1">RPM Médio</p>
-                  {loading ? <div className="h-7 w-24 rounded bg-white/20 animate-pulse" />
-                    : <p className="text-xl font-bold tabular-nums">{usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(4)}`}</p>}
-                  <p className="text-xs text-white/50 mt-0.5">por mil views</p>
+                  <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">RPM</p>
+                  {loading ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
+                    : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(3)}`}</p>}
+                  <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 hidden sm:block">por mil views</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-1">Visualizações</p>
-                  {loading ? <div className="h-7 w-20 rounded bg-white/20 animate-pulse" />
-                    : <p className="text-xl font-bold tabular-nums">{fmt(totalViews)}</p>}
-                  <p className="text-xs text-white/50 mt-0.5">{kpis.totalPosts} posts</p>
+                  <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Views</p>
+                  {loading ? <div className="h-5 sm:h-7 w-14 sm:w-20 rounded bg-white/20 animate-pulse" />
+                    : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{fmt(totalViews)}</p>}
+                  <p className="text-[9px] sm:text-xs text-white/50 mt-0.5">{kpis.totalPosts} posts</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-1">Score Médio</p>
-                  {loading ? <div className="h-7 w-16 rounded bg-white/20 animate-pulse" />
-                    : <p className="text-xl font-bold tabular-nums">{avgScoreVal}<span className="text-sm font-normal text-white/60">/100</span></p>}
-                  <p className="text-xs text-white/50 mt-0.5">{pageStatsWithGlobalScores.length} páginas</p>
+                  <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Score</p>
+                  {loading ? <div className="h-5 sm:h-7 w-10 sm:w-16 rounded bg-white/20 animate-pulse" />
+                    : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{avgScoreVal}<span className="text-xs font-normal text-white/60">/100</span></p>}
+                  <p className="text-[9px] sm:text-xs text-white/50 mt-0.5">{pageStatsWithGlobalScores.length} págs</p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* ═══════════════ FILTER BAR ═══════════════ */}
-          <div className="flex items-center gap-3 bg-white border border-[#EFEFEF] rounded-2xl px-5 flex-wrap min-h-[64px]"
-            style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
-            <div className="flex flex-col gap-0.5 py-3 min-w-0">
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Página</label>
-              <select value={filterPage} onChange={(e) => setFilterPage(e.target.value)}
-                className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer min-w-[160px] max-w-[200px]">
-                <option value="all">Todas as páginas</option>
-                {(() => {
-                  const fb = pages.filter((p) => (p.source ?? "facebook") === "facebook");
-                  const ig = pages.filter((p) => p.source === "instagram");
-                  const hasBoth = fb.length > 0 && ig.length > 0;
-                  if (!hasBoth) return pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>);
-                  return (<>
-                    <optgroup label="Facebook">{fb.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</optgroup>
-                    <optgroup label="Instagram">{ig.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</optgroup>
-                  </>);
-                })()}
-              </select>
-            </div>
-            <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
-            <div className="flex flex-col gap-0.5 py-3">
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Colaborador</label>
-              <select value={filterColab} onChange={(e) => setFilterColab(e.target.value)}
-                className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer min-w-[120px]">
-                <option value="all">Todos</option>
-                <option value={SEM_COLAB_ID}>Sem colaborador</option>
-                {colabs.map((c) => <option key={c.id} value={c.id}>{c.nome}{c.hashtag ? ` (#${c.hashtag})` : ""}</option>)}
-              </select>
-            </div>
-            <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
-            <div className="flex flex-col gap-0.5 py-3">
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">De</label>
-              <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
-                className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer" />
-            </div>
-            <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
-            <div className="flex flex-col gap-0.5 py-3">
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Até</label>
-              <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
-                className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer" />
-            </div>
-            <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
-            <div className="flex flex-col gap-0.5 py-3">
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Dados Manuais</label>
+          {/* Helper to render page options */}
+          {(() => {
+            const fb = pages.filter((p) => (p.source ?? "facebook") === "facebook");
+            const ig = pages.filter((p) => p.source === "instagram");
+            const hasBoth = fb.length > 0 && ig.length > 0;
+            const pageOptions = hasBoth ? (
+              <><optgroup label="Facebook">{fb.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</optgroup>
+              <optgroup label="Instagram">{ig.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</optgroup></>
+            ) : pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>);
+
+            const toggle = (
               <button onClick={() => setShowManual((v) => !v)} className="flex items-center focus:outline-none" aria-pressed={showManual}>
-                <div className={`relative flex items-center h-7 w-[68px] rounded-full px-1 transition-colors duration-200 ${showManual ? "bg-[#F44708]" : "bg-[#D0D0D0]"}`}>
-                  <span className={`absolute text-[10px] font-bold text-white tracking-wide transition-all duration-200 ${showManual ? "left-2.5" : "right-2.5"}`}>{showManual ? "ON" : "OFF"}</span>
-                  <span className={`relative z-10 h-5 w-5 rounded-full bg-white shadow-md transition-all duration-200 shrink-0 ${showManual ? "translate-x-[34px]" : "translate-x-0"}`} />
+                <div className={`relative flex items-center h-6 w-[58px] rounded-full px-1 transition-colors duration-200 ${showManual ? "bg-[#F44708]" : "bg-[#D0D0D0]"}`}>
+                  <span className={`absolute text-[9px] font-bold text-white tracking-wide transition-all duration-200 ${showManual ? "left-2" : "right-2"}`}>{showManual ? "ON" : "OFF"}</span>
+                  <span className={`relative z-10 h-4 w-4 rounded-full bg-white shadow-md transition-all duration-200 shrink-0 ${showManual ? "translate-x-[30px]" : "translate-x-0"}`} />
                 </div>
               </button>
-            </div>
-            {(filterPage !== "all" || filterColab !== "all") && (
-              <><div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
-              <button onClick={() => { setFilterPage("all"); setFilterColab("all"); }}
-                className="text-xs font-medium text-[#F44708] hover:text-[#D93D07] transition-colors py-3">
-                Limpar filtros
-              </button></>
-            )}
-          </div>
+            );
+
+            return (
+              <div className="bg-white border border-[#EFEFEF] rounded-2xl overflow-hidden" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+
+                {/* ── Mobile grid (< sm) ── */}
+                <div className="sm:hidden grid grid-cols-2 divide-x divide-y divide-[#F0F0F0]">
+                  <div className="flex flex-col gap-0.5 px-4 py-3">
+                    <label className="text-[9px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Página</label>
+                    <select value={filterPage} onChange={(e) => setFilterPage(e.target.value)}
+                      className="border-0 bg-transparent text-xs font-medium text-[#1A0A00] focus:outline-none w-full truncate">
+                      <option value="all">Todas</option>{pageOptions}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-0.5 px-4 py-3">
+                    <label className="text-[9px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Colaborador</label>
+                    <select value={filterColab} onChange={(e) => setFilterColab(e.target.value)}
+                      className="border-0 bg-transparent text-xs font-medium text-[#1A0A00] focus:outline-none w-full truncate">
+                      <option value="all">Todos</option>
+                      <option value={SEM_COLAB_ID}>Sem colaborador</option>
+                      {colabs.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-0.5 px-4 py-3">
+                    <label className="text-[9px] font-semibold uppercase tracking-wider text-[#9B9B9B]">De</label>
+                    <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
+                      className="border-0 bg-transparent text-xs font-medium text-[#1A0A00] focus:outline-none w-full" />
+                  </div>
+                  <div className="flex flex-col gap-0.5 px-4 py-3">
+                    <label className="text-[9px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Até</label>
+                    <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
+                      className="border-0 bg-transparent text-xs font-medium text-[#1A0A00] focus:outline-none w-full" />
+                  </div>
+                  <div className="col-span-2 flex items-center justify-between px-4 py-3 border-t border-[#F0F0F0]">
+                    <div className="flex items-center gap-2">
+                      <label className="text-[9px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Dados Manuais</label>
+                      {toggle}
+                    </div>
+                    {(filterPage !== "all" || filterColab !== "all") && (
+                      <button onClick={() => { setFilterPage("all"); setFilterColab("all"); }}
+                        className="text-xs font-medium text-[#F44708]">Limpar</button>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Desktop pill bar (≥ sm) ── */}
+                <div className="hidden sm:flex items-center gap-3 px-5 min-h-[64px] flex-wrap">
+                  <div className="flex flex-col gap-0.5 py-3 min-w-0">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Página</label>
+                    <select value={filterPage} onChange={(e) => setFilterPage(e.target.value)}
+                      className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer min-w-[160px] max-w-[200px]">
+                      <option value="all">Todas as páginas</option>{pageOptions}
+                    </select>
+                  </div>
+                  <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
+                  <div className="flex flex-col gap-0.5 py-3">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Colaborador</label>
+                    <select value={filterColab} onChange={(e) => setFilterColab(e.target.value)}
+                      className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer min-w-[120px]">
+                      <option value="all">Todos</option>
+                      <option value={SEM_COLAB_ID}>Sem colaborador</option>
+                      {colabs.map((c) => <option key={c.id} value={c.id}>{c.nome}{c.hashtag ? ` (#${c.hashtag})` : ""}</option>)}
+                    </select>
+                  </div>
+                  <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
+                  <div className="flex flex-col gap-0.5 py-3">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">De</label>
+                    <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
+                      className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer" />
+                  </div>
+                  <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
+                  <div className="flex flex-col gap-0.5 py-3">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Até</label>
+                    <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
+                      className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer" />
+                  </div>
+                  <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
+                  <div className="flex flex-col gap-0.5 py-3">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Dados Manuais</label>
+                    <button onClick={() => setShowManual((v) => !v)} className="flex items-center focus:outline-none" aria-pressed={showManual}>
+                      <div className={`relative flex items-center h-7 w-[68px] rounded-full px-1 transition-colors duration-200 ${showManual ? "bg-[#F44708]" : "bg-[#D0D0D0]"}`}>
+                        <span className={`absolute text-[10px] font-bold text-white tracking-wide transition-all duration-200 ${showManual ? "left-2.5" : "right-2.5"}`}>{showManual ? "ON" : "OFF"}</span>
+                        <span className={`relative z-10 h-5 w-5 rounded-full bg-white shadow-md transition-all duration-200 shrink-0 ${showManual ? "translate-x-[34px]" : "translate-x-0"}`} />
+                      </div>
+                    </button>
+                  </div>
+                  {(filterPage !== "all" || filterColab !== "all") && (
+                    <><div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
+                    <button onClick={() => { setFilterPage("all"); setFilterColab("all"); }}
+                      className="text-xs font-medium text-[#F44708] hover:text-[#D93D07] transition-colors py-3">
+                      Limpar filtros
+                    </button></>
+                  )}
+                </div>
+
+              </div>
+            );
+          })()}
 
           {/* ═══════════════ MAIN GRID ═══════════════ */}
           <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6">
 
             {/* LEFT: Analytics chart */}
             {loading ? (
-              <div className="bg-white border border-[#F1F1F1] rounded-2xl p-6 space-y-4" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+              <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6 space-y-4" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
                 <div className="flex items-center justify-between">
-                  <div className="space-y-2"><Sk w="w-40" h="h-5" /><Sk w="w-56" h="h-3" /></div>
-                  <div className="flex gap-1">{[1,2,3,4,5,6].map(i => <Sk key={i} w="w-16" h="h-7" className="rounded-full" />)}</div>
+                  <div className="space-y-2"><Sk w="w-32 sm:w-40" h="h-4 sm:h-5" /><Sk w="w-40 sm:w-56" h="h-3" /></div>
+                  <div className="flex gap-1 overflow-hidden">{[1,2,3].map(i => <Sk key={i} w="w-14" h="h-7" className="rounded-full shrink-0" />)}</div>
                 </div>
-                <Sk w="w-full" h="h-[340px]" className="rounded-xl" />
+                <Sk w="w-full" h="h-[220px] sm:h-[340px]" className="rounded-xl" />
               </div>
             ) : (() => {
               const fmtMetricVal = (v: number) => {
@@ -1510,26 +1571,29 @@ function AdminDashboard() {
                 ? (chartMetric === "seguidores" ? multiPageFollowersDataset : multiPageAllMetrics?.[chartMetric] ?? null)
                 : null;
               return (
-                <div className="bg-white border border-[#F1F1F1] rounded-2xl p-6" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
+                <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+                  <div className="flex flex-col gap-3 mb-4 sm:mb-5">
                     <div>
-                      <h2 className="text-base font-bold text-[#1A0A00]">
+                      <h2 className="text-sm sm:text-base font-bold text-[#1A0A00]">
                         {filterPage === "all" ? "Métricas por Página" : "Métricas" + (chartMetric === "receita" ? " + Projeção" : "")}
                       </h2>
-                      <p className="text-xs text-[#9B9B9B] mt-0.5">
+                      <p className="text-xs text-[#9B9B9B] mt-0.5 hidden sm:block">
                         {filterPage === "all" ? "Acompanhe a evolução das principais métricas ao longo do tempo." : chartMetric === "receita" ? "Histórico real e projeção 28 dias" : "Histórico do período"}
                       </p>
                     </div>
-                    <div className="flex flex-wrap gap-1 shrink-0">
-                      {METRIC_TABS_DEF.map(({ key, label }) => (
-                        <button key={key} onClick={() => setChartMetric(key)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${chartMetric === key ? "bg-[#F44708] text-white shadow-sm" : "text-[#6B6B6B] bg-[#F5F5F5] hover:bg-[#FFF0E8] hover:text-[#F44708]"}`}>
-                          {label}
-                        </button>
-                      ))}
+                    {/* Metric tabs — scrollable on mobile */}
+                    <div className="overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+                      <div className="flex gap-1 min-w-max sm:flex-wrap">
+                        {METRIC_TABS_DEF.map(({ key, label }) => (
+                          <button key={key} onClick={() => setChartMetric(key)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${chartMetric === key ? "bg-[#F44708] text-white shadow-sm" : "text-[#6B6B6B] bg-[#F5F5F5] hover:bg-[#FFF0E8] hover:text-[#F44708]"}`}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                  <div style={{ height: 340 }}>
+                  <div className="h-[220px] sm:h-[340px]">
                     <ResponsiveContainer width="100%" height="100%">
                       {filterPage === "all" && activeDataset && activeDataset.data.length > 0 ? (
                         <ComposedChart data={chartMetric === "receita" && showManual ? activeDataset.data.map((row) => ({ ...row, __actual: dailyActualByDia.get(row.dia) ?? null })) : chartMetric === "views" && showManual ? activeDataset.data.map((row) => { const extra: Record<string, number | null> = {}; for (const pid of activeDataset.pageIds) extra[`__actual_${pid}`] = dailyActualViewsByPage.get(pid)?.get(row.dia) ?? null; return { ...row, ...extra }; }) : activeDataset.data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -1586,8 +1650,8 @@ function AdminDashboard() {
             })()}
 
             {/* RIGHT: Collaborator ranking */}
-            <div className="bg-white border border-[#F1F1F1] rounded-2xl p-6 flex flex-col" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
-              <div className="flex items-center justify-between mb-5">
+            <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6 flex flex-col" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+              <div className="flex items-center justify-between mb-4 sm:mb-5">
                 <div>
                   <h2 className="text-base font-bold text-[#1A0A00]">Ranking</h2>
                   <p className="text-xs text-[#9B9B9B] mt-0.5">Colaboradores no período</p>
