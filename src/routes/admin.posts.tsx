@@ -683,15 +683,7 @@ function AnalyticsPage() {
             />
           </div>
 
-          {/* ── Record Banner ── */}
-          {bestMonthEver && (
-            <RecordBanner
-              best={bestMonthEver}
-              current={analytics.monthlyData[0] ?? null}
-              curVideos={analytics.videoCount}
-              curPhotos={analytics.photoCount}
-            />
-          )}
+          {/* Record Banner moved to Metas page */}
 
           {/* ── Main chart + Monthly table ── */}
           <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
