@@ -1671,7 +1671,14 @@ function AdminDashboard() {
                       <button key={card.id} onClick={() => setAuditColabId(card.id)}
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#FFF8F5] transition-colors text-left">
                         <span className={`text-xs font-black w-4 text-center shrink-0 ${rankColors[i] ?? "text-[#C0C0C0]"}`}>{i + 1}</span>
-                        <ColabInitials nome={card.nome} idx={i} size={32} avatarUrl={card.avatar_url} />
+                        <div
+                          className="relative shrink-0 flex items-center justify-center"
+                          style={{ width: 40, height: 40 }}
+                          title={`Meta $100: $${card.receita.toFixed(2)} — ${Math.min(100, Math.round(card.receita))}%`}
+                        >
+                          <GoalRing revenueUsd={card.receita} size={40} />
+                          <ColabInitials nome={card.nome} idx={i} size={32} avatarUrl={card.avatar_url} />
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-[#1A0A00] truncate leading-tight">{card.nome}</p>
                           <p className="text-[11px] text-[#9B9B9B] tabular-nums">{fmt(card.views)} views</p>
@@ -2000,6 +2007,38 @@ function HeroSparkline({ data }: { data: number[] }) {
       <path d={areaD} fill="url(#heroGrad)" />
       <polyline points={polyPts} fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
       <circle cx={lx} cy={ly} r={3} fill="white" />
+    </svg>
+  );
+}
+
+// ─── GoalRing ($100 Facebook monthly goal) ────────────────────────────────────
+
+function GoalRing({ revenueUsd, size = 40 }: { revenueUsd: number; size?: number }) {
+  const sw = 2.5;
+  const r = (size - sw) / 2;
+  const circ = 2 * Math.PI * r;
+  const pct = Math.min(1, Math.max(0, revenueUsd / 100));
+  const offset = circ * (1 - pct);
+  const color =
+    pct >= 1     ? "#16a34a"  // green  — atingiu!
+    : pct >= 0.8 ? "#3b82f6"  // blue   — quase lá
+    : pct >= 0.5 ? "#f59e0b"  // amber  — no caminho
+    : "#f44708";               // orange — início
+  return (
+    <svg
+      width={size} height={size}
+      style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)", pointerEvents: "none" }}
+    >
+      {/* track */}
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e5e7eb" strokeWidth={sw} />
+      {/* progress */}
+      <circle
+        cx={size / 2} cy={size / 2} r={r}
+        fill="none" stroke={color} strokeWidth={sw}
+        strokeDasharray={circ} strokeDashoffset={offset}
+        strokeLinecap="round"
+        style={{ transition: "stroke-dashoffset 0.6s ease, stroke 0.4s ease" }}
+      />
     </svg>
   );
 }
