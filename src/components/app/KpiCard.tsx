@@ -1,9 +1,9 @@
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 
 interface KpiCardProps {
   label: string;
-  value: string;
-  sub?: string | null;
+  value: ReactNode;
+  sub?: ReactNode | null;
   delta?: number;
   fmtDelta?: (n: number) => string;
   icon: ComponentType<{ className?: string }>;
@@ -21,8 +21,8 @@ export function KpiCard({ label, value, sub, delta = 0, fmtDelta, icon: Icon, to
           <Icon className={`h-4 w-4 ${iconColor}`} />
         </div>
       </div>
-      <p className="text-2xl font-bold tracking-tight tabular-nums text-[#1A0A00]">{value}</p>
-      <div className="flex items-center gap-2 mt-1">
+      <div className="text-2xl font-bold tracking-tight tabular-nums text-[#1A0A00] min-h-[2rem] flex items-center">{value}</div>
+      <div className="flex items-center gap-2 mt-1 min-h-[1.25rem]">
         {sub && <p className="text-xs text-[#6B6B6B]">{sub}</p>}
         {delta !== 0 && fmtDelta && (
           <span className={`text-xs font-semibold ${delta > 0 ? "text-[#16a34a]" : "text-[#dc2626]"}`}>
