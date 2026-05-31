@@ -15,8 +15,11 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Users, Plus, Loader2, Trash2, Shield, Eye, UserCheck, Camera } from "lucide-react";
+import { Users, Plus, Loader2, Trash2, Shield, Eye, UserCheck, Camera, Settings } from "lucide-react";
 
 export const Route = createFileRoute("/admin/cadastro")({
   head: () => ({ meta: [{ title: "Cadastro de Usuários — Splash Creators" }] }),
@@ -56,6 +59,69 @@ function Page() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("colaborador");
+
+  // Edit modal state
+  const [editTarget, setEditTarget] = useState<UserProfile | null>(null);
+  const [editNome, setEditNome] = useState("");
+  const [editRole, setEditRole] = useState<Role>("colaborador");
+  const [editPassword, setEditPassword] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
+  const openEdit = (u: UserProfile) => {
+    setEditTarget(u);
+    setEditNome(u.nome);
+    setEditRole(u.role);
+    setEditPassword("");
+  };
+
+  const saveEdit = async () => {
+    if (!editTarget) return;
+    if (editPassword && editPassword.length < 8) {
+      toast.error("Nova senha deve ter ao menos 8 caracteres");
+      return;
+    }
+    setEditSaving(true);
+    try {
+      // Update name
+      if (editNome.trim() !== editTarget.nome) {
+        const { error } = await supabase
+          .from("profiles")
+          .update({ nome: editNome.trim() })
+          .eq("id", editTarget.id);
+        if (error) throw error;
+      }
+      // Update role (skip for self — role change requires another admin anyway)
+      if (editRole !== editTarget.role && editTarget.id !== profile?.id) {
+        const { data, error } = await supabase.functions.invoke("manage-user", {
+          body: { action: "update_role", userId: editTarget.id, role: editRole },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      }
+      // Update password
+      if (editPassword) {
+        const { data, error } = await supabase.functions.invoke("manage-user", {
+          body: { action: "update_password", userId: editTarget.id, password: editPassword },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      }
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === editTarget.id
+            ? { ...u, nome: editNome.trim(), role: editRole }
+            : u
+        )
+      );
+      if (editTarget.id === profile?.id) await refresh();
+      toast.success("Usuário atualizado");
+      setEditTarget(null);
+    } catch (err) {
+      toast.error("Erro ao salvar", {
+        description: err instanceof Error ? err.message : "Erro desconhecido",
+      });
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (profile?.role !== "admin") {
@@ -198,6 +264,65 @@ function Page() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Edit dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(o) => { if (!o) setEditTarget(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar usuário</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Nome</Label>
+              <Input
+                value={editNome}
+                onChange={(e) => setEditNome(e.target.value)}
+                placeholder="Nome completo"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>E-mail</Label>
+              <Input value={editTarget?.email ?? ""} disabled className="opacity-60" />
+              <p className="text-xs text-muted-foreground">O e-mail não pode ser alterado aqui.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Função</Label>
+              {editTarget?.id === profile?.id ? (
+                <div className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full ${
+                  editRole === "admin" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                }`}>
+                  <RoleIcon role={editRole} className="h-3 w-3" />
+                  {ROLE_LABEL[editRole]}
+                  <span className="ml-1 opacity-60">(não pode alterar o próprio cargo)</span>
+                </div>
+              ) : (
+                <RoleSelect value={editRole} onChange={setEditRole} />
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nova senha <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+              <Input
+                type="password"
+                value={editPassword}
+                onChange={(e) => setEditPassword(e.target.value)}
+                placeholder="Deixe em branco para não alterar"
+              />
+              {editPassword && editPassword.length < 8 && (
+                <p className="text-xs text-destructive">Mínimo de 8 caracteres</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setEditTarget(null)} disabled={editSaving}>
+              Cancelar
+            </Button>
+            <Button onClick={saveEdit} disabled={editSaving || !editNome.trim()}>
+              {editSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <PageHeader
         title="Cadastro de Usuários"
         description="Crie logins e defina o nível de acesso de cada pessoa."
@@ -291,16 +416,26 @@ function Page() {
                         <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                       </div>
                     </div>
-                    {u.id !== profile?.id && (
+                    <div className="flex items-center gap-1 shrink-0">
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => setDeleteTarget(u)}
-                        className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => openEdit(u)}
+                        className="text-muted-foreground hover:text-foreground"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Settings className="h-4 w-4" />
                       </Button>
-                    )}
+                      {u.id !== profile?.id && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeleteTarget(u)}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   {u.id === profile?.id ? (
                     <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
@@ -396,16 +531,26 @@ function Page() {
                         {new Date(u.created_at).toLocaleDateString("pt-BR")}
                       </td>
                       <td className="px-5 py-3 text-right">
-                        {u.id !== profile?.id && (
+                        <div className="flex items-center justify-end gap-1">
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => setDeleteTarget(u)}
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => openEdit(u)}
+                            className="text-muted-foreground hover:text-foreground"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Settings className="h-4 w-4" />
                           </Button>
-                        )}
+                          {u.id !== profile?.id && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setDeleteTarget(u)}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

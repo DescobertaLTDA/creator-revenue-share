@@ -108,6 +108,18 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    // ── UPDATE PASSWORD ─────────────────────────────────────
+    if (action === "update_password") {
+      const { userId, password } = body;
+      if (!userId || !password) return json({ error: "userId e password obrigatórios" }, 400);
+      if (password.length < 8) return json({ error: "Senha deve ter ao menos 8 caracteres" }, 400);
+
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, { password });
+      if (error) return json({ error: error.message }, 400);
+
+      return json({ ok: true });
+    }
+
     return json({ error: "Ação desconhecida" }, 400);
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : "Erro desconhecido" }, 500);
