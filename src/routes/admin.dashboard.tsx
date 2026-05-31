@@ -136,12 +136,7 @@ function Sk({ w = "w-full", h = "h-4", className = "" }: { w?: string; h?: strin
 const SEM_COLAB_ID = "__sem_colaborador__";
 
 const METRIC_TABS_DEF = [
-  { key: "receita",           label: "Receita" },
-  { key: "views",             label: "Views" },
-  { key: "seguidores",        label: "Seguidores" },
-  { key: "curtidas",          label: "Curtidas" },
-  { key: "comentarios",       label: "Comentários" },
-  { key: "compartilhamentos", label: "Compartilhamentos" },
+  { key: "receita", label: "Receita" },
 ] as const;
 
 // ─── Module-level cache (survives route navigation) ───────────────────────────
@@ -1145,21 +1140,35 @@ function AdminDashboard() {
   // Projection chart data: last 30 days real + future projection only if filterTo is beyond today
   // Orange line always = pure CSV posts revenue; green line = actual_revenue_usd (manual)
   const projectionChartData = useMemo(() => {
-    const hist = chartDataCsv.slice(-30).map((d) => ({ dia: d.dia, real: d.receita, proj: null as number | null }));
+    type HistRow = { dia: string; real: number; proj: number | null; optimistic: number | null; conservative: number | null };
+    type FutRow = { dia: string; real: null; proj: number; optimistic: number; conservative: number };
+    const hist: HistRow[] = chartDataCsv.slice(-30).map((d) => ({
+      dia: d.dia, real: d.receita,
+      proj: null, optimistic: null, conservative: null,
+    }));
     const last = chartDataCsv[chartDataCsv.length - 1];
     const todayStr = new Date().toISOString().slice(0, 10);
-    // Only show projection days beyond today if filterTo is in the future
     const projEnd = filterTo && filterTo > todayStr ? filterTo : todayStr;
-    const futuro: { dia: string; real: null; proj: number }[] = [];
+    const futuro: FutRow[] = [];
     for (let i = 1; i <= 28; i++) {
       const d = new Date(todayStr);
       d.setDate(d.getDate() + i);
       const dateStr = d.toISOString().slice(0, 10);
       if (dateStr > projEnd) break;
       const [, mo, dy] = dateStr.split("-");
-      futuro.push({ dia: `${dy}/${mo}`, real: null, proj: projections.today });
+      futuro.push({
+        dia: `${dy}/${mo}`, real: null,
+        proj: projections.today,
+        optimistic: projections.today * 1.72,
+        conservative: projections.today * 0.65,
+      });
     }
-    if (last) hist[hist.length - 1] = { ...hist[hist.length - 1], proj: projections.today };
+    if (last) hist[hist.length - 1] = {
+      ...hist[hist.length - 1],
+      proj: projections.today,
+      optimistic: projections.today * 1.72,
+      conservative: projections.today * 0.65,
+    };
     return [...hist, ...futuro];
   }, [chartDataCsv, projections, filterTo]);
 
@@ -1553,101 +1562,83 @@ function AdminDashboard() {
           {/* ═══════════════ MAIN GRID ═══════════════ */}
           <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6">
 
-            {/* LEFT: Analytics chart */}
+            {/* LEFT: Analytics chart — Receita + 3 cenários de projeção */}
             {loading ? (
               <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6 space-y-4" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-2"><Sk w="w-32 sm:w-40" h="h-4 sm:h-5" /><Sk w="w-40 sm:w-56" h="h-3" /></div>
-                  <div className="flex gap-1 overflow-hidden">{[1,2,3].map(i => <Sk key={i} w="w-14" h="h-7" className="rounded-full shrink-0" />)}</div>
-                </div>
+                <div className="space-y-2"><Sk w="w-32 sm:w-40" h="h-4 sm:h-5" /><Sk w="w-40 sm:w-56" h="h-3" /></div>
                 <Sk w="w-full" h="h-[220px] sm:h-[340px]" className="rounded-xl" />
               </div>
-            ) : (() => {
-              const fmtMetricVal = (v: number) => {
-                if (chartMetric === "receita") return usdBrl ? formatBRL(v * usdBrl) : `$${v.toFixed(4)}`;
-                return v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `${(v / 1_000).toFixed(1)}k` : v.toLocaleString("pt-BR");
-              };
-              const activeDataset = filterPage === "all"
-                ? (chartMetric === "seguidores" ? multiPageFollowersDataset : multiPageAllMetrics?.[chartMetric] ?? null)
-                : null;
-              return (
-                <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
-                  <div className="flex flex-col gap-3 mb-4 sm:mb-5">
-                    <div>
-                      <h2 className="text-sm sm:text-base font-bold text-[#1A0A00]">
-                        {filterPage === "all" ? "Métricas por Página" : "Métricas" + (chartMetric === "receita" ? " + Projeção" : "")}
-                      </h2>
-                      <p className="text-xs text-[#9B9B9B] mt-0.5 hidden sm:block">
-                        {filterPage === "all" ? "Acompanhe a evolução das principais métricas ao longo do tempo." : chartMetric === "receita" ? "Histórico real e projeção 28 dias" : "Histórico do período"}
-                      </p>
-                    </div>
-                    {/* Metric tabs — scrollable on mobile */}
-                    <div className="overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
-                      <div className="flex gap-1 min-w-max sm:flex-wrap">
-                        {METRIC_TABS_DEF.map(({ key, label }) => (
-                          <button key={key} onClick={() => setChartMetric(key)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${chartMetric === key ? "bg-[#F44708] text-white shadow-sm" : "text-[#6B6B6B] bg-[#F5F5F5] hover:bg-[#FFF0E8] hover:text-[#F44708]"}`}>
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="h-[220px] sm:h-[340px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      {filterPage === "all" && activeDataset && activeDataset.data.length > 0 ? (
-                        <ComposedChart data={chartMetric === "receita" && showManual ? activeDataset.data.map((row) => ({ ...row, __actual: dailyActualByDia.get(row.dia) ?? null })) : chartMetric === "views" && showManual ? activeDataset.data.map((row) => { const extra: Record<string, number | null> = {}; for (const pid of activeDataset.pageIds) extra[`__actual_${pid}`] = dailyActualViewsByPage.get(pid)?.get(row.dia) ?? null; return { ...row, ...extra }; }) : activeDataset.data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                          <defs>
-                            {activeDataset.pageIds.map((pid, i) => (<linearGradient key={pid} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={PAGE_COLORS[i % PAGE_COLORS.length]} stopOpacity={0.35} /><stop offset="95%" stopColor={PAGE_COLORS[i % PAGE_COLORS.length]} stopOpacity={0.03} /></linearGradient>))}
-                            <linearGradient id="gradActualMulti" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#F44708" stopOpacity={0.7} /><stop offset="95%" stopColor="#F44708" stopOpacity={0.1} /></linearGradient>
-                          </defs>
-                          <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9B9B9B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
-                          <YAxis hide />
-                          <Tooltip formatter={(v: any, name: string) => { if (v === null || Number(v) === 0) return null as any; return [fmtMetricVal(Number(v)), name]; }} labelStyle={{ color: "#1A0A00", fontSize: 11, fontWeight: 600 }} contentStyle={{ border: "1px solid #F1F1F1", borderRadius: 12, fontSize: 11, boxShadow: "0 8px 24px rgba(0,0,0,.08)" }} />
-                          <Legend content={() => null} />
-                          {activeDataset.pageIds.map((pid, i) => (<Area key={pid} type="monotone" dataKey={pid} name={activeDataset.pageNameById.get(pid) ?? "Sem nome"} stroke="none" strokeWidth={0} fill={`url(#grad-${i})`} dot={false} connectNulls />))}
-                          {chartMetric === "receita" && showManual && (<Area type="monotone" dataKey="__actual" name="Real Recebido" stroke="none" strokeWidth={0} fill="url(#gradActualMulti)" dot={false} connectNulls legendType="none" />)}
-                          {chartMetric === "views" && showManual && activeDataset.pageIds.map((pid, i) => (<Area key={`__actual_${pid}`} type="monotone" dataKey={`__actual_${pid}`} name={`${activeDataset.pageNameById.get(pid) ?? ""} (manual)`} stroke="none" strokeWidth={0} fill={PAGE_COLORS[i % PAGE_COLORS.length]} fillOpacity={0.5} dot={false} connectNulls legendType="none" />))}
-                        </ComposedChart>
-                      ) : filterPage !== "all" && chartMetric === "receita" ? (
-                        <ComposedChart data={showManual ? projectionChartData.map((row) => ({ ...row, actual: dailyActualByDia.get(row.dia) ?? null })) : projectionChartData} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
-                          <defs>
-                            <linearGradient id="gradReal" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#F44708" stopOpacity={0.2} /><stop offset="95%" stopColor="#F44708" stopOpacity={0} /></linearGradient>
-                            <linearGradient id="gradProj" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#FAC46A" stopOpacity={0.2} /><stop offset="95%" stopColor="#FAC46A" stopOpacity={0} /></linearGradient>
-                            <linearGradient id="gradActual" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#F44708" stopOpacity={0.7} /><stop offset="95%" stopColor="#F44708" stopOpacity={0.1} /></linearGradient>
-                          </defs>
-                          <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9B9B9B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
-                          <YAxis hide />
-                          <Tooltip formatter={(v: any) => v !== null ? (usdBrl ? formatBRL(Number(v) * usdBrl) : `$${Number(v).toFixed(4)}`) : "—"} labelStyle={{ color: "#1A0A00", fontSize: 11 }} contentStyle={{ border: "1px solid #F1F1F1", borderRadius: 10, fontSize: 11, boxShadow: "0 8px 24px rgba(0,0,0,.08)" }} />
-                          <Legend content={() => null} />
-                          <Area type="monotone" dataKey="real" stroke="none" strokeWidth={0} fill="url(#gradReal)" dot={false} connectNulls={false} legendType="none" />
-                          <Area type="monotone" dataKey="proj" stroke="none" strokeWidth={0} fill="url(#gradProj)" dot={false} connectNulls={false} legendType="none" />
-                          {showManual && <Area type="monotone" dataKey="actual" stroke="none" strokeWidth={0} fill="url(#gradActual)" dot={false} connectNulls={false} legendType="none" />}
-                        </ComposedChart>
-                      ) : singlePageMetricData && singlePageMetricData.length > 0 ? (
-                        <ComposedChart data={chartMetric === "views" && showManual ? singlePageMetricData.map((row) => ({ ...row, actual: dailyActualViewsByDia.get(row.dia) ?? null })) : singlePageMetricData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                          <defs>
-                            <linearGradient id="gradSingle" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#F44708" stopOpacity={0.25} /><stop offset="95%" stopColor="#F44708" stopOpacity={0} /></linearGradient>
-                            <linearGradient id="gradSingleActual" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#F44708" stopOpacity={0.7} /><stop offset="95%" stopColor="#F44708" stopOpacity={0.1} /></linearGradient>
-                          </defs>
-                          <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9B9B9B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
-                          <YAxis hide />
-                          <Tooltip formatter={(v: any, name: string) => { if (v === null) return null as any; const label = name === "actual" ? "Views Manuais" : (METRIC_TABS_DEF.find((t) => t.key === chartMetric)?.label ?? chartMetric); return [fmtMetricVal(Number(v)), label]; }} labelStyle={{ color: "#1A0A00", fontSize: 11 }} contentStyle={{ border: "1px solid #F1F1F1", borderRadius: 10, fontSize: 11, boxShadow: "0 8px 24px rgba(0,0,0,.08)" }} />
-                          <Legend content={() => null} />
-                          <Area type="monotone" dataKey="value" stroke="none" strokeWidth={0} fill="url(#gradSingle)" dot={false} connectNulls legendType="none" />
-                          {chartMetric === "views" && showManual && (<Area type="monotone" dataKey="actual" stroke="none" strokeWidth={0} fill="url(#gradSingleActual)" dot={false} connectNulls legendType="none" />)}
-                        </ComposedChart>
-                      ) : (
-                        <AreaChart data={[]} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                          <XAxis tick={{ fontSize: 10, fill: "#9B9B9B" }} axisLine={false} tickLine={false} /><YAxis hide />
-                        </AreaChart>
-                      )}
-                    </ResponsiveContainer>
-                  </div>
-                  {filterPage === "all" && !activeDataset && (<p className="text-center text-xs text-[#9B9B9B] mt-3">Nenhum dado para esta métrica no período</p>)}
+            ) : (
+              <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+                <div className="mb-4 sm:mb-5">
+                  <h2 className="text-sm sm:text-base font-bold text-[#1A0A00]">Receita + Projeção</h2>
+                  <p className="text-xs text-[#9B9B9B] mt-0.5 hidden sm:block">
+                    Histórico real dos últimos 30 dias e 3 cenários de projeção
+                  </p>
                 </div>
-              );
-            })()}
+                <div className="h-[220px] sm:h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart
+                      data={showManual ? projectionChartData.map((row) => ({ ...row, actual: dailyActualByDia.get(row.dia) ?? null })) : projectionChartData}
+                      margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                    >
+                      <defs>
+                        <linearGradient id="gradReal" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#F44708" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="#F44708" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="gradOptimistic" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10B981" stopOpacity={0.15} />
+                          <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="gradActualOverlay" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#F44708" stopOpacity={0.6} />
+                          <stop offset="95%" stopColor="#F44708" stopOpacity={0.05} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9B9B9B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
+                      <YAxis hide />
+                      <Tooltip
+                        formatter={(v: any, name: string) => {
+                          if (v === null || v === undefined) return null as any;
+                          const val = usdBrl ? formatBRL(Number(v) * usdBrl) : `$${Number(v).toFixed(4)}`;
+                          const labels: Record<string, string> = { real: "Real", proj: "Provável", optimistic: "Otimista", conservative: "Conservador", actual: "Manual" };
+                          return [val, labels[name] ?? name];
+                        }}
+                        labelStyle={{ color: "#1A0A00", fontSize: 11, fontWeight: 600 }}
+                        contentStyle={{ border: "1px solid #F1F1F1", borderRadius: 12, fontSize: 11, boxShadow: "0 8px 24px rgba(0,0,0,.08)" }}
+                      />
+                      <Legend content={() => null} />
+                      {/* Historical real revenue area */}
+                      <Area type="monotone" dataKey="real" stroke="#F44708" strokeWidth={2} fill="url(#gradReal)" dot={false} connectNulls={false} legendType="none" />
+                      {/* Optimistic scenario — green dashed */}
+                      <Area type="monotone" dataKey="optimistic" stroke="#10B981" strokeWidth={1.5} strokeDasharray="5 3" fill="url(#gradOptimistic)" dot={false} connectNulls={false} legendType="none" />
+                      {/* Probable scenario — orange dashed */}
+                      <Area type="monotone" dataKey="proj" stroke="#F44708" strokeWidth={1.5} strokeDasharray="5 3" fill="none" dot={false} connectNulls={false} legendType="none" />
+                      {/* Conservative scenario — slate dashed */}
+                      <Area type="monotone" dataKey="conservative" stroke="#94A3B8" strokeWidth={1.5} strokeDasharray="5 3" fill="none" dot={false} connectNulls={false} legendType="none" />
+                      {/* Manual / actual overlay */}
+                      {showManual && <Area type="monotone" dataKey="actual" stroke="none" strokeWidth={0} fill="url(#gradActualOverlay)" dot={false} connectNulls={false} legendType="none" />}
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+                {/* Scenario legend */}
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-[#F1F1F1]">
+                  <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
+                    <span className="h-0.5 w-5 bg-[#F44708] rounded-full inline-block" />Real
+                  </span>
+                  <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
+                    <span className="h-0.5 w-5 border-t-2 border-dashed border-emerald-500 inline-block" />Otimista
+                  </span>
+                  <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
+                    <span className="h-0.5 w-5 border-t-2 border-dashed border-[#F44708] inline-block" />Provável
+                  </span>
+                  <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
+                    <span className="h-0.5 w-5 border-t-2 border-dashed border-slate-400 inline-block" />Conservador
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* RIGHT: Collaborator ranking */}
             <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6 flex flex-col" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
