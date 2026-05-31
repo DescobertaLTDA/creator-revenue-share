@@ -1559,7 +1559,7 @@ function AdminDashboard() {
           })()}
 
           {/* ═══════════════ MAIN GRID ═══════════════ */}
-          <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6 xl:items-start">
+          <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6">
 
             {/* LEFT: Analytics chart — Receita + 3 cenários de projeção */}
             {loading ? (
@@ -1568,7 +1568,7 @@ function AdminDashboard() {
                 <Sk w="w-full" h="h-[220px] sm:h-[340px]" className="rounded-xl" />
               </div>
             ) : (
-              <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6 self-start" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+              <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
                 <div className="mb-4 sm:mb-5">
                   <h2 className="text-sm sm:text-base font-bold text-[#1A0A00]">Receita + Projeção</h2>
                   <p className="text-xs text-[#9B9B9B] mt-0.5 hidden sm:block">
