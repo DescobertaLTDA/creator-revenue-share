@@ -428,6 +428,7 @@ function AdminDashboard() {
   const [dailyEntries, setDailyEntries] = useState<DailyEntry[]>([]);
   const [recentImports, setRecentImports] = useState<RecentImport[]>(() => _dashCache?.imports ?? []);
   const [usdBrl, setUsdBrl] = useState<number | null>(null);
+  const [myCollabId, setMyCollabId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "charts">("overview");
   const [chartMetric, setChartMetric] = useState<"receita" | "views" | "curtidas" | "comentarios" | "compartilhamentos" | "seguidores">("receita");
 
@@ -451,6 +452,19 @@ function AdminDashboard() {
     usdIntervalRef.current = setInterval(load, 60_000);
     return () => { if (usdIntervalRef.current) clearInterval(usdIntervalRef.current); };
   }, []);
+
+  // Fetch the collaborator linked to the current user's profile (if any)
+  useEffect(() => {
+    if (!profile?.id) return;
+    (supabase as any)
+      .from("collaborators")
+      .select("id")
+      .eq("profile_id", profile.id)
+      .maybeSingle()
+      .then(({ data }: { data: { id: string } | null }) => {
+        setMyCollabId(data?.id ?? null);
+      });
+  }, [profile?.id]);
 
   useEffect(() => {
     const applyCache = (cache: DashCache) => {
@@ -964,6 +978,10 @@ function AdminDashboard() {
 
   const activeCollabCards = showManual ? collabCards : collabCardsCsv;
 
+  // Current user's personal collaborator card (if they are linked to a collaborator)
+  const myCard = myCollabId ? activeCollabCards.find(c => c.id === myCollabId) ?? null : null;
+  const myReceita = myCard?.receita ?? 0;
+
   const { totalMonth: correctedTotalMonth, totalMonthCsv, totalViews: csvTotalViews, avgRpm: csvAvgRpm, avgScore } = kpis;
 
   // When a specific collaborator is selected, use their individual card data for KPIs
@@ -1388,7 +1406,9 @@ function AdminDashboard() {
               {/* Top: label + sparkline */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[.15em] text-white/70 mb-2 sm:mb-3">Receita do Período</p>
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[.15em] text-white/70 mb-2 sm:mb-3">
+                    {myCard ? "Receita Total das Páginas" : "Receita do Período"}
+                  </p>
                   {loading ? (
                     <div className="space-y-2">
                       <div className="h-10 sm:h-16 w-48 sm:w-64 rounded-xl bg-white/20 animate-pulse" />
@@ -1408,6 +1428,18 @@ function AdminDashboard() {
                           </span>
                         )}
                       </div>
+                      {/* User's personal revenue — shown only when linked to a collaborator */}
+                      {myCard && (
+                        <div className="mt-3 sm:mt-4 inline-flex items-center gap-3 bg-white/10 rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5">
+                          <div>
+                            <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-white/60 mb-0.5">Sua receita</p>
+                            <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">
+                              {usdBrl ? formatBRL(myReceita * usdBrl) : `$${myReceita.toFixed(2)}`}
+                            </p>
+                            {usdBrl && <p className="text-[10px] sm:text-xs text-white/65 tabular-nums mt-0.5">${myReceita.toFixed(2)} USD</p>}
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
