@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { formatBRL } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
@@ -68,6 +69,7 @@ function parseBrl(raw: string): number {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function MetasPage() {
+  const { profile } = useAuth();
   const [goals, setGoals] = useState<GoalProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -76,15 +78,17 @@ export function MetasPage() {
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
+    if (!profile?.id) return;
     const { data, error } = await (supabase as any)
       .from("vw_goal_progress")
       .select("*")
+      .eq("user_id", profile.id)
       .order("created_at", { ascending: false });
     if (!error && data) setGoals(data as GoalProgress[]);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [profile?.id]);
 
   const openCreate = () => {
     setDraft(emptyDraft());
@@ -119,7 +123,7 @@ export function MetasPage() {
       const { error } = await (supabase as any).from("goals").update(payload).eq("id", editingId);
       if (error) { toast.error("Erro ao salvar"); setSaving(false); return; }
     } else {
-      const { error } = await (supabase as any).from("goals").insert({ ...payload, status: "ACTIVE" });
+      const { error } = await (supabase as any).from("goals").insert({ ...payload, status: "ACTIVE", user_id: profile?.id });
       if (error) { toast.error("Erro ao criar meta"); setSaving(false); return; }
     }
     setSaving(false);
