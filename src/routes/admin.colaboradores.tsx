@@ -271,6 +271,23 @@ function Page() {
     }
 
     // ── Period revenue per collaborator (same algorithm as Dashboard Ranking) ──
+
+    // Helper: batch .in() queries to avoid PostgREST URL length limit (~8k chars)
+    // 536 UUIDs × 37 chars ≈ 20k chars → would silently return empty
+    const batchFetchPa = async (postIds: string[]) => {
+      const BATCH = 200; // safe: 200 × 37 = 7.4k chars
+      const result: { post_id: string; collaborator_id: string }[] = [];
+      for (let i = 0; i < postIds.length; i += BATCH) {
+        const chunk = postIds.slice(i, i + BATCH);
+        const rows = await fetchAllRows<{ post_id: string; collaborator_id: string }>(() =>
+          supabase.from("post_authors").select("post_id, collaborator_id").in("post_id", chunk)
+        );
+        result.push(...rows);
+      }
+      return result;
+    };
+
+    // ALL period posts (for byDayCSV and per-post revenue)
     const periodPosts = await fetchAllRows<{
       id: string; page_id: string; published_at: string | null;
       estimated_usd: number | null; monetization_approx: number | null;
@@ -281,13 +298,14 @@ function Page() {
         .lte("published_at", filterTo + "T23:59:59")
     );
 
-    // Previous month's posts — used to distribute daily correction by views (same as Dashboard)
+    // Previous month range
     const [pfY, pfM] = filterFrom.split("-").map(Number);
     const prevMonthStart = new Date(pfY, pfM - 2, 1);
     const prevFrom = `${prevMonthStart.getFullYear()}-${String(prevMonthStart.getMonth() + 1).padStart(2, "0")}-01`;
     const prevLastDay = new Date(pfY, pfM - 1, 0);
     const prevTo = `${prevLastDay.getFullYear()}-${String(prevLastDay.getMonth() + 1).padStart(2, "0")}-${String(prevLastDay.getDate()).padStart(2, "0")}`;
 
+    // Previous month posts (for view-based bonus weighting)
     const prevPosts = await fetchAllRows<{ id: string; views: number | null }>(() =>
       supabase.from("posts").select("id, views")
         .gte("published_at", prevFrom).lte("published_at", prevTo + "T23:59:59")
@@ -296,20 +314,10 @@ function Page() {
     const periodPostIds = periodPosts.map((p) => p.id);
     const prevPostIds = prevPosts.map((p) => p.id);
 
-    const [periodPaRows, prevPaRows] = await Promise.all([
-      periodPostIds.length > 0
-        ? fetchAllRows<{ post_id: string; collaborator_id: string }>(() =>
-            supabase.from("post_authors").select("post_id, collaborator_id").in("post_id", periodPostIds)
-          )
-        : Promise.resolve([]),
-      prevPostIds.length > 0
-        ? fetchAllRows<{ post_id: string; collaborator_id: string }>(() =>
-            supabase.from("post_authors").select("post_id, collaborator_id").in("post_id", prevPostIds)
-          )
-        : Promise.resolve([]),
-    ]);
-
-    const [{ data: splitRulesData }, { data: dailyRevData }] = await Promise.all([
+    // Fetch post_authors in batches (avoids URL length limit)
+    const [periodPaRows, prevPaRows, { data: splitRulesData }, { data: dailyRevData }] = await Promise.all([
+      batchFetchPa(periodPostIds),
+      batchFetchPa(prevPostIds),
       supabase.from("split_rules").select("page_id, effective_from, collaborator_pct, active").eq("active", true),
       supabase.from("daily_revenue_entries").select("entry_date, actual_revenue_usd")
         .gte("entry_date", filterFrom).lte("entry_date", filterTo),
@@ -320,6 +328,9 @@ function Page() {
       if (!postToCollabs.has(pa.post_id)) postToCollabs.set(pa.post_id, new Set());
       postToCollabs.get(pa.post_id)!.add(pa.collaborator_id);
     }
+
+    const prevPostViewMap = new Map<string, number>();
+    for (const p of prevPosts) prevPostViewMap.set(p.id, Number(p.views ?? 0));
 
     const prevPostToCollabs = new Map<string, Set<string>>();
     for (const pa of prevPaRows) {
@@ -361,10 +372,10 @@ function Page() {
 
     // Step 2: previous month views per collaborator (for bonus weighting)
     const prevViewsByColab = new Map<string, number>();
-    for (const post of prevPosts) {
-      const views = Number(post.views ?? 0);
+    for (const [postId, colabSet] of prevPostToCollabs.entries()) {
+      const views = prevPostViewMap.get(postId) ?? 0;
       if (views <= 0) continue;
-      for (const cid of (prevPostToCollabs.get(post.id) ?? [])) {
+      for (const cid of colabSet) {
         prevViewsByColab.set(cid, (prevViewsByColab.get(cid) ?? 0) + views);
       }
     }
