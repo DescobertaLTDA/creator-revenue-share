@@ -1712,16 +1712,17 @@ function AdminDashboard() {
                     : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{avgScoreVal}<span className="text-xs font-normal text-white/60">/100</span></p>}
                   <p className="text-[9px] sm:text-xs text-white/50 mt-0.5">{pageStatsWithGlobalScores.length} págs</p>
                 </div>
-                {/* 4 Mês Passado */}
-                <div>
+                {/* 4 Mês Passado — hidden on mobile when user is a collaborator
+                    (Sua Receita takes the 4th mobile slot instead) */}
+                <div className={myCard ? "hidden sm:block" : ""}>
                   <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Mês Passado</p>
                   {loading || prevMonthRevenue === null ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
                     : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{usdBrl ? formatBRL(prevMonthRevenue * usdBrl) : `$${prevMonthRevenue.toFixed(2)}`}</p>}
                   {usdBrl && prevMonthRevenue !== null && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums hidden sm:block">${prevMonthRevenue.toFixed(2)} USD</p>}
                 </div>
-                {/* 5 Sua Receita — só desktop */}
+                {/* 5 Sua Receita — mobile + desktop (4th slot on mobile for collaborators) */}
                 {myCard && (
-                  <div className="hidden sm:block">
+                  <div>
                     <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Sua Receita</p>
                     {loading ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
                       : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{usdBrl ? formatBRL(myReceita * usdBrl) : `$${myReceita.toFixed(2)}`}</p>}
