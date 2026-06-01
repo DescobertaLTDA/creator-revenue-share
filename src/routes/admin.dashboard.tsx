@@ -1659,49 +1659,54 @@ function AdminDashboard() {
                   </div>
                 )}
               </div>
-              {/* Bottom: metrics grid — Posts e Views como colunas extras na mesma linha */}
-              <div className={`mt-5 sm:mt-8 pt-4 sm:pt-6 border-t border-white/20 grid gap-2 sm:gap-4 ${myCard ? "grid-cols-7" : "grid-cols-6"}`}>
+              {/* Bottom: metrics grid — mobile: 4 cols, desktop: 6/7 cols */}
+              <div className={`mt-5 sm:mt-8 pt-4 sm:pt-6 border-t border-white/20 grid gap-2 sm:gap-4 grid-cols-4 ${myCard ? "sm:grid-cols-7" : "sm:grid-cols-6"}`}>
+                {/* 1 RPM */}
                 <div>
                   <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">RPM</p>
                   {loading ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
                     : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(3)}`}</p>}
                   <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 hidden sm:block">por mil views</p>
                 </div>
+                {/* 2 Views */}
                 <div>
                   <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Views</p>
                   {loading ? <div className="h-5 sm:h-7 w-14 sm:w-20 rounded bg-white/20 animate-pulse" />
                     : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{fmt(totalViews)}</p>}
                   <p className="text-[9px] sm:text-xs text-white/50 mt-0.5">{kpis.totalPosts} posts</p>
                 </div>
+                {/* 3 Score */}
                 <div>
                   <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Score</p>
                   {loading ? <div className="h-5 sm:h-7 w-10 sm:w-16 rounded bg-white/20 animate-pulse" />
                     : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{avgScoreVal}<span className="text-xs font-normal text-white/60">/100</span></p>}
                   <p className="text-[9px] sm:text-xs text-white/50 mt-0.5">{pageStatsWithGlobalScores.length} págs</p>
                 </div>
+                {/* 4 Mês Passado */}
                 <div>
                   <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Mês Passado</p>
                   {loading || prevMonthRevenue === null ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
                     : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{usdBrl ? formatBRL(prevMonthRevenue * usdBrl) : `$${prevMonthRevenue.toFixed(2)}`}</p>}
-                  {usdBrl && prevMonthRevenue !== null && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums">${prevMonthRevenue.toFixed(2)} USD</p>}
+                  {usdBrl && prevMonthRevenue !== null && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums hidden sm:block">${prevMonthRevenue.toFixed(2)} USD</p>}
                 </div>
+                {/* 5 Sua Receita — só desktop */}
                 {myCard && (
-                  <div>
+                  <div className="hidden sm:block">
                     <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Sua Receita</p>
                     {loading ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
                       : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{usdBrl ? formatBRL(myReceita * usdBrl) : `$${myReceita.toFixed(2)}`}</p>}
                     {usdBrl && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums">${myReceita.toFixed(2)} USD</p>}
                   </div>
                 )}
-                {/* Posts — atual vs mês passado */}
-                <div>
+                {/* 6 Posts — só desktop */}
+                <div className="hidden sm:block">
                   <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Posts</p>
                   {loading ? <div className="h-5 sm:h-7 w-10 sm:w-16 rounded bg-white/20 animate-pulse" />
                     : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{kpis.totalPosts}</p>}
                   {!loading && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums">atual vs {prevMonthStats.posts}</p>}
                 </div>
-                {/* Views comparativo — atual vs mês passado */}
-                <div>
+                {/* 7 Views comparativo — só desktop */}
+                <div className="hidden sm:block">
                   <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Views</p>
                   {loading ? <div className="h-5 sm:h-7 w-14 sm:w-20 rounded bg-white/20 animate-pulse" />
                     : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{fmt(totalViews)}</p>}
