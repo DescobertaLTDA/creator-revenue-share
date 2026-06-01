@@ -397,9 +397,15 @@ function Page() {
     const totalPrevViews = Array.from(prevViewsByColab.values()).reduce((a, b) => a + b, 0);
 
     // Step 3: daily correction = actual_revenue_usd − posts revenue for each day
-    let totalDailyBonus = 0;
+    // IMPORTANT: daily_revenue_entries has one row PER PAGE per day (multiple rows/day).
+    // Must aggregate by date first, then subtract byDayCSV once per date — not once per row.
+    const actualByDate = new Map<string, number>();
     for (const e of (dailyRevData ?? [])) {
-      totalDailyBonus += Number(e.actual_revenue_usd ?? 0) - (byDayCSV.get(e.entry_date) ?? 0);
+      actualByDate.set(e.entry_date, (actualByDate.get(e.entry_date) ?? 0) + Number(e.actual_revenue_usd ?? 0));
+    }
+    let totalDailyBonus = 0;
+    for (const [date, actual] of actualByDate) {
+      totalDailyBonus += actual - (byDayCSV.get(date) ?? 0);
     }
 
     // Step 4: distribute positive correction weighted by previous month views
