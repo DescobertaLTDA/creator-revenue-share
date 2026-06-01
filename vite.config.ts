@@ -13,4 +13,18 @@ export default defineConfig({
     tailwindcss(),
     tsConfigPaths(),
   ],
+  // recharts@2.x has internal circular-dependency issues that cause
+  // "Cannot access 'X' before initialization" TDZ crashes when Vite
+  // bundles it into the same chunk as the consumer. Splitting recharts
+  // into its own chunk ensures it fully initialises before any consumer
+  // code runs.
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          recharts: ["recharts"],
+        },
+      },
+    },
+  },
 });
