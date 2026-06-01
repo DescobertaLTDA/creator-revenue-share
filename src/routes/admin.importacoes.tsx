@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import {
   Upload, Loader2, Search, Settings2, CheckCircle2,
   AlertCircle, Clock, Database, Shield, Zap, RefreshCw, Activity,
-  MoreVertical, CloudUpload, TrendingUp, BarChart2, FileText, DollarSign, X, Eye,
+  MoreVertical, CloudUpload, TrendingUp, BarChart2, FileText, DollarSign, X, Eye, Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -111,8 +111,12 @@ export default function DataPipelinePage() {
   const confirmDailyImport = async (parsed: GanhosParseResult, pageId: string, source: "facebook" | "instagram" = "facebook") => {
     if (!profile) return;
     setDailyConfirming(true);
-    const dbField = parsed.type === "revenue" ? "actual_revenue_usd" : "actual_views";
-    const label = parsed.type === "revenue" ? "Ganhos" : "Visualizações";
+    const dbField = parsed.type === "revenue" ? "actual_revenue_usd"
+      : parsed.type === "followers" ? "actual_followers"
+      : "actual_views";
+    const label = parsed.type === "revenue" ? "Ganhos"
+      : parsed.type === "followers" ? "Seguidores"
+      : "Visualizações";
     const toastId = toast.loading(`Salvando ${label.toLowerCase()}…`);
     try {
       const { data: existing } = await (supabase as any)
@@ -961,7 +965,11 @@ function DailyConfirmModal({
   onClose: () => void;
 }) {
   const isRevenue = parsed.type === "revenue";
+  const isFollowers = parsed.type === "followers";
   const total = parsed.rows.reduce((s, r) => s + r.value, 0);
+  const typeLabel = isRevenue ? "Ganhos diários" : isFollowers ? "Seguidores diários" : "Visualizações diárias";
+  const importLabel = isRevenue ? "Importar ganhos" : isFollowers ? "Importar seguidores" : "Importar visualizações";
+  const colLabel = isRevenue ? "Receita (USD)" : isFollowers ? "Seguidores" : "Views";
   const formatValue = isRevenue
     ? (v: number) => `$${v.toFixed(2)}`
     : (v: number) => v.toLocaleString("pt-BR");
@@ -987,10 +995,10 @@ function DailyConfirmModal({
         <div className="flex items-start justify-between px-5 pt-4 pb-1 shrink-0">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-[#F44708]">
-              {isRevenue ? "Ganhos diários" : "Visualizações diárias"}
+              {typeLabel}
             </p>
             <h2 className="text-lg font-bold text-gray-900 mt-0.5 leading-tight">
-              {isRevenue ? "Importar ganhos" : "Importar visualizações"}
+              {importLabel}
             </h2>
             <div className="flex items-center gap-1.5 mt-0.5">
               <FileText className="h-3 w-3 text-gray-400 shrink-0" />
@@ -1010,7 +1018,9 @@ function DailyConfirmModal({
             <div className="flex items-center gap-2.5 flex-1">
               <div className="h-10 w-10 rounded-full bg-[#FFE0D0] flex items-center justify-center shrink-0">
                 {isRevenue
-                  ? <DollarSign className="h-4.5 w-4.5 text-[#F44708]" />
+                  ? <DollarSign className="h-4 w-4 text-[#F44708]" />
+                  : isFollowers
+                  ? <Users className="h-4 w-4 text-[#F44708]" />
                   : <Eye className="h-4 w-4 text-[#F44708]" />}
               </div>
               <div>
@@ -1109,7 +1119,7 @@ function DailyConfirmModal({
               className="flex-1 h-10 rounded-xl bg-[#F44708] text-white text-sm font-bold hover:bg-[#D93D07] disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5 shadow-[0_4px_12px_rgba(244,71,8,0.28)]">
               {confirming
                 ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando…</>
-                : <><CloudUpload className="h-4 w-4" /> Importar {parsed.rows.length} dias</>}
+                : <><CloudUpload className="h-4 w-4" /> Importar {parsed.rows.length} {isFollowers ? "registros" : "dias"}</>}
             </button>
           </div>
           <div className="flex items-center justify-center gap-1.5">
