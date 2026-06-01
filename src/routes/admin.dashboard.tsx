@@ -1674,28 +1674,38 @@ function AdminDashboard() {
                 )}
               </div>
 
-              {/* Second row: posts & views — atual vs mês passado */}
+              {/* Second row: posts & views — atual vs mês passado side by side */}
               {!loading && (
-                <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-white/15 grid grid-cols-4 gap-2 sm:gap-4">
+                <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-white/15 grid grid-cols-2 gap-3 sm:gap-6">
+                  {/* Posts */}
                   <div>
-                    <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Posts Atual</p>
-                    <p className="text-sm sm:text-lg font-bold tabular-nums leading-tight">{kpis.totalPosts}</p>
-                    <p className="text-[9px] sm:text-xs text-white/40 mt-0.5">este período</p>
+                    <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-1">Posts</p>
+                    <div className="flex items-end gap-2 sm:gap-3">
+                      <div>
+                        <p className="text-sm sm:text-lg font-bold tabular-nums leading-none">{kpis.totalPosts}</p>
+                        <p className="text-[9px] text-white/40 mt-0.5">atual</p>
+                      </div>
+                      <span className="text-white/25 text-xs mb-3">vs</span>
+                      <div>
+                        <p className="text-sm sm:text-lg font-bold tabular-nums leading-none">{prevMonthStats.posts}</p>
+                        <p className="text-[9px] text-white/40 mt-0.5">mês passado</p>
+                      </div>
+                    </div>
                   </div>
+                  {/* Views */}
                   <div>
-                    <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Posts M. Passado</p>
-                    <p className="text-sm sm:text-lg font-bold tabular-nums leading-tight">{prevMonthStats.posts}</p>
-                    <p className="text-[9px] sm:text-xs text-white/40 mt-0.5">mês anterior</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Views Atual</p>
-                    <p className="text-sm sm:text-lg font-bold tabular-nums leading-tight">{fmt(totalViews)}</p>
-                    <p className="text-[9px] sm:text-xs text-white/40 mt-0.5">este período</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Views M. Passado</p>
-                    <p className="text-sm sm:text-lg font-bold tabular-nums leading-tight">{fmt(prevMonthStats.views)}</p>
-                    <p className="text-[9px] sm:text-xs text-white/40 mt-0.5">mês anterior</p>
+                    <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-1">Views</p>
+                    <div className="flex items-end gap-2 sm:gap-3">
+                      <div>
+                        <p className="text-sm sm:text-lg font-bold tabular-nums leading-none">{fmt(totalViews)}</p>
+                        <p className="text-[9px] text-white/40 mt-0.5">atual</p>
+                      </div>
+                      <span className="text-white/25 text-xs mb-3">vs</span>
+                      <div>
+                        <p className="text-sm sm:text-lg font-bold tabular-nums leading-none">{fmt(prevMonthStats.views)}</p>
+                        <p className="text-[9px] text-white/40 mt-0.5">mês passado</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
