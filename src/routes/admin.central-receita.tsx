@@ -158,7 +158,7 @@ function CentralReceita() {
       // 2. Current month posts
       const { data: curPosts } = await supabase
         .from("posts")
-        .select("id, page_id, published_at, monetization_approx, views")
+        .select("id, page_id, published_at, monetization_approx, estimated_usd, views")
         .gte("published_at", curBounds.from)
         .lte("published_at", curBounds.to);
       const curPostsArr: PostRow[] = (curPosts ?? []) as PostRow[];
@@ -171,31 +171,38 @@ function CentralReceita() {
         .lte("published_at", prevBounds.to);
       const prevPostsArr = (prevPosts ?? []) as { id: string; views: number | null }[];
 
-      // 4. Post authors for both months
+      // 4. Post authors for both months — batched to avoid PostgREST URL limit
       const curPostIds = curPostsArr.map((p) => p.id);
       const prevPostIds = prevPostsArr.map((p) => p.id);
-      const allPostIds = [...new Set([...curPostIds, ...prevPostIds])];
 
-      let paData: PostAuthorRow[] = [];
-      if (allPostIds.length > 0) {
-        const { data: pa } = await supabase
-          .from("post_authors")
-          .select("post_id, collaborator_id")
-          .in("post_id", allPostIds);
-        paData = (pa ?? []) as PostAuthorRow[];
-      }
+      const batchPa = async (ids: string[]): Promise<PostAuthorRow[]> => {
+        const BATCH = 200;
+        const out: PostAuthorRow[] = [];
+        for (let i = 0; i < ids.length; i += BATCH) {
+          const chunk = ids.slice(i, i + BATCH);
+          const { data } = await supabase
+            .from("post_authors")
+            .select("post_id, collaborator_id")
+            .in("post_id", chunk);
+          if (data) out.push(...(data as PostAuthorRow[]));
+        }
+        return out;
+      };
+
+      const [curPaData, prevPaData] = await Promise.all([
+        curPostIds.length > 0 ? batchPa(curPostIds) : Promise.resolve([]),
+        prevPostIds.length > 0 ? batchPa(prevPostIds) : Promise.resolve([]),
+      ]);
 
       const curPaByPost: Record<string, string[]> = {};
+      for (const pa of curPaData) {
+        if (!curPaByPost[pa.post_id]) curPaByPost[pa.post_id] = [];
+        curPaByPost[pa.post_id].push(pa.collaborator_id);
+      }
       const prevPaByPost: Record<string, string[]> = {};
-      for (const pa of paData) {
-        if (curPostIds.includes(pa.post_id)) {
-          if (!curPaByPost[pa.post_id]) curPaByPost[pa.post_id] = [];
-          curPaByPost[pa.post_id].push(pa.collaborator_id);
-        }
-        if (prevPostIds.includes(pa.post_id)) {
-          if (!prevPaByPost[pa.post_id]) prevPaByPost[pa.post_id] = [];
-          prevPaByPost[pa.post_id].push(pa.collaborator_id);
-        }
+      for (const pa of prevPaData) {
+        if (!prevPaByPost[pa.post_id]) prevPaByPost[pa.post_id] = [];
+        prevPaByPost[pa.post_id].push(pa.collaborator_id);
       }
 
       // 5. Split rules (latest active per page)
@@ -233,7 +240,7 @@ function CentralReceita() {
         const authors = curPaByPost[post.id] ?? [];
         if (authors.length === 0) continue;
         const splitPct = splitByPage[post.page_id] ?? 100;
-        const mono = Number(post.monetization_approx ?? 0);
+        const mono = Number(post.monetization_approx) || Number((post as any).estimated_usd) || 0;
         const share = (mono * (splitPct / 100)) / authors.length;
         totalPosts += mono * (splitPct / 100); // total posts revenue (all collabs)
         for (const cid of authors) {
