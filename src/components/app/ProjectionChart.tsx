@@ -3,7 +3,7 @@
 import { formatBRL } from "@/lib/format";
 import {
   ResponsiveContainer, ComposedChart, Area,
-  XAxis, YAxis, Tooltip, Legend, Brush,
+  XAxis, YAxis, Tooltip, Legend,
 } from "recharts";
 
 export interface ProjectionRow {
@@ -33,8 +33,6 @@ export function ProjectionChart({
         actual: dailyActualByDia.get(row.dia) ?? null,
       }))
     : projectionChartData;
-
-  const hasEnoughData = projectionChartData.length > 1;
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -153,21 +151,7 @@ export function ProjectionChart({
           />
         )}
 
-        {/* Brush — scrollable range selector, shows last 30 days by default.
-            Guard: only render when ≥2 data points; endIndex=-1 or
-            startIndex===endIndex crashes recharts. */}
-        {hasEnoughData && (
-          <Brush
-            dataKey="dia"
-            height={24}
-            stroke="#E8D0C0"
-            fill="#FFF8F5"
-            travellerWidth={8}
-            startIndex={Math.max(0, projectionChartData.length - 31)}
-            endIndex={projectionChartData.length - 1}
-            tickFormatter={() => ""}
-          />
-        )}
+
       </ComposedChart>
     </ResponsiveContainer>
   );
