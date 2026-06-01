@@ -18,11 +18,17 @@ export default defineConfig({
   // bundles it into the same chunk as the consumer. Splitting recharts
   // into its own chunk ensures it fully initialises before any consumer
   // code runs.
+  //
+  // We use the function form of manualChunks so that Nitro's SSR build
+  // (which marks recharts as external) silently ignores it — the function
+  // only fires for modules that are actually being bundled.
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          recharts: ["recharts"],
+        manualChunks(id) {
+          if (id.includes("/recharts/") || id.includes("\\recharts\\")) {
+            return "recharts";
+          }
         },
       },
     },
