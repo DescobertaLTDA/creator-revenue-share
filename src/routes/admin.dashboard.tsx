@@ -1385,6 +1385,23 @@ function AdminDashboard() {
   const manualDelta = showManual ? totalMonth - effectiveTotalMonthCsv : 0;
   const manualDeltaPct = effectiveTotalMonthCsv > 0.001 ? (manualDelta / effectiveTotalMonthCsv) * 100 : 0;
 
+  // ── Previous month posts + views (computed from allPosts, no extra fetch) ──
+  const prevMonthStats = useMemo(() => {
+    const baseMonth = filterFrom ? filterFrom.slice(0, 7) : new Date().toISOString().slice(0, 7);
+    const [y, m] = baseMonth.split("-").map(Number);
+    const prevD = new Date(y, m - 2, 1);
+    const prevRef = `${prevD.getFullYear()}-${String(prevD.getMonth() + 1).padStart(2, "0")}`;
+    let posts = 0, views = 0;
+    for (const p of allPosts) {
+      if (!p.published_at) continue;
+      if (!p.published_at.startsWith(prevRef)) continue;
+      if (filterPage !== "all" && p.page_id !== filterPage) continue;
+      posts += 1;
+      views += Number(p.views ?? 0);
+    }
+    return { posts, views };
+  }, [allPosts, filterFrom, filterPage]);
+
   // ── Month countdown timer ─────────────────────────────────────────────────
   const [monthCountdown, setMonthCountdown] = useState(getMonthCountdown);
   useEffect(() => {
@@ -1656,6 +1673,32 @@ function AdminDashboard() {
                   </div>
                 )}
               </div>
+
+              {/* Second row: posts & views — atual vs mês passado */}
+              {!loading && (
+                <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-white/15 grid grid-cols-4 gap-2 sm:gap-4">
+                  <div>
+                    <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Posts Atual</p>
+                    <p className="text-sm sm:text-lg font-bold tabular-nums leading-tight">{kpis.totalPosts}</p>
+                    <p className="text-[9px] sm:text-xs text-white/40 mt-0.5">este período</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Posts M. Passado</p>
+                    <p className="text-sm sm:text-lg font-bold tabular-nums leading-tight">{prevMonthStats.posts}</p>
+                    <p className="text-[9px] sm:text-xs text-white/40 mt-0.5">mês anterior</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Views Atual</p>
+                    <p className="text-sm sm:text-lg font-bold tabular-nums leading-tight">{fmt(totalViews)}</p>
+                    <p className="text-[9px] sm:text-xs text-white/40 mt-0.5">este período</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Views M. Passado</p>
+                    <p className="text-sm sm:text-lg font-bold tabular-nums leading-tight">{fmt(prevMonthStats.views)}</p>
+                    <p className="text-[9px] sm:text-xs text-white/40 mt-0.5">mês anterior</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
