@@ -84,6 +84,7 @@ export default function DataPipelinePage() {
   // Post CSV preview before processing
   const [pendingPost, setPendingPost] = useState<{ parsed: ParseResult; file: File } | null>(null);
   const [postConfirming, setPostConfirming] = useState(false);
+  const [postSource, setPostSource] = useState<"facebook" | "instagram">("facebook");
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; name: string } | null>(null);
   const [imports, setImports] = useState<ImportRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -199,6 +200,7 @@ export default function DataPipelinePage() {
       const text = await readFileText(file);
       const parsed = parseAnyCsv(text);
       setPendingPost({ parsed, file });
+      setPostSource(parsed.source === "instagram" ? "instagram" : "facebook");
       if (fileRef.current) fileRef.current.value = "";
       return;
     } catch { /* fall through to legacy processing */ }
@@ -206,7 +208,7 @@ export default function DataPipelinePage() {
     processPost(file, fromBulk);
   };
 
-  const processPost = async (file: File, fromBulk = false) => {
+  const processPost = async (file: File, fromBulk = false, sourceOverride?: "facebook" | "instagram") => {
     if (!profile) return;
     if (!fromBulk) setUploading(true);
     setPostConfirming(false);
@@ -226,6 +228,10 @@ export default function DataPipelinePage() {
 
       setActiveUploadStep(1);
       const parsed = parseAnyCsv(text);
+      if (sourceOverride) {
+        (parsed as any).source = sourceOverride;
+        for (const row of parsed.rows) (row as any).source = sourceOverride;
+      }
 
       const { data: imp, error: impErr } = await supabase
         .from("csv_imports")
@@ -531,8 +537,10 @@ export default function DataPipelinePage() {
         <PostConfirmModal
           parsed={pendingPost.parsed}
           fileName={pendingPost.file.name}
+          source={postSource}
+          onSourceChange={setPostSource}
           confirming={postConfirming}
-          onConfirm={() => { setPostConfirming(true); processPost(pendingPost.file); }}
+          onConfirm={() => { setPostConfirming(true); processPost(pendingPost.file, false, postSource); }}
           onClose={() => { setPendingPost(null); setPostConfirming(false); }}
         />
       )}
@@ -779,18 +787,17 @@ export default function DataPipelinePage() {
 // ─── Post CSV Preview Modal ───────────────────────────────────────────────────
 
 function PostConfirmModal({
-  parsed, fileName, confirming, onConfirm, onClose,
+  parsed, fileName, source, onSourceChange, confirming, onConfirm, onClose,
 }: {
   parsed: ParseResult;
   fileName: string;
+  source: "facebook" | "instagram";
+  onSourceChange: (s: "facebook" | "instagram") => void;
   confirming: boolean;
   onConfirm: () => void;
   onClose: () => void;
 }) {
-  const isInstagram = parsed.source === "instagram";
   const fmtDate = (d: Date | null) => d ? d.toISOString().slice(0, 10).split("-").reverse().join("/") : "—";
-
-  // Collect unique page names from rows
   const pageNames = Array.from(new Set(parsed.rows.map((r) => r.page_name).filter(Boolean)));
 
   return (
@@ -804,7 +811,7 @@ function PostConfirmModal({
               <FileText className="h-4 w-4 text-orange-600" />
             </div>
             <div>
-              <p className="text-sm font-bold leading-tight">Confirmar importação</p>
+              <p className="text-sm font-bold leading-tight">Confirmar importação de posts</p>
               <p className="text-[11px] text-muted-foreground truncate max-w-[240px]">📄 {fileName}</p>
             </div>
           </div>
@@ -815,49 +822,35 @@ function PostConfirmModal({
 
         {/* Summary chips */}
         <div className="flex items-center gap-2 flex-wrap px-5 py-3 bg-muted/30 border-b border-border">
-          <span className={cn(
-            "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold",
-            isInstagram ? "bg-pink-100 text-pink-700" : "bg-blue-100 text-blue-700"
-          )}>
-            {isInstagram ? "📷 Instagram" : "📘 Facebook"}
-          </span>
+          <Chip label={`${parsed.rows.length} posts`} />
           {parsed.periodStart && parsed.periodEnd && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-muted text-muted-foreground">
-              {fmtDate(parsed.periodStart)} – {fmtDate(parsed.periodEnd)}
-            </span>
+            <Chip label={`${fmtDate(parsed.periodStart)} – ${fmtDate(parsed.periodEnd)}`} />
           )}
+          <Chip label={`${parsed.detectedPages.size} página${parsed.detectedPages.size !== 1 ? "s" : ""}`} accent />
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 divide-x divide-border border-b border-border">
-          <div className="px-4 py-3 text-center">
-            <p className="text-lg font-bold text-foreground tabular-nums">{parsed.rows.length}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Posts válidos</p>
-          </div>
-          <div className="px-4 py-3 text-center">
-            <p className={cn("text-lg font-bold tabular-nums", parsed.errors.length > 0 ? "text-red-500" : "text-foreground")}>
-              {parsed.errors.length}
-            </p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Inválidos</p>
-          </div>
-          <div className="px-4 py-3 text-center">
-            <p className="text-lg font-bold text-foreground tabular-nums">{parsed.detectedPages.size}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Páginas</p>
-          </div>
-        </div>
-
-        {/* Pages detected */}
+        {/* Page preview table */}
         {pageNames.length > 0 && (
-          <div className="px-5 py-3 border-b border-border">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Páginas detectadas</p>
-            <div className="flex flex-wrap gap-1.5">
-              {pageNames.slice(0, 6).map((n) => (
-                <span key={n} className="text-[11px] bg-muted px-2 py-0.5 rounded-full text-foreground">{n}</span>
-              ))}
-              {pageNames.length > 6 && (
-                <span className="text-[11px] text-muted-foreground">+{pageNames.length - 6} mais</span>
-              )}
-            </div>
+          <div className="overflow-y-auto max-h-48 border-b border-border">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-muted/60">
+                <tr>
+                  <th className="text-left px-4 py-2 font-bold text-muted-foreground uppercase tracking-wide text-[10px]">Página detectada</th>
+                  <th className="text-right px-4 py-2 font-bold text-muted-foreground uppercase tracking-wide text-[10px]">Posts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageNames.map((name) => {
+                  const count = parsed.rows.filter((r) => r.page_name === name).length;
+                  return (
+                    <tr key={name} className="border-t border-border/40">
+                      <td className="px-4 py-1.5 text-muted-foreground truncate max-w-[260px]">{name}</td>
+                      <td className="px-4 py-1.5 text-right font-semibold tabular-nums">{count}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
 
@@ -871,23 +864,47 @@ function PostConfirmModal({
           </div>
         )}
 
-        {/* Buttons */}
-        <div className="px-5 py-4 flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 h-10 rounded-lg border border-border text-sm text-muted-foreground hover:bg-accent transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={confirming || parsed.rows.length === 0}
-            className="flex-1 h-10 rounded-lg bg-[#F44708] text-white text-sm font-bold hover:bg-[#E03A07] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-          >
-            {confirming
-              ? <><Loader2 className="h-4 w-4 animate-spin" /> Processando…</>
-              : <><CheckCircle2 className="h-4 w-4" /> Confirmar importação</>}
-          </button>
+        {/* Platform selector + buttons */}
+        <div className="px-5 py-4 space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-foreground mb-1.5 block">
+              Plataforma de origem
+            </label>
+            <div className="flex rounded-lg border border-border overflow-hidden">
+              {(["facebook", "instagram"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => onSourceChange(s)}
+                  className={cn(
+                    "flex-1 h-9 text-sm font-medium transition-colors",
+                    source === s
+                      ? "bg-[#F44708] text-white"
+                      : "bg-background text-muted-foreground hover:bg-accent"
+                  )}
+                >
+                  {s === "facebook" ? "📘 Facebook" : "📷 Instagram"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="flex-1 h-10 rounded-lg border border-border text-sm text-muted-foreground hover:bg-accent transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={confirming || parsed.rows.length === 0}
+              className="flex-1 h-10 rounded-lg bg-[#F44708] text-white text-sm font-bold hover:bg-[#E03A07] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+            >
+              {confirming
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Processando…</>
+                : <><CheckCircle2 className="h-4 w-4" /> Confirmar</>}
+            </button>
+          </div>
         </div>
       </div>
     </div>
