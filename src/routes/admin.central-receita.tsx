@@ -46,7 +46,12 @@ interface DailyEntry { actual_revenue_usd: number | null; entry_date: string }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-const USD_BRL = 5.02;
+function fetchUsdBrl(): Promise<number | null> {
+  return fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL")
+    .then((r) => r.json())
+    .then((d) => parseFloat(d.USDBRL.bid))
+    .catch(() => null);
+}
 
 function monthBounds(iso: string) {
   const [y, m] = iso.split("-").map(Number);
@@ -119,7 +124,6 @@ interface ColabRevenue {
   historicalPct: number;
   residualShare: number;
   totalUsd: number;
-  totalBrl: number;
   splitPct: number;
 }
 
@@ -132,12 +136,14 @@ function CentralReceita() {
   const [totalPostsRevenue, setTotalPostsRevenue] = useState(0);
   const [totalBonus, setTotalBonus] = useState(0);
   const [activeCount, setActiveCount] = useState(0);
+  const [usdBrl, setUsdBrl] = useState(5.70);
   const [selected, setSelected] = useState<ColabRevenue | null>(null);
   const [simValue, setSimValue] = useState(1000);
 
   const thisMonth = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; })();
 
   useEffect(() => {
+    fetchUsdBrl().then((v) => { if (v) setUsdBrl(v); });
     loadAll();
   }, []);
 
@@ -324,7 +330,6 @@ function CentralReceita() {
           historicalPct: histPct,
           residualShare,
           totalUsd,
-          totalBrl: totalUsd * USD_BRL,
           splitPct: splitPctAvg,
         });
       }
@@ -363,19 +368,19 @@ function CentralReceita() {
         <KpiCard
           label="Receita Total"
           value={loading ? "…" : `$${totalActual.toFixed(2)}`}
-          sub={loading ? "" : formatBRL(totalActual * USD_BRL)}
+          sub={loading ? "" : formatBRL(totalActual * usdBrl)}
           icon={DollarSign}
         />
         <KpiCard
           label="Receita dos Posts"
           value={loading ? "…" : `$${totalPostsRevenue.toFixed(2)}`}
-          sub={loading ? "" : formatBRL(totalPostsRevenue * USD_BRL)}
+          sub={loading ? "" : formatBRL(totalPostsRevenue * usdBrl)}
           icon={TrendingUp}
         />
         <KpiCard
           label="Receita Residual"
           value={loading ? "…" : `$${totalResidual.toFixed(2)}`}
-          sub={loading ? "" : formatBRL(totalResidual * USD_BRL)}
+          sub={loading ? "" : formatBRL(totalResidual * usdBrl)}
           icon={Zap}
         />
         <KpiCard
@@ -391,7 +396,7 @@ function CentralReceita() {
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <p className="text-sm font-semibold">Distribuição por Colaborador</p>
           <span className="text-xs text-muted-foreground">
-            {thisMonth.replace("-", "/")} · câmbio ${USD_BRL}
+            {thisMonth.replace("-", "/")} · câmbio ${usdBrl.toFixed(2)}
           </span>
         </div>
 
@@ -454,7 +459,7 @@ function CentralReceita() {
                       ${r.totalUsd.toFixed(2)}
                     </td>
                     <td className="px-3 py-3 text-right tabular-nums">
-                      {formatBRL(r.totalBrl)}
+                      {formatBRL(r.totalUsd * usdBrl)}
                     </td>
                     <td className="px-3 py-3 text-right tabular-nums text-muted-foreground text-xs">
                       {r.splitPct.toFixed(0)}%
@@ -514,7 +519,7 @@ function CentralReceita() {
                         ${r.simTotal.toFixed(2)}
                       </td>
                       <td className="px-3 py-2.5 text-right tabular-nums">
-                        {formatBRL(r.simTotal * USD_BRL)}
+                        {formatBRL(r.simTotal * usdBrl)}
                       </td>
                       <td className="px-3 py-2.5">
                         <BarFill pct={(r.simTotal / simTotal) * 100} />
@@ -560,7 +565,7 @@ function CentralReceita() {
                   />
                   <DrawerRow
                     label="Receita dos Posts (BRL)"
-                    value={formatBRL(selected.postsRevenue * USD_BRL)}
+                    value={formatBRL(selected.postsRevenue * usdBrl)}
                   />
                 </div>
 
@@ -576,7 +581,7 @@ function CentralReceita() {
                   />
                   <DrawerRow
                     label="Receita Residual (BRL)"
-                    value={formatBRL(selected.residualShare * USD_BRL)}
+                    value={formatBRL(selected.residualShare * usdBrl)}
                   />
                 </div>
 
@@ -589,7 +594,7 @@ function CentralReceita() {
                   />
                   <DrawerRow
                     label="Receita Total (BRL)"
-                    value={formatBRL(selected.totalBrl)}
+                    value={formatBRL(selected.totalUsd * usdBrl)}
                     orange
                   />
                 </div>
