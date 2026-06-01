@@ -387,11 +387,14 @@ export function parseGanhosCsv(text: string): GanhosParseResult | null {
   const clean = text.replace(/^﻿/, "").trim();
   const lines = clean.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
-  // First non-empty line is the report title (e.g. "Ganhos aproximados" or "Visualizações")
+  // First non-empty non-sep line is the report title (e.g. "Ganhos aproximados" or "Visualizações")
+  // Skip the Excel separator declaration line ("sep=,") if present
   let titleRaw = "";
-  if (lines.length > 0) {
-    const r = Papa.parse(lines[0], { header: false });
-    titleRaw = ((r.data[0] as string[] | undefined)?.[0] ?? "").trim();
+  for (const line of lines) {
+    if (/^sep=/i.test(line)) continue;
+    const r = Papa.parse(line, { header: false });
+    const val = ((r.data[0] as string[] | undefined)?.[0] ?? "").trim();
+    if (val) { titleRaw = val; break; }
   }
 
   // Detect type from title — must be explicitly recognized as revenue or views.
