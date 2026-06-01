@@ -238,13 +238,20 @@ function CentralReceita() {
       const totalActualUsd = [...actualByDate.values()].reduce((s, v) => s + v, 0);
       setTotalActual(totalActualUsd);
 
+      // ── byDayCSV: raw CSV per publication date (ALL posts, no split, matches Equipe) ──
+      const byDayCSV = new Map<string, number>();
+      for (const post of curPostsArr) {
+        const mono = Number(post.monetization_approx) || Number((post as any).estimated_usd) || 0;
+        if (post.published_at) {
+          const date = post.published_at.slice(0, 10);
+          byDayCSV.set(date, (byDayCSV.get(date) ?? 0) + mono);
+        }
+      }
+
       // ── Compute posts revenue per collaborator ──────────────────────────
       const postsRevByColab: Record<string, number> = {};
       const postCountByColab: Record<string, number> = {};
       let totalPosts = 0;
-
-      // byDayCSV: sum of CSV revenues (split-weighted) per publication date
-      const byDayCSV = new Map<string, number>();
 
       for (const post of curPostsArr) {
         const authors = curPaByPost[post.id] ?? [];
@@ -256,11 +263,6 @@ function CentralReceita() {
         for (const cid of authors) {
           postsRevByColab[cid] = (postsRevByColab[cid] ?? 0) + share;
           postCountByColab[cid] = (postCountByColab[cid] ?? 0) + 1;
-        }
-        // Accumulate CSV per day (for daily correction, same as Dashboard)
-        if (post.published_at) {
-          const date = post.published_at.slice(0, 10);
-          byDayCSV.set(date, (byDayCSV.get(date) ?? 0) + mono * (splitPct / 100));
         }
       }
       setTotalPostsRevenue(totalPosts);
