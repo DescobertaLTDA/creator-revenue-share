@@ -426,6 +426,7 @@ function AdminDashboard() {
   const [colabs, setColabs] = useState<ColabOption[]>(() => _dashCache?.colabs ?? []);
   const [manualBonuses, setManualBonuses] = useState<ManualBonusRow[]>([]);
   const [dailyEntries, setDailyEntries] = useState<DailyEntry[]>([]);
+  const [prevMonthRevenue, setPrevMonthRevenue] = useState<number | null>(null);
   const [recentImports, setRecentImports] = useState<RecentImport[]>(() => _dashCache?.imports ?? []);
   const [usdBrl, setUsdBrl] = useState<number | null>(null);
   const [myCollabId, setMyCollabId] = useState<string | null>(null);
@@ -560,6 +561,25 @@ function AdminDashboard() {
     };
     fetchEntries();
   }, [filterFrom, filterTo]);
+
+  // Fetch previous month total revenue
+  useEffect(() => {
+    const fetchPrevMonth = async () => {
+      const baseMonth = filterFrom ? filterFrom.slice(0, 7) : (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; })();
+      const [y, m] = baseMonth.split("-").map(Number);
+      const prevD = new Date(y, m - 2, 1);
+      const prevRef = `${prevD.getFullYear()}-${String(prevD.getMonth() + 1).padStart(2, "0")}`;
+      const prevLastDay = new Date(prevD.getFullYear(), prevD.getMonth() + 1, 0).getDate();
+      const { data } = await (supabase as any)
+        .from("daily_revenue_entries")
+        .select("actual_revenue_usd")
+        .gte("entry_date", `${prevRef}-01`)
+        .lte("entry_date", `${prevRef}-${String(prevLastDay).padStart(2, "0")}`);
+      const total = (data ?? []).reduce((s: number, e: { actual_revenue_usd: number | null }) => s + Number(e.actual_revenue_usd ?? 0), 0);
+      setPrevMonthRevenue(total);
+    };
+    fetchPrevMonth();
+  }, [filterFrom]);
 
   useEffect(() => {
     const loadManualBonuses = async () => {
@@ -1438,7 +1458,7 @@ function AdminDashboard() {
                 )}
               </div>
               {/* Bottom: metrics — 4 cols when user has collaborator, 3 otherwise */}
-              <div className={`mt-5 sm:mt-8 pt-4 sm:pt-6 border-t border-white/20 grid gap-2 sm:gap-4 ${myCard ? "grid-cols-4" : "grid-cols-3"}`}>
+              <div className={`mt-5 sm:mt-8 pt-4 sm:pt-6 border-t border-white/20 grid gap-2 sm:gap-4 ${myCard ? "grid-cols-5" : "grid-cols-4"}`}>
                 <div>
                   <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">RPM</p>
                   {loading ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
@@ -1456,6 +1476,12 @@ function AdminDashboard() {
                   {loading ? <div className="h-5 sm:h-7 w-10 sm:w-16 rounded bg-white/20 animate-pulse" />
                     : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{avgScoreVal}<span className="text-xs font-normal text-white/60">/100</span></p>}
                   <p className="text-[9px] sm:text-xs text-white/50 mt-0.5">{pageStatsWithGlobalScores.length} págs</p>
+                </div>
+                <div>
+                  <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Mês Passado</p>
+                  {loading || prevMonthRevenue === null ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
+                    : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{usdBrl ? formatBRL(prevMonthRevenue * usdBrl) : `$${prevMonthRevenue.toFixed(2)}`}</p>}
+                  {usdBrl && prevMonthRevenue !== null && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums">${prevMonthRevenue.toFixed(2)} USD</p>}
                 </div>
                 {myCard && (
                   <div>
