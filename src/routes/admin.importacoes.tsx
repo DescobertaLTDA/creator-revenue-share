@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useWriteGuard } from "@/hooks/use-write-guard";
-import { parseAnyCsv, parseGanhosCsv, readFileText, hashFile, type CsvSource, type GanhosParseResult } from "@/features/csv/parser";
+import { parseAnyCsv, parseGanhosCsv, readFileText, hashFile, type CsvSource, type GanhosParseResult, type ParseResult } from "@/features/csv/parser";
 import { formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
 import {
@@ -81,6 +81,9 @@ export default function DataPipelinePage() {
   const [dailyPageId, setDailyPageId] = useState("");
   const [dailySource, setDailySource] = useState<"facebook" | "instagram">("facebook");
   const [dailyConfirming, setDailyConfirming] = useState(false);
+  // Post CSV preview before processing
+  const [pendingPost, setPendingPost] = useState<{ parsed: ParseResult; file: File } | null>(null);
+  const [postConfirming, setPostConfirming] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; name: string } | null>(null);
   const [imports, setImports] = useState<ImportRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -191,7 +194,23 @@ export default function DataPipelinePage() {
       }
     } catch { /* not a daily CSV, continue to normal pipeline */ }
 
+    // ── Parse and show preview modal before processing ────────────────────
+    try {
+      const text = await readFileText(file);
+      const parsed = parseAnyCsv(text);
+      setPendingPost({ parsed, file });
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    } catch { /* fall through to legacy processing */ }
+
+    processPost(file, fromBulk);
+  };
+
+  const processPost = async (file: File, fromBulk = false) => {
+    if (!profile) return;
     if (!fromBulk) setUploading(true);
+    setPostConfirming(false);
+    setPendingPost(null);
     setActiveUploadStep(0);
     const toastId = toast.loading(`Processando ${file.name}…`);
     try {
@@ -508,6 +527,16 @@ export default function DataPipelinePage() {
 
 
       {/* Daily metric modal — shown when a Ganhos/Views CSV is detected */}
+      {pendingPost && (
+        <PostConfirmModal
+          parsed={pendingPost.parsed}
+          fileName={pendingPost.file.name}
+          confirming={postConfirming}
+          onConfirm={() => { setPostConfirming(true); processPost(pendingPost.file); }}
+          onClose={() => { setPendingPost(null); setPostConfirming(false); }}
+        />
+      )}
+
       {pendingDaily && (
         <DailyConfirmModal
           parsed={pendingDaily.parsed}
@@ -743,6 +772,124 @@ export default function DataPipelinePage() {
           )}
         </SheetContent>
       </Sheet>
+    </div>
+  );
+}
+
+// ─── Post CSV Preview Modal ───────────────────────────────────────────────────
+
+function PostConfirmModal({
+  parsed, fileName, confirming, onConfirm, onClose,
+}: {
+  parsed: ParseResult;
+  fileName: string;
+  confirming: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const isInstagram = parsed.source === "instagram";
+  const fmtDate = (d: Date | null) => d ? d.toISOString().slice(0, 10).split("-").reverse().join("/") : "—";
+
+  // Collect unique page names from rows
+  const pageNames = Array.from(new Set(parsed.rows.map((r) => r.page_name).filter(Boolean)));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-card rounded-2xl border border-border shadow-2xl flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
+              <FileText className="h-4 w-4 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold leading-tight">Confirmar importação</p>
+              <p className="text-[11px] text-muted-foreground truncate max-w-[240px]">📄 {fileName}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-md text-muted-foreground hover:bg-accent">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Summary chips */}
+        <div className="flex items-center gap-2 flex-wrap px-5 py-3 bg-muted/30 border-b border-border">
+          <span className={cn(
+            "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold",
+            isInstagram ? "bg-pink-100 text-pink-700" : "bg-blue-100 text-blue-700"
+          )}>
+            {isInstagram ? "📷 Instagram" : "📘 Facebook"}
+          </span>
+          {parsed.periodStart && parsed.periodEnd && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-muted text-muted-foreground">
+              {fmtDate(parsed.periodStart)} – {fmtDate(parsed.periodEnd)}
+            </span>
+          )}
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-3 divide-x divide-border border-b border-border">
+          <div className="px-4 py-3 text-center">
+            <p className="text-lg font-bold text-foreground tabular-nums">{parsed.rows.length}</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Posts válidos</p>
+          </div>
+          <div className="px-4 py-3 text-center">
+            <p className={cn("text-lg font-bold tabular-nums", parsed.errors.length > 0 ? "text-red-500" : "text-foreground")}>
+              {parsed.errors.length}
+            </p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Inválidos</p>
+          </div>
+          <div className="px-4 py-3 text-center">
+            <p className="text-lg font-bold text-foreground tabular-nums">{parsed.detectedPages.size}</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Páginas</p>
+          </div>
+        </div>
+
+        {/* Pages detected */}
+        {pageNames.length > 0 && (
+          <div className="px-5 py-3 border-b border-border">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Páginas detectadas</p>
+            <div className="flex flex-wrap gap-1.5">
+              {pageNames.slice(0, 6).map((n) => (
+                <span key={n} className="text-[11px] bg-muted px-2 py-0.5 rounded-full text-foreground">{n}</span>
+              ))}
+              {pageNames.length > 6 && (
+                <span className="text-[11px] text-muted-foreground">+{pageNames.length - 6} mais</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Error warning */}
+        {parsed.errors.length > 0 && (
+          <div className="mx-5 mt-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-2">
+            <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-amber-700">
+              {parsed.errors.length} linha{parsed.errors.length > 1 ? "s" : ""} com erro serão ignoradas. Os {parsed.rows.length} posts válidos serão importados normalmente.
+            </p>
+          </div>
+        )}
+
+        {/* Buttons */}
+        <div className="px-5 py-4 flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 h-10 rounded-lg border border-border text-sm text-muted-foreground hover:bg-accent transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={confirming || parsed.rows.length === 0}
+            className="flex-1 h-10 rounded-lg bg-[#F44708] text-white text-sm font-bold hover:bg-[#E03A07] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+          >
+            {confirming
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> Processando…</>
+              : <><CheckCircle2 className="h-4 w-4" /> Confirmar importação</>}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
