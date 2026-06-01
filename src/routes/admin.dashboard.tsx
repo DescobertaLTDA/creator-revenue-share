@@ -1402,6 +1402,27 @@ function AdminDashboard() {
     return { posts, views };
   }, [allPosts, filterFrom, filterPage]);
 
+  // ── Top 5 colaboradores do mês passado (fallback quando período atual vazio) ──
+  const prevMonthTopColabs = useMemo(() => {
+    const baseMonth = filterFrom ? filterFrom.slice(0, 7) : new Date().toISOString().slice(0, 7);
+    const [y, m] = baseMonth.split("-").map(Number);
+    const prevD = new Date(y, m - 2, 1);
+    const prevRef = `${prevD.getFullYear()}-${String(prevD.getMonth() + 1).padStart(2, "0")}`;
+    const postsByColab = new Map<string, number>();
+    for (const p of allPosts) {
+      if (!p.published_at || !p.published_at.startsWith(prevRef)) continue;
+      const collabIds = postToCollabs.get(p.id) ?? new Set<string>();
+      for (const colabId of collabIds) {
+        postsByColab.set(colabId, (postsByColab.get(colabId) ?? 0) + 1);
+      }
+    }
+    return Array.from(postsByColab.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([id]) => activeCollabCards.find((c) => c.id === id) ?? null)
+      .filter((c): c is NonNullable<typeof c> => c !== null);
+  }, [allPosts, filterFrom, postToCollabs, activeCollabCards]);
+
   // ── Month countdown timer ─────────────────────────────────────────────────
   const [monthCountdown, setMonthCountdown] = useState(getMonthCountdown);
   useEffect(() => {
@@ -1980,41 +2001,55 @@ function AdminDashboard() {
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="flex-1 space-y-1 overflow-y-auto">
-                  {activeCollabCards.filter((c) => c.posts > 0).slice(0, 5).map((card, i) => {
-                    const spark = sparklineByColab.get(card.id) ?? Array(14).fill(0);
-                    const receitaOn = collabCards.find(c => c.id === card.id)?.receita ?? card.receita;
-                    const receitaOff = collabCardsCsv.find(c => c.id === card.id)?.receita ?? card.receita;
-                    const delta = showManual && receitaOff > 0.001 ? ((receitaOn - receitaOff) / receitaOff) * 100 : null;
-                    const rankColors = ["text-amber-500", "text-slate-400", "text-orange-400"];
-                    return (
-                      <button key={card.id} onClick={() => setAuditColabId(card.id)}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#FFF8F5] transition-colors text-left">
-                        <span className={`text-xs font-black w-4 text-center shrink-0 ${rankColors[i] ?? "text-[#C0C0C0]"}`}>{i + 1}</span>
-                        <div
-                          className="relative shrink-0 flex items-center justify-center"
-                          style={{ width: 40, height: 40 }}
-                          title={`Meta $100: $${card.receita.toFixed(2)} — ${Math.min(100, Math.round(card.receita))}%`}
-                        >
-                          <GoalRing revenueUsd={card.receita} size={40} />
-                          <ColabInitials nome={card.nome} idx={i} size={32} avatarUrl={card.avatar_url} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-[#1A0A00] truncate leading-tight">{card.nome}</p>
-                          <p className="text-[11px] text-[#9B9B9B] tabular-nums">{fmt(card.views)} views</p>
-                        </div>
-                        <RankingSparkline data={spark} />
-                        <div className="text-right shrink-0 min-w-[64px]">
-                          <p className="text-sm font-bold text-[#1A0A00] tabular-nums">{usdBrl ? formatBRL(card.receita * usdBrl) : `$${card.receita.toFixed(2)}`}</p>
-                          {delta !== null && (<span className={`text-[10px] font-bold ${delta >= 0 ? "text-emerald-600" : "text-red-500"}`}>{delta >= 0 ? "▲" : "▼"}{Math.abs(delta).toFixed(0)}%</span>)}
-                        </div>
-                      </button>
-                    );
-                  })}
-                  {activeCollabCards.filter((c) => c.posts > 0).length === 0 && (<p className="text-center text-xs text-[#9B9B9B] py-8">Nenhum colaborador no período</p>)}
-                </div>
-              )}
+              ) : (() => {
+                const currentCards = activeCollabCards.filter((c) => c.posts > 0).slice(0, 5);
+                const isFallback = currentCards.length === 0;
+                const displayCards = isFallback ? prevMonthTopColabs : currentCards;
+                const rankColors = ["text-amber-500", "text-slate-400", "text-orange-400"];
+                return (
+                  <div className="flex-1 space-y-1 overflow-y-auto">
+                    {isFallback && displayCards.length > 0 && (
+                      <p className="text-[10px] font-medium text-[#C0C0C0] uppercase tracking-wider px-3 pb-1">Top 5 · mês passado</p>
+                    )}
+                    {displayCards.map((card, i) => {
+                      const spark = isFallback ? Array(14).fill(0) : (sparklineByColab.get(card.id) ?? Array(14).fill(0));
+                      const displayReceita = isFallback ? 0 : card.receita;
+                      const displayViews = isFallback ? 0 : card.views;
+                      const receitaOn = collabCards.find(c => c.id === card.id)?.receita ?? card.receita;
+                      const receitaOff = collabCardsCsv.find(c => c.id === card.id)?.receita ?? card.receita;
+                      const delta = !isFallback && showManual && receitaOff > 0.001 ? ((receitaOn - receitaOff) / receitaOff) * 100 : null;
+                      return (
+                        <button key={card.id} onClick={() => setAuditColabId(card.id)}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#FFF8F5] transition-colors text-left">
+                          <span className={`text-xs font-black w-4 text-center shrink-0 ${rankColors[i] ?? "text-[#C0C0C0]"}`}>{i + 1}</span>
+                          <div
+                            className="relative shrink-0 flex items-center justify-center"
+                            style={{ width: 40, height: 40 }}
+                            title={`Meta $100: $${displayReceita.toFixed(2)} — ${Math.min(100, Math.round(displayReceita))}%`}
+                          >
+                            <GoalRing revenueUsd={displayReceita} size={40} />
+                            <ColabInitials nome={card.nome} idx={i} size={32} avatarUrl={card.avatar_url} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-semibold truncate leading-tight ${isFallback ? "text-[#9B9B9B]" : "text-[#1A0A00]"}`}>{card.nome}</p>
+                            <p className="text-[11px] text-[#9B9B9B] tabular-nums">{isFallback ? "—" : `${fmt(displayViews)} views`}</p>
+                          </div>
+                          <RankingSparkline data={spark} />
+                          <div className="text-right shrink-0 min-w-[64px]">
+                            <p className={`text-sm font-bold tabular-nums ${isFallback ? "text-[#C0C0C0]" : "text-[#1A0A00]"}`}>
+                              {isFallback ? "R$ 0,00" : (usdBrl ? formatBRL(displayReceita * usdBrl) : `$${displayReceita.toFixed(2)}`)}
+                            </p>
+                            {delta !== null && (<span className={`text-[10px] font-bold ${delta >= 0 ? "text-emerald-600" : "text-red-500"}`}>{delta >= 0 ? "▲" : "▼"}{Math.abs(delta).toFixed(0)}%</span>)}
+                          </div>
+                        </button>
+                      );
+                    })}
+                    {isFallback && displayCards.length === 0 && (
+                      <p className="text-center text-xs text-[#9B9B9B] py-8">Nenhum colaborador no período</p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
