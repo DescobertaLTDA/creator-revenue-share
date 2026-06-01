@@ -1987,7 +1987,7 @@ function AdminDashboard() {
                   ))}
                 </div>
               ) : (() => {
-                const currentCards = activeCollabCards.filter((c) => c.posts > 0).slice(0, 5);
+                const currentCards = activeCollabCards.filter((c) => c.id !== SEM_COLAB_ID && c.receita > 0.001).slice(0, 5);
                 const isFallback = currentCards.length === 0;
                 const displayCards = isFallback ? prevMonthTopColabs : currentCards;
                 const rankColors = ["text-amber-500", "text-slate-400", "text-orange-400"];
