@@ -11,6 +11,7 @@ import {
   DollarSign, Eye, TrendingUp, Upload, ArrowRight,
   FileSpreadsheet, CheckCircle2, Clock, ChevronRight, ChevronLeft,
   Target, Zap, Users, X, CloudUpload,
+  Heart, MessageSquare, Share2, Maximize2, Calendar,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -1376,60 +1377,121 @@ function AdminDashboard() {
     ? Math.round(pageStatsWithGlobalScores.reduce((s, p) => s + p.score, 0) / pageStatsWithGlobalScores.length)
     : 0;
 
-  // ── Mission data: best-month benchmarks vs current month (Facebook only) ──
-  const missionData = useMemo(() => {
-    const curMonth = new Date().toISOString().slice(0, 7);
+  // ── Mission benchmarks: fetched directly from DB (full history, FB only) ──
+  type MissionSlot = { cur: number; best: number };
+  interface MissionBM {
+    posts: MissionSlot; views: MissionSlot; usd: MissionSlot;
+    reactions: MissionSlot; comments: MissionSlot; shares: MissionSlot;
+    reach: MissionSlot; monetized: MissionSlot;
+    revenue: MissionSlot; followers: MissionSlot;
+    daysRevenue: MissionSlot; rpm: MissionSlot;
+  }
+  const [missionBM, setMissionBM] = useState<MissionBM | null>(null);
 
-    // Aggregate Facebook posts by month
-    const postsByMonth = new Map<string, { posts: number; usd: number; views: number; reactions: number }>();
-    for (const p of allPosts) {
-      if ((p.source ?? "facebook") !== "facebook") continue;
-      if (!p.published_at) continue;
-      const month = p.published_at.slice(0, 7);
-      if (!postsByMonth.has(month)) postsByMonth.set(month, { posts: 0, usd: 0, views: 0, reactions: 0 });
-      const m = postsByMonth.get(month)!;
-      m.posts += 1;
-      m.usd += getPostUsd(p);
-      m.views += Number(p.views ?? 0);
-      m.reactions += Number(p.reactions ?? 0);
-    }
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const curMonth = new Date().toISOString().slice(0, 7);
 
-    // Best month for each post metric
-    let bestPosts = 1, bestUsd = 1, bestViews = 1, bestReactions = 1;
-    for (const m of postsByMonth.values()) {
-      if (m.posts > bestPosts) bestPosts = m.posts;
-      if (m.usd > bestUsd) bestUsd = m.usd;
-      if (m.views > bestViews) bestViews = m.views;
-      if (m.reactions > bestReactions) bestReactions = m.reactions;
-    }
-    const curPosts = postsByMonth.get(curMonth) ?? { posts: 0, usd: 0, views: 0, reactions: 0 };
+        // Fetch ALL Facebook posts (paginated, lightweight fields)
+        type FbRow = { published_at: string; monetization_approx: number | null; estimated_usd: number | null; views: number | null; reactions: number | null; comments: number | null; shares: number | null; reach: number | null };
+        const fbPosts: FbRow[] = [];
+        let from = 0;
+        while (true) {
+          const { data, error } = await (supabase as any)
+            .from("posts")
+            .select("published_at,monetization_approx,estimated_usd,views,reactions,comments,shares,reach")
+            .eq("source", "facebook")
+            .not("published_at", "is", null)
+            .range(from, from + 999);
+          if (error || !data || data.length === 0) break;
+          fbPosts.push(...data);
+          if (data.length < 1000) break;
+          from += data.length;
+        }
 
-    // Aggregate daily entries by month
-    const entriesByMonth = new Map<string, { revenue: number; followers: number }>();
-    for (const e of dailyEntries) {
-      const month = e.entry_date.slice(0, 7);
-      if (!entriesByMonth.has(month)) entriesByMonth.set(month, { revenue: 0, followers: 0 });
-      const m = entriesByMonth.get(month)!;
-      if (e.actual_revenue_usd != null) m.revenue += Number(e.actual_revenue_usd);
-      if (e.actual_followers != null) m.followers += Number(e.actual_followers);
-    }
+        // Monthly aggregates for posts
+        type PM = { posts: number; usd: number; views: number; reactions: number; comments: number; shares: number; reach: number; monetized: number };
+        const pByM = new Map<string, PM>();
+        for (const p of fbPosts) {
+          const mo = p.published_at.slice(0, 7);
+          if (!pByM.has(mo)) pByM.set(mo, { posts: 0, usd: 0, views: 0, reactions: 0, comments: 0, shares: 0, reach: 0, monetized: 0 });
+          const m = pByM.get(mo)!;
+          const usd = Number(p.monetization_approx ?? p.estimated_usd ?? 0);
+          m.posts += 1;
+          m.usd += usd;
+          if (usd > 0) m.monetized += 1;
+          m.views += Number(p.views ?? 0);
+          m.reactions += Number(p.reactions ?? 0);
+          m.comments += Number(p.comments ?? 0);
+          m.shares += Number(p.shares ?? 0);
+          m.reach += Number(p.reach ?? 0);
+        }
 
-    let bestRevenue = 1, bestFollowers = 1;
-    for (const m of entriesByMonth.values()) {
-      if (m.revenue > bestRevenue) bestRevenue = m.revenue;
-      if (m.followers > bestFollowers) bestFollowers = m.followers;
-    }
-    const curEntries = entriesByMonth.get(curMonth) ?? { revenue: 0, followers: 0 };
+        // Fetch ALL daily entries
+        const { data: entrData } = await (supabase as any)
+          .from("daily_revenue_entries")
+          .select("entry_date,actual_revenue_usd,actual_followers");
+        type EM = { revenue: number; followers: number; days: number };
+        const eByM = new Map<string, EM>();
+        for (const e of (entrData ?? [])) {
+          const mo = e.entry_date.slice(0, 7);
+          if (!eByM.has(mo)) eByM.set(mo, { revenue: 0, followers: 0, days: 0 });
+          const m = eByM.get(mo)!;
+          if (e.actual_revenue_usd != null && Number(e.actual_revenue_usd) > 0) {
+            m.revenue += Number(e.actual_revenue_usd);
+            m.days += 1;
+          }
+          if (e.actual_followers != null) m.followers += Number(e.actual_followers);
+        }
 
-    return {
-      posts:     { cur: curPosts.posts,         best: bestPosts },
-      usd:       { cur: curPosts.usd,           best: bestUsd },
-      views:     { cur: curPosts.views,         best: bestViews },
-      reactions: { cur: curPosts.reactions,     best: bestReactions },
-      revenue:   { cur: curEntries.revenue,     best: bestRevenue },
-      followers: { cur: curEntries.followers,   best: bestFollowers },
-    };
-  }, [allPosts, dailyEntries]);
+        // Find best for each metric
+        const b = { posts: 1, views: 1, usd: 1, reactions: 1, comments: 1, shares: 1, reach: 1, monetized: 1, revenue: 1, followers: 1, days: 1, rpm: 0.001 };
+        for (const m of pByM.values()) {
+          if (m.posts > b.posts) b.posts = m.posts;
+          if (m.usd > b.usd) b.usd = m.usd;
+          if (m.views > b.views) b.views = m.views;
+          if (m.reactions > b.reactions) b.reactions = m.reactions;
+          if (m.comments > b.comments) b.comments = m.comments;
+          if (m.shares > b.shares) b.shares = m.shares;
+          if (m.reach > b.reach) b.reach = m.reach;
+          if (m.monetized > b.monetized) b.monetized = m.monetized;
+          const rpm = m.views > 0 ? (m.usd / m.views) * 1000 : 0;
+          if (rpm > b.rpm) b.rpm = rpm;
+        }
+        for (const m of eByM.values()) {
+          if (m.revenue > b.revenue) b.revenue = m.revenue;
+          if (m.followers > b.followers) b.followers = m.followers;
+          if (m.days > b.days) b.days = m.days;
+        }
+
+        // Current month
+        const cp = pByM.get(curMonth) ?? { posts: 0, usd: 0, views: 0, reactions: 0, comments: 0, shares: 0, reach: 0, monetized: 0 };
+        const ce = eByM.get(curMonth) ?? { revenue: 0, followers: 0, days: 0 };
+        const curRpm = cp.views > 0 ? (cp.usd / cp.views) * 1000 : 0;
+
+        if (!cancelled) {
+          setMissionBM({
+            posts:      { cur: cp.posts,       best: b.posts },
+            views:      { cur: cp.views,       best: b.views },
+            usd:        { cur: cp.usd,         best: b.usd },
+            reactions:  { cur: cp.reactions,   best: b.reactions },
+            comments:   { cur: cp.comments,    best: b.comments },
+            shares:     { cur: cp.shares,      best: b.shares },
+            reach:      { cur: cp.reach,       best: b.reach },
+            monetized:  { cur: cp.monetized,   best: b.monetized },
+            revenue:    { cur: ce.revenue,     best: b.revenue },
+            followers:  { cur: ce.followers,   best: b.followers },
+            daysRevenue:{ cur: ce.days,        best: b.days },
+            rpm:        { cur: curRpm,         best: b.rpm },
+          });
+        }
+      } catch (_) { /* silent */ }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -1683,60 +1745,51 @@ function AdminDashboard() {
           })()}
 
           {/* ═══════════════ MISSÕES ═══════════════ */}
-          {!loading && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#9B9B9B] mb-3">
-                Missões
-              </p>
-              <div
-                className="flex gap-2 overflow-x-auto sm:overflow-visible pb-1"
-                style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
-              >
-                <MissionStoryCard
-                  icon={FileSpreadsheet}
-                  label="Posts"
-                  progress={missionData.posts.cur / missionData.posts.best}
-                  value={`${missionData.posts.cur}`}
-                  goal={`${missionData.posts.best}`}
-                />
-                <MissionStoryCard
-                  icon={Eye}
-                  label="Views"
-                  progress={missionData.views.cur / missionData.views.best}
-                  value={missionData.views.cur >= 1e6 ? `${(missionData.views.cur / 1e6).toFixed(1)}M` : missionData.views.cur >= 1e3 ? `${(missionData.views.cur / 1e3).toFixed(0)}k` : `${missionData.views.cur}`}
-                  goal={missionData.views.best >= 1e6 ? `${(missionData.views.best / 1e6).toFixed(1)}M` : `${(missionData.views.best / 1e3).toFixed(0)}k`}
-                />
-                <MissionStoryCard
-                  icon={DollarSign}
-                  label="Receita CSV"
-                  progress={missionData.usd.cur / missionData.usd.best}
-                  value={`$${missionData.usd.cur.toFixed(0)}`}
-                  goal={`$${missionData.usd.best.toFixed(0)}`}
-                />
-                <MissionStoryCard
-                  icon={Zap}
-                  label="Ganhos Reais"
-                  progress={missionData.revenue.cur / missionData.revenue.best}
-                  value={`$${missionData.revenue.cur.toFixed(0)}`}
-                  goal={`$${missionData.revenue.best.toFixed(0)}`}
-                />
-                <MissionStoryCard
-                  icon={TrendingUp}
-                  label="Reações"
-                  progress={missionData.reactions.cur / missionData.reactions.best}
-                  value={missionData.reactions.cur >= 1e6 ? `${(missionData.reactions.cur / 1e6).toFixed(1)}M` : missionData.reactions.cur >= 1e3 ? `${(missionData.reactions.cur / 1e3).toFixed(0)}k` : `${missionData.reactions.cur}`}
-                  goal={missionData.reactions.best >= 1e6 ? `${(missionData.reactions.best / 1e6).toFixed(1)}M` : `${(missionData.reactions.best / 1e3).toFixed(0)}k`}
-                />
-                <MissionStoryCard
-                  icon={Users}
-                  label="Seguidores"
-                  progress={missionData.followers.cur / missionData.followers.best}
-                  value={missionData.followers.cur >= 1e6 ? `${(missionData.followers.cur / 1e6).toFixed(1)}M` : missionData.followers.cur >= 1e3 ? `${(missionData.followers.cur / 1e3).toFixed(0)}k` : `${missionData.followers.cur}`}
-                  goal={missionData.followers.best >= 1e3 ? `${(missionData.followers.best / 1e3).toFixed(0)}k` : `${missionData.followers.best}`}
-                />
+          {!loading && missionBM && (() => {
+            const n = (v: number) =>
+              v >= 1e9 ? `${(v / 1e9).toFixed(1)}B`
+              : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M`
+              : v >= 1e3 ? `${(v / 1e3).toFixed(0)}k`
+              : `${Math.round(v)}`;
+            const u = (v: number) => `$${v.toFixed(0)}`;
+            const r = (v: number) => `$${v.toFixed(2)}`;
+            const missions = [
+              { icon: FileSpreadsheet, label: "Posts",          slot: missionBM.posts,       fmt: n },
+              { icon: Eye,             label: "Views",          slot: missionBM.views,       fmt: n },
+              { icon: DollarSign,      label: "Receita CSV",    slot: missionBM.usd,         fmt: u },
+              { icon: Zap,             label: "Ganhos Reais",   slot: missionBM.revenue,     fmt: u },
+              { icon: Heart,           label: "Reações",        slot: missionBM.reactions,   fmt: n },
+              { icon: MessageSquare,   label: "Comentários",    slot: missionBM.comments,    fmt: n },
+              { icon: Share2,          label: "Compartilhados", slot: missionBM.shares,      fmt: n },
+              { icon: Maximize2,       label: "Alcance",        slot: missionBM.reach,       fmt: n },
+              { icon: Users,           label: "Seguidores",     slot: missionBM.followers,   fmt: n },
+              { icon: CheckCircle2,    label: "Monetizados",    slot: missionBM.monetized,   fmt: n },
+              { icon: Calendar,        label: "Dias c/ Ganho",  slot: missionBM.daysRevenue, fmt: n },
+              { icon: Target,          label: "RPM",            slot: missionBM.rpm,         fmt: r },
+            ];
+            return (
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#9B9B9B] mb-3">
+                  Missões
+                </p>
+                <div
+                  className="flex gap-1 overflow-x-auto sm:overflow-visible pb-1"
+                  style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
+                >
+                  {missions.map(({ icon, label, slot, fmt }) => (
+                    <MissionStoryCard
+                      key={label}
+                      icon={icon}
+                      label={label}
+                      progress={slot.best > 0 ? slot.cur / slot.best : 0}
+                      value={fmt(slot.cur)}
+                      goal={fmt(slot.best)}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ═══════════════ MAIN GRID ═══════════════ */}
           <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6">
