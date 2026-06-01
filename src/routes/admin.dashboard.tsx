@@ -2178,12 +2178,12 @@ const AVATAR_GRADIENTS = [
   ["#6366F1", "#A5B4FC"],
 ];
 
-function ColabInitials({ nome, idx, size = 44, avatarUrl }: { nome: string; idx: number; size?: number; avatarUrl?: string | null }) {
+function ColabInitials({ nome, idx, size = 44, avatarUrl }: { nome: string | null | undefined; idx: number; size?: number; avatarUrl?: string | null }) {
   if (avatarUrl) {
     return (
       <img
         src={avatarUrl}
-        alt={nome}
+        alt={nome ?? ""}
         width={size}
         height={size}
         style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", display: "block", flexShrink: 0 }}
@@ -2191,7 +2191,8 @@ function ColabInitials({ nome, idx, size = 44, avatarUrl }: { nome: string; idx:
     );
   }
   const [a, b] = AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length];
-  const initials = nome
+  const safeName = nome || "?";
+  const initials = safeName
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
