@@ -130,6 +130,7 @@ function CentralReceita() {
   const [rows, setRows] = useState<ColabRevenue[]>([]);
   const [totalActual, setTotalActual] = useState(0);
   const [totalPostsRevenue, setTotalPostsRevenue] = useState(0);
+  const [totalBonus, setTotalBonus] = useState(0);
   const [activeCount, setActiveCount] = useState(0);
   const [selected, setSelected] = useState<ColabRevenue | null>(null);
   const [simValue, setSimValue] = useState(1000);
@@ -228,7 +229,13 @@ function CentralReceita() {
         .gte("entry_date", curBounds.from)
         .lte("entry_date", curBounds.to);
       const dailyArr: DailyEntry[] = (dailyData ?? []) as DailyEntry[];
-      const totalActualUsd = dailyArr.reduce((s, d) => s + Number(d.actual_revenue_usd ?? 0), 0);
+
+      // Aggregate actual revenue by date (same as Dashboard algorithm)
+      const actualByDate = new Map<string, number>();
+      for (const e of dailyArr) {
+        actualByDate.set(e.entry_date, (actualByDate.get(e.entry_date) ?? 0) + Number(e.actual_revenue_usd ?? 0));
+      }
+      const totalActualUsd = [...actualByDate.values()].reduce((s, v) => s + v, 0);
       setTotalActual(totalActualUsd);
 
       // ── Compute posts revenue per collaborator ──────────────────────────
@@ -236,21 +243,36 @@ function CentralReceita() {
       const postCountByColab: Record<string, number> = {};
       let totalPosts = 0;
 
+      // byDayCSV: sum of CSV revenues (split-weighted) per publication date
+      const byDayCSV = new Map<string, number>();
+
       for (const post of curPostsArr) {
         const authors = curPaByPost[post.id] ?? [];
         if (authors.length === 0) continue;
         const splitPct = splitByPage[post.page_id] ?? 100;
         const mono = Number(post.monetization_approx) || Number((post as any).estimated_usd) || 0;
         const share = (mono * (splitPct / 100)) / authors.length;
-        totalPosts += mono * (splitPct / 100); // total posts revenue (all collabs)
+        totalPosts += mono * (splitPct / 100);
         for (const cid of authors) {
           postsRevByColab[cid] = (postsRevByColab[cid] ?? 0) + share;
           postCountByColab[cid] = (postCountByColab[cid] ?? 0) + 1;
         }
+        // Accumulate CSV per day (for daily correction, same as Dashboard)
+        if (post.published_at) {
+          const date = post.published_at.slice(0, 10);
+          byDayCSV.set(date, (byDayCSV.get(date) ?? 0) + mono * (splitPct / 100));
+        }
       }
       setTotalPostsRevenue(totalPosts);
 
-      const residual = Math.max(0, totalActualUsd - totalPosts);
+      // Daily correction = sum(actual_per_day - CSV_per_day) for days with entries
+      // This matches the Dashboard Ranking algorithm exactly
+      let totalDailyBonus = 0;
+      for (const [date, actual] of actualByDate) {
+        totalDailyBonus += actual - (byDayCSV.get(date) ?? 0);
+      }
+      setTotalBonus(totalDailyBonus);
+      const residual = totalDailyBonus;
 
       // ── Historical % (prev month views per colab) ───────────────────────
       const prevViewsByColab: Record<string, number> = {};
@@ -280,7 +302,7 @@ function CentralReceita() {
         const histPct = totalPrevViews > 0
           ? ((prevViewsByColab[cid] ?? 0) / totalPrevViews) * 100
           : 0;
-        const residualShare = residual * (histPct / 100);
+        const residualShare = residual > 0 ? residual * (histPct / 100) : 0;
         const totalUsd = postsRev + residualShare;
 
         // Determine split % (avg across pages this collab posted on current month)
@@ -312,7 +334,7 @@ function CentralReceita() {
     }
   }
 
-  const totalResidual = Math.max(0, totalActual - totalPostsRevenue);
+  const totalResidual = Math.max(0, totalBonus);
 
   const simRows = useMemo(() => {
     const totalHistPct = rows.reduce((s, r) => s + r.historicalPct, 0) || 100;
