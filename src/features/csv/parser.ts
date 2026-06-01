@@ -394,9 +394,25 @@ export function parseGanhosCsv(text: string): GanhosParseResult | null {
     titleRaw = ((r.data[0] as string[] | undefined)?.[0] ?? "").trim();
   }
 
-  // Detect type from title
+  // Detect type from title — must be explicitly recognized as revenue or views.
+  // Any other daily-metric CSV (seguidores, curtidas, alcance, impressões, etc.)
+  // should NOT be treated as ganhos → return null so it falls through.
   const titleNorm = titleRaw.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-  const type: GanhosType = titleNorm.includes("visualiza") ? "views" : "revenue";
+  let type: GanhosType;
+  if (titleNorm.includes("visualiza") || titleNorm.includes("view")) {
+    type = "views";
+  } else if (
+    titleNorm.includes("ganho") ||
+    titleNorm.includes("receita") ||
+    titleNorm.includes("monetiz") ||
+    titleNorm.includes("earning") ||
+    titleNorm.includes("revenue")
+  ) {
+    type = "revenue";
+  } else {
+    // Unknown metric (seguidores, curtidas, alcance, impressões, etc.) — not handled here
+    return null;
+  }
 
   // Find header line that contains "Data" and "Primary"
   let headerIdx = -1;
