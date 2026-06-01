@@ -831,53 +831,63 @@ function PostConfirmModal({
 }) {
   const fmtDate = (d: Date | null) => d ? d.toISOString().slice(0, 10).split("-").reverse().join("/") : "—";
   const pageNames = Array.from(new Set(parsed.rows.map((r) => r.page_name).filter(Boolean)));
+  const period = parsed.periodStart && parsed.periodEnd
+    ? `${fmtDate(parsed.periodStart)} – ${fmtDate(parsed.periodEnd)}`
+    : "—";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-card rounded-2xl border border-border shadow-2xl flex flex-col overflow-hidden">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-card rounded-xl border border-border shadow-2xl flex flex-col overflow-hidden">
+
+        {/* Top accent line */}
+        <div className="h-0.5 w-full bg-[#F44708]" />
+
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
-              <FileText className="h-4 w-4 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-sm font-bold leading-tight">Confirmar importação de posts</p>
-              <p className="text-[11px] text-muted-foreground truncate max-w-[240px]">📄 {fileName}</p>
-            </div>
+        <div className="flex items-start justify-between px-5 pt-4 pb-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#F44708]">Posts · CSV</p>
+            <h2 className="text-sm font-bold text-foreground mt-0.5">Confirmar importação</h2>
+            <p className="text-[11px] text-muted-foreground mt-0.5 font-mono truncate max-w-[280px]">{fileName}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-md text-muted-foreground hover:bg-accent">
+          <button onClick={onClose} className="mt-0.5 p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Summary chips */}
-        <div className="flex items-center gap-2 flex-wrap px-5 py-3 bg-muted/30 border-b border-border">
-          <Chip label={`${parsed.rows.length} posts`} />
-          {parsed.periodStart && parsed.periodEnd && (
-            <Chip label={`${fmtDate(parsed.periodStart)} – ${fmtDate(parsed.periodEnd)}`} />
-          )}
-          <Chip label={`${parsed.detectedPages.size} página${parsed.detectedPages.size !== 1 ? "s" : ""}`} accent />
+        {/* Stats row */}
+        <div className="flex border-y border-border divide-x divide-border">
+          <div className="flex-1 px-4 py-3 text-center">
+            <p className="text-base font-bold tabular-nums text-foreground">{parsed.rows.length}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-0.5">posts</p>
+          </div>
+          <div className="flex-1 px-4 py-3 text-center">
+            <p className="text-[11px] font-semibold tabular-nums text-foreground leading-tight">{period}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-0.5">período</p>
+          </div>
+          <div className="flex-1 px-4 py-3 text-center">
+            <p className="text-base font-bold tabular-nums text-[#F44708]">{parsed.detectedPages.size}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-0.5">página{parsed.detectedPages.size !== 1 ? "s" : ""}</p>
+          </div>
         </div>
 
-        {/* Page preview table */}
+        {/* Pages table */}
         {pageNames.length > 0 && (
-          <div className="overflow-y-auto max-h-48 border-b border-border">
+          <div className="overflow-y-auto max-h-44 border-b border-border">
             <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-muted/60">
+              <thead className="sticky top-0 bg-muted/50">
                 <tr>
-                  <th className="text-left px-4 py-2 font-bold text-muted-foreground uppercase tracking-wide text-[10px]">Página detectada</th>
-                  <th className="text-right px-4 py-2 font-bold text-muted-foreground uppercase tracking-wide text-[10px]">Posts</th>
+                  <th className="text-left px-4 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Página</th>
+                  <th className="text-right px-4 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Posts</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border/50">
                 {pageNames.map((name) => {
                   const count = parsed.rows.filter((r) => r.page_name === name).length;
                   return (
-                    <tr key={name} className="border-t border-border/40">
-                      <td className="px-4 py-1.5 text-muted-foreground truncate max-w-[260px]">{name}</td>
-                      <td className="px-4 py-1.5 text-right font-semibold tabular-nums">{count}</td>
+                    <tr key={name} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-2 text-foreground truncate max-w-[260px]">{name}</td>
+                      <td className="px-4 py-2 text-right font-semibold tabular-nums">{count}</td>
                     </tr>
                   );
                 })}
@@ -886,55 +896,44 @@ function PostConfirmModal({
           </div>
         )}
 
-        {/* Error warning */}
+        {/* Error notice */}
         {parsed.errors.length > 0 && (
-          <div className="mx-5 mt-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-2">
-            <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-[11px] text-amber-700">
-              {parsed.errors.length} linha{parsed.errors.length > 1 ? "s" : ""} com erro serão ignoradas. Os {parsed.rows.length} posts válidos serão importados normalmente.
+          <div className="mx-4 mt-3 px-3 py-2 rounded-lg border border-border bg-muted/40 flex items-start gap-2">
+            <AlertCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+            <p className="text-[11px] text-muted-foreground">
+              {parsed.errors.length} linha{parsed.errors.length > 1 ? "s" : ""} inválida{parsed.errors.length > 1 ? "s" : ""} serão ignoradas. {parsed.rows.length} posts válidos serão importados.
             </p>
           </div>
         )}
 
-        {/* Platform selector + buttons */}
-        <div className="px-5 py-4 space-y-3">
-          <div>
-            <label className="text-xs font-semibold text-foreground mb-1.5 block">
-              Plataforma de origem
-            </label>
-            <div className="flex rounded-lg border border-border overflow-hidden">
+        {/* Footer */}
+        <div className="px-4 py-4 space-y-3 bg-muted/20 border-t border-border">
+          {/* Platform toggle */}
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-20 shrink-0">Plataforma</span>
+            <div className="flex rounded-md border border-border overflow-hidden flex-1 h-8">
               {(["facebook", "instagram"] as const).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => onSourceChange(s)}
-                  className={cn(
-                    "flex-1 h-9 text-sm font-medium transition-colors",
-                    source === s
-                      ? "bg-[#F44708] text-white"
-                      : "bg-background text-muted-foreground hover:bg-accent"
-                  )}
-                >
-                  {s === "facebook" ? "📘 Facebook" : "📷 Instagram"}
+                <button key={s} onClick={() => onSourceChange(s)}
+                  className={cn("flex-1 text-xs font-semibold transition-colors",
+                    source === s ? "bg-[#F44708] text-white" : "bg-background text-muted-foreground hover:text-foreground"
+                  )}>
+                  {s === "facebook" ? "Facebook" : "Instagram"}
                 </button>
               ))}
             </div>
           </div>
 
+          {/* Actions */}
           <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="flex-1 h-10 rounded-lg border border-border text-sm text-muted-foreground hover:bg-accent transition-colors"
-            >
+            <button onClick={onClose}
+              className="flex-1 h-9 rounded-lg border border-border text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors">
               Cancelar
             </button>
-            <button
-              onClick={onConfirm}
-              disabled={confirming || parsed.rows.length === 0}
-              className="flex-1 h-10 rounded-lg bg-[#F44708] text-white text-sm font-bold hover:bg-[#E03A07] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-            >
+            <button onClick={onConfirm} disabled={confirming || parsed.rows.length === 0}
+              className="flex-1 h-9 rounded-lg bg-[#F44708] text-white text-xs font-bold hover:bg-[#D93D07] disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5">
               {confirming
-                ? <><Loader2 className="h-4 w-4 animate-spin" /> Processando…</>
-                : <><CheckCircle2 className="h-4 w-4" /> Confirmar</>}
+                ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Processando…</>
+                : <><CheckCircle2 className="h-3.5 w-3.5" /> Confirmar</>}
             </button>
           </div>
         </div>
@@ -971,118 +970,105 @@ function DailyConfirmModal({
     ? (v: number) => `$${v.toFixed(2)}`
     : (v: number) => v.toLocaleString("pt-BR");
 
+  const period = parsed.periodStart && parsed.periodEnd
+    ? `${parsed.periodStart.split("-").reverse().join("/")} – ${parsed.periodEnd.split("-").reverse().join("/")}`
+    : "—";
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-card rounded-2xl border border-border shadow-2xl flex flex-col overflow-hidden">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-card rounded-xl border border-border shadow-2xl flex flex-col overflow-hidden">
+
+        {/* Top accent line */}
+        <div className="h-0.5 w-full bg-[#F44708]" />
+
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <div className="flex items-center gap-2.5">
-            <div className={cn(
-              "h-8 w-8 rounded-lg flex items-center justify-center shrink-0",
-              isRevenue ? "bg-green-100" : "bg-blue-100"
-            )}>
-              {isRevenue
-                ? <DollarSign className="h-4 w-4 text-green-600" />
-                : <Eye className="h-4 w-4 text-blue-600" />}
-            </div>
-            <div>
-              <p className="text-sm font-bold leading-tight">
-                {isRevenue ? "Ganhos diários detectados" : "Visualizações diárias detectadas"}
-              </p>
-              <p className="text-[11px] text-muted-foreground truncate max-w-[240px]">📄 {fileName}</p>
-            </div>
+        <div className="flex items-start justify-between px-5 pt-4 pb-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#F44708]">
+              {isRevenue ? "Ganhos diários" : "Visualizações diárias"}
+            </p>
+            <h2 className="text-sm font-bold text-foreground mt-0.5">Confirmar importação</h2>
+            <p className="text-[11px] text-muted-foreground mt-0.5 font-mono truncate max-w-[280px]">{fileName}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-md text-muted-foreground hover:bg-accent">
+          <button onClick={onClose} className="mt-0.5 p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Summary chips */}
-        <div className="flex items-center gap-2 flex-wrap px-5 py-3 bg-muted/30 border-b border-border">
-          <Chip label={`${parsed.rows.length} dias`} />
-          {parsed.periodStart && parsed.periodEnd && (
-            <Chip label={`${parsed.periodStart.split("-").reverse().join("/")} – ${parsed.periodEnd.split("-").reverse().join("/")}`} />
-          )}
-          <Chip label={`Total: ${formatTotal(total)}`} accent />
+        {/* Stats row */}
+        <div className="flex border-y border-border divide-x divide-border">
+          <div className="flex-1 px-4 py-3 text-center">
+            <p className="text-base font-bold tabular-nums text-foreground">{parsed.rows.length}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-0.5">dias</p>
+          </div>
+          <div className="flex-1 px-4 py-3 text-center">
+            <p className="text-[11px] font-semibold tabular-nums text-foreground leading-tight">{period}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-0.5">período</p>
+          </div>
+          <div className="flex-1 px-4 py-3 text-center">
+            <p className="text-base font-bold tabular-nums text-[#F44708]">{formatTotal(total)}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-0.5">total</p>
+          </div>
         </div>
 
         {/* Preview table */}
-        <div className="overflow-y-auto max-h-52 border-b border-border">
+        <div className="overflow-y-auto max-h-48 border-b border-border">
           <table className="w-full text-xs">
-            <thead className="sticky top-0 bg-muted/60">
+            <thead className="sticky top-0 bg-muted/50">
               <tr>
-                <th className="text-left px-4 py-2 font-bold text-muted-foreground uppercase tracking-wide text-[10px]">Data</th>
-                <th className="text-right px-4 py-2 font-bold text-muted-foreground uppercase tracking-wide text-[10px]">{colLabel}</th>
+                <th className="text-left px-4 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Data</th>
+                <th className="text-right px-4 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">{colLabel}</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border/50">
               {parsed.rows.map((r) => (
-                <tr key={r.date} className="border-t border-border/40">
-                  <td className="px-4 py-1.5 text-muted-foreground tabular-nums">{r.date.split("-").reverse().join("/")}</td>
-                  <td className="px-4 py-1.5 text-right font-semibold tabular-nums">{formatValue(r.value)}</td>
+                <tr key={r.date} className="hover:bg-muted/30 transition-colors">
+                  <td className="px-4 py-2 text-muted-foreground tabular-nums">{r.date.split("-").reverse().join("/")}</td>
+                  <td className="px-4 py-2 text-right font-semibold tabular-nums">{formatValue(r.value)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {/* Page selector + confirm */}
-        <div className="px-5 py-4 space-y-3">
-          {/* Source toggle */}
-          <div>
-            <label className="text-xs font-semibold text-foreground mb-1.5 block">
-              Plataforma de origem
-            </label>
-            <div className="flex rounded-lg border border-border overflow-hidden">
+        {/* Footer controls */}
+        <div className="px-4 py-4 space-y-3 bg-muted/20 border-t border-border">
+          {/* Platform + Page row */}
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-20 shrink-0">Plataforma</span>
+            <div className="flex rounded-md border border-border overflow-hidden flex-1 h-8">
               {(["facebook", "instagram"] as const).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => onSourceChange(s)}
-                  className={cn(
-                    "flex-1 h-9 text-sm font-medium transition-colors",
-                    source === s
-                      ? "bg-[#F44708] text-white"
-                      : "bg-background text-muted-foreground hover:bg-accent"
-                  )}
-                >
-                  {s === "facebook" ? "📘 Facebook" : "📷 Instagram"}
+                <button key={s} onClick={() => onSourceChange(s)}
+                  className={cn("flex-1 text-xs font-semibold transition-colors",
+                    source === s ? "bg-[#F44708] text-white" : "bg-background text-muted-foreground hover:text-foreground"
+                  )}>
+                  {s === "facebook" ? "Facebook" : "Instagram"}
                 </button>
               ))}
             </div>
           </div>
 
-          <div>
-            <label className="text-xs font-semibold text-foreground mb-1.5 block">
-              Para qual página esses dados pertencem?
-            </label>
-            <select
-              value={pageId}
-              onChange={(e) => onPageChange(e.target.value)}
-              className="h-10 rounded-lg border border-border bg-background px-3 text-sm w-full focus:outline-none focus:ring-1 focus:ring-[#F44708]/50"
-            >
-              <option value="">Selecionar página…</option>
-              {pages.map((p) => (
-                <option key={p.id} value={p.id}>{p.nome}</option>
-              ))}
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-20 shrink-0">Página</span>
+            <select value={pageId} onChange={(e) => onPageChange(e.target.value)}
+              className="flex-1 h-8 rounded-md border border-border bg-background px-2.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#F44708]/40 text-foreground">
+              <option value="">Selecionar…</option>
+              {pages.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
           </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="flex-1 h-10 rounded-lg border border-border text-sm text-muted-foreground hover:bg-accent transition-colors"
-            >
+          {/* Actions */}
+          <div className="flex gap-2 pt-1">
+            <button onClick={onClose}
+              className="flex-1 h-9 rounded-lg border border-border text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors">
               Cancelar
             </button>
-            <button
-              onClick={onConfirm}
-              disabled={!pageId || confirming}
-              className="flex-1 h-10 rounded-lg bg-[#F44708] text-white text-sm font-bold hover:bg-[#E03A07] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-            >
+            <button onClick={onConfirm} disabled={!pageId || confirming}
+              className="flex-1 h-9 rounded-lg bg-[#F44708] text-white text-xs font-bold hover:bg-[#D93D07] disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5">
               {confirming
-                ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando…</>
-                : <><CheckCircle2 className="h-4 w-4" /> Confirmar</>}
+                ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Salvando…</>
+                : <><CheckCircle2 className="h-3.5 w-3.5" /> Confirmar</>}
             </button>
           </div>
         </div>
