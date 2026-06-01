@@ -1220,8 +1220,13 @@ function AdminDashboard() {
     const baseDaily = allTimeAvgDaily > 0 ? allTimeAvgDaily : projections.today;
     const last = chartDataCsv[chartDataCsv.length - 1];
     const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    // Only add future-projection days when the selected range covers the current
+    // month. If the user is viewing a past period the projection lines would
+    // dominate the y-scale and make real data invisible.
+    const periodIncludesToday = !filterTo || filterTo >= todayStr;
     const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    const daysLeftInMonth = lastDayOfMonth - today.getDate();
+    const daysLeftInMonth = periodIncludesToday ? lastDayOfMonth - today.getDate() : 0;
     const futuro: FutRow[] = [];
     for (let i = 1; i <= daysLeftInMonth; i++) {
       const d = new Date(today);
@@ -1241,7 +1246,7 @@ function AdminDashboard() {
       conservative: baseDaily * 0.65,
     };
     return [...hist, ...futuro];
-  }, [chartDataCsv, projections, allTimeAvgDaily]);
+  }, [chartDataCsv, projections, allTimeAvgDaily, filterTo]);
 
   // Map "dd/mm" → actual_revenue_usd for overlay on revenue charts (filtered by selected page)
   const dailyActualByDia = useMemo(() => {
@@ -1930,7 +1935,7 @@ function AdminDashboard() {
                 <div className="mb-4 sm:mb-5 shrink-0">
                   <h2 className="text-sm sm:text-base font-bold text-[#1A0A00]">Receita + Projeção</h2>
                   <p className="text-xs text-[#9B9B9B] mt-0.5 hidden sm:block">
-                    Arraste a barra inferior para navegar pelo histórico · 3 cenários de projeção
+                    Histórico de receita · 3 cenários de projeção
                   </p>
                 </div>
                 <div className="flex-1 min-h-[200px]">
