@@ -1191,8 +1191,8 @@ function AdminDashboard() {
       });
   }, [allPosts, filterPage, filterFrom, filterTo, chartMetric, dailyEntries]);
 
-  // Projection chart data: last 30 days real + future projection only if filterTo is beyond today
-  // Orange line always = pure CSV posts revenue; green line = actual_revenue_usd (manual)
+  // Projection chart data: full history real + future projection
+  // Uses allTimeAvgDaily (weighted avg across ALL historical months) if available, else last-7-days avg
   const projectionChartData = useMemo(() => {
     type HistRow = { dia: string; real: number; proj: number | null; optimistic: number | null; conservative: number | null };
     type FutRow = { dia: string; real: null; proj: number; optimistic: number; conservative: number };
@@ -1200,10 +1200,11 @@ function AdminDashboard() {
       dia: d.dia, real: d.receita,
       proj: null, optimistic: null, conservative: null,
     }));
+    const baseDaily = allTimeAvgDaily > 0 ? allTimeAvgDaily : projections.today;
     const last = chartDataCsv[chartDataCsv.length - 1];
     const today = new Date();
     const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    const daysLeftInMonth = lastDayOfMonth - today.getDate(); // 0 on last day → no projection
+    const daysLeftInMonth = lastDayOfMonth - today.getDate();
     const futuro: FutRow[] = [];
     for (let i = 1; i <= daysLeftInMonth; i++) {
       const d = new Date(today);
@@ -1211,19 +1212,19 @@ function AdminDashboard() {
       const [, mo, dy] = d.toISOString().slice(0, 10).split("-");
       futuro.push({
         dia: `${dy}/${mo}`, real: null,
-        proj: projections.today,
-        optimistic: projections.today * 1.72,
-        conservative: projections.today * 0.65,
+        proj: baseDaily,
+        optimistic: baseDaily * 1.72,
+        conservative: baseDaily * 0.65,
       });
     }
     if (last && daysLeftInMonth > 0) hist[hist.length - 1] = {
       ...hist[hist.length - 1],
-      proj: projections.today,
-      optimistic: projections.today * 1.72,
-      conservative: projections.today * 0.65,
+      proj: baseDaily,
+      optimistic: baseDaily * 1.72,
+      conservative: baseDaily * 0.65,
     };
     return [...hist, ...futuro];
-  }, [chartDataCsv, projections]);
+  }, [chartDataCsv, projections, allTimeAvgDaily]);
 
   // Map "dd/mm" → actual_revenue_usd for overlay on revenue charts (filtered by selected page)
   const dailyActualByDia = useMemo(() => {
@@ -1442,6 +1443,7 @@ function AdminDashboard() {
     revenue: number; followers: number; daysRevenue: number; rpm: number;
   }
   const [missionBest, setMissionBest] = useState<MissionBest | null>(null);
+  const [allTimeAvgDaily, setAllTimeAvgDaily] = useState<number>(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -1518,6 +1520,23 @@ function AdminDashboard() {
           if (m.days.size > b.days) b.days = m.days.size;
         }
 
+        // Weighted avg daily CSV revenue across ALL months (recent months weight more)
+        // Weight = chronological index (oldest=1, newest=N) → recent data matters more
+        const sortedMonths = Array.from(pByM.entries())
+          .filter(([, m]) => m.usd > 0)
+          .sort((a, b) => a[0].localeCompare(b[0]));
+        let wSum = 0, wTotal = 0;
+        for (let i = 0; i < sortedMonths.length; i++) {
+          const [mo, m] = sortedMonths[i];
+          const [y, mn] = mo.split("-").map(Number);
+          const daysInMonth = new Date(y, mn, 0).getDate();
+          const dailyAvg = m.usd / daysInMonth;
+          const weight = i + 1; // recent = higher index = higher weight
+          wSum += dailyAvg * weight;
+          wTotal += weight;
+        }
+        const computedAllTimeAvgDaily = wTotal > 0 ? wSum / wTotal : 0;
+
         if (!cancelled) {
           setMissionBest({
             posts: b.posts, views: b.views, usd: b.usd,
@@ -1526,6 +1545,7 @@ function AdminDashboard() {
             revenue: b.revenue, followers: b.followers,
             daysRevenue: b.days, rpm: b.rpm,
           });
+          setAllTimeAvgDaily(computedAllTimeAvgDaily);
         }
       } catch (_) { /* silent */ }
     })();
