@@ -1728,7 +1728,7 @@ function AdminDashboard() {
                 {/* 5 Sua Receita — mobile + desktop (4th slot on mobile for collaborators) */}
                 {myCard && (
                   <div>
-                    <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Receita</p>
+                    <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Seus Ganhos</p>
                     {loading ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
                       : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{usdBrl ? formatBRL(myReceita * usdBrl) : `$${myReceita.toFixed(2)}`}</p>}
                     {usdBrl && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums">${myReceita.toFixed(2)} USD</p>}
