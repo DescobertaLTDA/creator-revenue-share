@@ -178,6 +178,18 @@ async function fetchAllRows<T>(
   return all;
 }
 
+function getMonthCountdown(): string {
+  const now = new Date();
+  // Last moment of the current month
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  const diff = Math.max(0, end.getTime() - now.getTime());
+  const totalSec = Math.floor(diff / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return `${String(h).padStart(3, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
 function fetchUsdBrl(): Promise<number | null> {
   return fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL")
     .then((r) => r.json())
@@ -1373,6 +1385,13 @@ function AdminDashboard() {
   const manualDelta = showManual ? totalMonth - effectiveTotalMonthCsv : 0;
   const manualDeltaPct = effectiveTotalMonthCsv > 0.001 ? (manualDelta / effectiveTotalMonthCsv) * 100 : 0;
 
+  // ── Month countdown timer ─────────────────────────────────────────────────
+  const [monthCountdown, setMonthCountdown] = useState(getMonthCountdown);
+  useEffect(() => {
+    const id = setInterval(() => setMonthCountdown(getMonthCountdown()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const avgScoreVal = !loading && pageStatsWithGlobalScores.length > 0
     ? Math.round(pageStatsWithGlobalScores.reduce((s, p) => s + p.score, 0) / pageStatsWithGlobalScores.length)
     : 0;
@@ -1766,7 +1785,6 @@ function AdminDashboard() {
               : `${Math.round(v)}`;
             const u = (v: number) => `$${v.toFixed(0)}`;
             const r = (v: number) => `$${v.toFixed(2)}`;
-            const bestRevBRL = usdBrl ? formatBRL(missionBest.revenue * usdBrl) : `$${missionBest.revenue.toFixed(0)}`;
             const missions: { icon: React.ElementType; label: string; cur: number; best: number; fmt: (v: number) => string }[] = [
               { icon: FileSpreadsheet, label: "Posts",          cur: missionCur.posts,       best: missionBest.posts,       fmt: n },
               { icon: Eye,             label: "Views",          cur: missionCur.views,       best: missionBest.views,       fmt: n },
@@ -1787,8 +1805,8 @@ function AdminDashboard() {
                   <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#9B9B9B]">
                     Missões do Mês
                   </p>
-                  <span className="text-[10px] font-bold text-[#F44708] tracking-tight">
-                    · {bestRevBRL}
+                  <span className="text-[10px] font-mono font-semibold text-[#C0C0C0] tracking-widest tabular-nums">
+                    · {monthCountdown}
                   </span>
                 </div>
                 <div
