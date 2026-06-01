@@ -290,10 +290,10 @@ function Page() {
     // ALL period posts (for byDayCSV and per-post revenue)
     const periodPosts = await fetchAllRows<{
       id: string; page_id: string; published_at: string | null;
-      estimated_usd: number | null; monetization_approx: number | null;
+      estimated_usd: number | null; monetization_approx: number | null; views: number | null;
     }>(() =>
       supabase.from("posts")
-        .select("id, page_id, published_at, estimated_usd, monetization_approx")
+        .select("id, page_id, published_at, estimated_usd, monetization_approx, views")
         .gte("published_at", filterFrom)
         .lte("published_at", filterTo + "T23:59:59")
     );
@@ -315,18 +315,33 @@ function Page() {
     const prevPostIds = prevPosts.map((p) => p.id);
 
     // Fetch post_authors in batches (avoids URL length limit)
-    const [periodPaRows, prevPaRows, { data: splitRulesData }, { data: dailyRevData }] = await Promise.all([
+    const [periodPaRows, prevPaRows, { data: splitRulesData }, { data: dailyRevData }, { data: manualBonusData }] = await Promise.all([
       batchFetchPa(periodPostIds),
       batchFetchPa(prevPostIds),
       supabase.from("split_rules").select("page_id, effective_from, collaborator_pct, active").eq("active", true),
       supabase.from("daily_revenue_entries").select("entry_date, actual_revenue_usd")
         .gte("entry_date", filterFrom).lte("entry_date", filterTo),
+      (supabase as any).from("manual_bonus_entries")
+        .select("id, bonus_date, amount_usd, distribution_mode, active")
+        .eq("active", true)
+        .gte("bonus_date", filterFrom)
+        .lte("bonus_date", filterTo),
     ]);
 
     const postToCollabs = new Map<string, Set<string>>();
     for (const pa of periodPaRows) {
       if (!postToCollabs.has(pa.post_id)) postToCollabs.set(pa.post_id, new Set());
       postToCollabs.get(pa.post_id)!.add(pa.collaborator_id);
+    }
+
+    // Current period views per collaborator (used to distribute manual bonuses)
+    const currentViewsByColab = new Map<string, number>();
+    for (const post of periodPosts) {
+      const views = Number(post.views ?? 0);
+      if (views <= 0) continue;
+      for (const cid of Array.from(postToCollabs.get(post.id) ?? [])) {
+        currentViewsByColab.set(cid, (currentViewsByColab.get(cid) ?? 0) + views);
+      }
     }
 
     const prevPostViewMap = new Map<string, number>();
@@ -398,6 +413,39 @@ function Page() {
         for (const id of ids) {
           revenueByColab.set(id, (revenueByColab.get(id) ?? 0) + share);
         }
+      }
+    }
+
+    // Step 5: manual bonus entries (same algorithm as Dashboard)
+    if ((manualBonusData ?? []).length > 0) {
+      // Snapshot of CSV revenue used as weight for revenue-mode distribution
+      const baseRevenueByColab = new Map<string, number>();
+      for (const [id, rev] of revenueByColab.entries()) baseRevenueByColab.set(id, rev);
+
+      for (const bonus of (manualBonusData ?? [])) {
+        const usd = Number(bonus.amount_usd ?? 0);
+        if (!Number.isFinite(usd) || usd <= 0) continue;
+        const totalViews = ids.reduce((s, id) => s + (currentViewsByColab.get(id) ?? 0), 0);
+        const totalRevenue = ids.reduce((s, id) => s + (baseRevenueByColab.get(id) ?? 0), 0);
+        const weights = new Map<string, number>();
+        let totalWeight = 0;
+        for (const id of ids) {
+          const viewShare = totalViews > 0 ? (currentViewsByColab.get(id) ?? 0) / totalViews : 0;
+          const revenueShare = totalRevenue > 0 ? (baseRevenueByColab.get(id) ?? 0) / totalRevenue : 0;
+          const w = bonus.distribution_mode === "views" ? viewShare
+            : bonus.distribution_mode === "revenue" ? revenueShare
+            : (totalViews > 0 && totalRevenue > 0) ? (viewShare + revenueShare) / 2
+            : totalViews > 0 ? viewShare : totalRevenue > 0 ? revenueShare : 0;
+          weights.set(id, w);
+          totalWeight += w;
+        }
+        if (totalWeight <= 0) continue;
+        let remaining = usd;
+        ids.forEach((id, index) => {
+          const share = index === ids.length - 1 ? remaining : usd * ((weights.get(id) ?? 0) / totalWeight);
+          remaining -= share;
+          revenueByColab.set(id, (revenueByColab.get(id) ?? 0) + share);
+        });
       }
     }
 
