@@ -134,7 +134,7 @@ function CentralReceita() {
   const [selected, setSelected] = useState<ColabRevenue | null>(null);
   const [simValue, setSimValue] = useState(1000);
 
-  const thisMonth = new Date().toISOString().slice(0, 7);
+  const thisMonth = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; })();
 
   useEffect(() => {
     loadAll();
