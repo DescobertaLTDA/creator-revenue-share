@@ -1659,8 +1659,8 @@ function AdminDashboard() {
                   </div>
                 )}
               </div>
-              {/* Bottom: metrics — 4 cols when user has collaborator, 3 otherwise */}
-              <div className={`mt-5 sm:mt-8 pt-4 sm:pt-6 border-t border-white/20 grid gap-2 sm:gap-4 ${myCard ? "grid-cols-5" : "grid-cols-4"}`}>
+              {/* Bottom: metrics grid — Posts e Views como colunas extras na mesma linha */}
+              <div className={`mt-5 sm:mt-8 pt-4 sm:pt-6 border-t border-white/20 grid gap-2 sm:gap-4 ${myCard ? "grid-cols-7" : "grid-cols-6"}`}>
                 <div>
                   <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">RPM</p>
                   {loading ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
@@ -1693,41 +1693,21 @@ function AdminDashboard() {
                     {usdBrl && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums">${myReceita.toFixed(2)} USD</p>}
                   </div>
                 )}
-              </div>
-
-              {/* Second row: tudo numa única linha horizontal */}
-              {!loading && (
-                <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-white/15 flex items-center gap-3 sm:gap-5 flex-wrap">
-                  {/* Label Posts */}
-                  <span className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-white/50">Posts</span>
-                  {/* Posts atual */}
-                  <div className="flex flex-col items-center">
-                    <span className="text-sm sm:text-base font-bold tabular-nums leading-none">{kpis.totalPosts}</span>
-                    <span className="text-[8px] text-white/40 mt-0.5">atual</span>
-                  </div>
-                  <span className="text-white/25 text-[10px]">vs</span>
-                  {/* Posts mês passado */}
-                  <div className="flex flex-col items-center">
-                    <span className="text-sm sm:text-base font-bold tabular-nums leading-none">{prevMonthStats.posts}</span>
-                    <span className="text-[8px] text-white/40 mt-0.5">mês passado</span>
-                  </div>
-                  {/* Divisor */}
-                  <span className="text-white/20 text-base mx-1">·</span>
-                  {/* Label Views */}
-                  <span className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-white/50">Views</span>
-                  {/* Views atual */}
-                  <div className="flex flex-col items-center">
-                    <span className="text-sm sm:text-base font-bold tabular-nums leading-none">{fmt(totalViews)}</span>
-                    <span className="text-[8px] text-white/40 mt-0.5">atual</span>
-                  </div>
-                  <span className="text-white/25 text-[10px]">vs</span>
-                  {/* Views mês passado */}
-                  <div className="flex flex-col items-center">
-                    <span className="text-sm sm:text-base font-bold tabular-nums leading-none">{fmt(prevMonthStats.views)}</span>
-                    <span className="text-[8px] text-white/40 mt-0.5">mês passado</span>
-                  </div>
+                {/* Posts — atual vs mês passado */}
+                <div>
+                  <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Posts</p>
+                  {loading ? <div className="h-5 sm:h-7 w-10 sm:w-16 rounded bg-white/20 animate-pulse" />
+                    : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{kpis.totalPosts}</p>}
+                  {!loading && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums">atual vs {prevMonthStats.posts}</p>}
                 </div>
-              )}
+                {/* Views comparativo — atual vs mês passado */}
+                <div>
+                  <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Views</p>
+                  {loading ? <div className="h-5 sm:h-7 w-14 sm:w-20 rounded bg-white/20 animate-pulse" />
+                    : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{fmt(totalViews)}</p>}
+                  {!loading && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums">atual vs {fmt(prevMonthStats.views)}</p>}
+                </div>
+              </div>
             </div>
           </div>
 
