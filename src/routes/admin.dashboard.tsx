@@ -1196,6 +1196,18 @@ function AdminDashboard() {
       });
   }, [allPosts, filterPage, filterFrom, filterTo, chartMetric, dailyEntries]);
 
+  // ── Mission best-month state — declared here so projectionChartData useMemo
+  //    (below) can reference allTimeAvgDaily without hitting TDZ.
+  //    Previously these were declared ~250 lines later, causing a guaranteed
+  //    Temporal Dead Zone crash on every first render.
+  const [missionBest, setMissionBest] = useState<{
+    posts: number; views: number; usd: number;
+    reactions: number; comments: number; shares: number;
+    reach: number; monetized: number;
+    revenue: number; followers: number; daysRevenue: number; rpm: number;
+  } | null>(null);
+  const [allTimeAvgDaily, setAllTimeAvgDaily] = useState<number>(0);
+
   // Projection chart data: full history real + future projection
   // Uses allTimeAvgDaily (weighted avg across ALL historical months) if available, else last-7-days avg
   const projectionChartData = useMemo(() => {
@@ -1441,15 +1453,8 @@ function AdminDashboard() {
     : 0;
 
   // ── Mission best-month benchmarks: full DB fetch, independent of date filter ──
-  interface MissionBest {
-    posts: number; views: number; usd: number;
-    reactions: number; comments: number; shares: number;
-    reach: number; monetized: number;
-    revenue: number; followers: number; daysRevenue: number; rpm: number;
-  }
-  const [missionBest, setMissionBest] = useState<MissionBest | null>(null);
-  const [allTimeAvgDaily, setAllTimeAvgDaily] = useState<number>(0);
-
+  // (missionBest and allTimeAvgDaily state are declared earlier in the file,
+  //  before projectionChartData useMemo, to avoid TDZ crash.)
   useEffect(() => {
     let cancelled = false;
     (async () => {
