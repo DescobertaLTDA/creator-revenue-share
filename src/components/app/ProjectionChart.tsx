@@ -34,6 +34,16 @@ export function ProjectionChart({
       }))
     : projectionChartData;
 
+  // Base the Y-axis ceiling on real/actual values only so that projection
+  // lines (which can be much larger) don't dwarf the historical data.
+  const realMax = Math.max(
+    0,
+    ...chartData.map((r) => r.real ?? 0),
+    ...(showManual ? chartData.map((r: any) => r.actual ?? 0) : []),
+  );
+  // If we have real data use 1.4× its peak; otherwise fall through to recharts auto.
+  const yMax: number | undefined = realMax > 0 ? realMax * 1.4 : undefined;
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart
@@ -63,7 +73,7 @@ export function ProjectionChart({
           tickLine={false}
           height={20}
         />
-        <YAxis hide domain={[0, (dataMax: number) => dataMax * 1.05]} />
+        <YAxis hide domain={[0, yMax ?? ((dataMax: number) => dataMax * 1.05)]} />
 
         <Tooltip
           formatter={(v: any, name: string) => {
