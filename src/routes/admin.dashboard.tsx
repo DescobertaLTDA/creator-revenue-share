@@ -16,13 +16,18 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip,
-  LineChart, Line, Legend, ComposedChart, Brush,
-} from "recharts";
+// recharts is intentionally NOT imported here — all recharts usage lives in
+// lazy-loaded components (ProjectionChart, DashboardCharts) so that recharts
+// is never statically bundled into this chunk. Static recharts imports cause
+// a TDZ "Cannot access before initialization" crash in production bundles due
+// to recharts' internal circular dependencies.
 
 const DashboardCharts = lazy(() =>
   import("@/components/app/DashboardCharts").then((m) => ({ default: m.DashboardCharts }))
+);
+
+const ProjectionChart = lazy(() =>
+  import("@/components/app/ProjectionChart").then((m) => ({ default: m.ProjectionChart }))
 );
 
 export const Route = createFileRoute("/admin/dashboard")({
@@ -1923,65 +1928,14 @@ function AdminDashboard() {
                   </p>
                 </div>
                 <div className="flex-1 min-h-[200px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart
-                      data={showManual ? projectionChartData.map((row) => ({ ...row, actual: dailyActualByDia.get(row.dia) ?? null })) : projectionChartData}
-                      margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                    >
-                      <defs>
-                        <linearGradient id="gradReal" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#F44708" stopOpacity={0.25} />
-                          <stop offset="95%" stopColor="#F44708" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="gradOptimistic" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10B981" stopOpacity={0.15} />
-                          <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="gradActualOverlay" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#F44708" stopOpacity={0.6} />
-                          <stop offset="95%" stopColor="#F44708" stopOpacity={0.05} />
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#9B9B9B" }} interval="preserveStartEnd" axisLine={false} tickLine={false} height={20} />
-                      <YAxis hide domain={[0, (dataMax: number) => dataMax * 1.05]} />
-                      <Tooltip
-                        formatter={(v: any, name: string) => {
-                          if (v === null || v === undefined) return null as any;
-                          const val = usdBrl ? formatBRL(Number(v) * usdBrl) : `$${Number(v).toFixed(4)}`;
-                          const labels: Record<string, string> = { real: "Real", proj: "Provável", optimistic: "Otimista", conservative: "Conservador", actual: "Manual" };
-                          return [val, labels[name] ?? name];
-                        }}
-                        labelStyle={{ color: "#1A0A00", fontSize: 11, fontWeight: 600 }}
-                        contentStyle={{ border: "1px solid #F1F1F1", borderRadius: 12, fontSize: 11, boxShadow: "0 8px 24px rgba(0,0,0,.08)" }}
-                      />
-                      <Legend content={() => null} />
-                      {/* Historical real revenue area */}
-                      <Area type="monotone" dataKey="real" stroke="#F44708" strokeWidth={2} fill="url(#gradReal)" dot={false} connectNulls={false} legendType="none" />
-                      {/* Optimistic scenario — green dashed */}
-                      <Area type="monotone" dataKey="optimistic" stroke="#10B981" strokeWidth={1.5} strokeDasharray="5 3" fill="url(#gradOptimistic)" dot={false} connectNulls={false} legendType="none" />
-                      {/* Probable scenario — orange dashed */}
-                      <Area type="monotone" dataKey="proj" stroke="#F44708" strokeWidth={1.5} strokeDasharray="5 3" fill="none" dot={false} connectNulls={false} legendType="none" />
-                      {/* Conservative scenario — slate dashed */}
-                      <Area type="monotone" dataKey="conservative" stroke="#94A3B8" strokeWidth={1.5} strokeDasharray="5 3" fill="none" dot={false} connectNulls={false} legendType="none" />
-                      {/* Manual / actual overlay */}
-                      {showManual && <Area type="monotone" dataKey="actual" stroke="none" strokeWidth={0} fill="url(#gradActualOverlay)" dot={false} connectNulls={false} legendType="none" />}
-                      {/* Brush — scrollable range selector, shows last 30 days by default.
-                          Only render when there are ≥2 data points; endIndex=-1 (empty
-                          array) or startIndex===endIndex (single point) crashes recharts. */}
-                      {projectionChartData.length > 1 && (
-                        <Brush
-                          dataKey="dia"
-                          height={24}
-                          stroke="#E8D0C0"
-                          fill="#FFF8F5"
-                          travellerWidth={8}
-                          startIndex={Math.max(0, projectionChartData.length - 31)}
-                          endIndex={projectionChartData.length - 1}
-                          tickFormatter={() => ""}
-                        />
-                      )}
-                    </ComposedChart>
-                  </ResponsiveContainer>
+                  <Suspense fallback={<div className="w-full h-full bg-[#FFF8F5] rounded-xl animate-pulse" />}>
+                    <ProjectionChart
+                      projectionChartData={projectionChartData}
+                      showManual={showManual}
+                      dailyActualByDia={dailyActualByDia}
+                      usdBrl={usdBrl}
+                    />
+                  </Suspense>
                 </div>
                 {/* Scenario legend */}
                 <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-[#F1F1F1] shrink-0">
