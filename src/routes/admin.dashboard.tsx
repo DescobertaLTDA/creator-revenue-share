@@ -1376,6 +1376,61 @@ function AdminDashboard() {
     ? Math.round(pageStatsWithGlobalScores.reduce((s, p) => s + p.score, 0) / pageStatsWithGlobalScores.length)
     : 0;
 
+  // ── Mission data: best-month benchmarks vs current month (Facebook only) ──
+  const missionData = useMemo(() => {
+    const curMonth = new Date().toISOString().slice(0, 7);
+
+    // Aggregate Facebook posts by month
+    const postsByMonth = new Map<string, { posts: number; usd: number; views: number; reactions: number }>();
+    for (const p of allPosts) {
+      if ((p.source ?? "facebook") !== "facebook") continue;
+      if (!p.published_at) continue;
+      const month = p.published_at.slice(0, 7);
+      if (!postsByMonth.has(month)) postsByMonth.set(month, { posts: 0, usd: 0, views: 0, reactions: 0 });
+      const m = postsByMonth.get(month)!;
+      m.posts += 1;
+      m.usd += getPostUsd(p);
+      m.views += Number(p.views ?? 0);
+      m.reactions += Number(p.reactions ?? 0);
+    }
+
+    // Best month for each post metric
+    let bestPosts = 1, bestUsd = 1, bestViews = 1, bestReactions = 1;
+    for (const m of postsByMonth.values()) {
+      if (m.posts > bestPosts) bestPosts = m.posts;
+      if (m.usd > bestUsd) bestUsd = m.usd;
+      if (m.views > bestViews) bestViews = m.views;
+      if (m.reactions > bestReactions) bestReactions = m.reactions;
+    }
+    const curPosts = postsByMonth.get(curMonth) ?? { posts: 0, usd: 0, views: 0, reactions: 0 };
+
+    // Aggregate daily entries by month
+    const entriesByMonth = new Map<string, { revenue: number; followers: number }>();
+    for (const e of dailyEntries) {
+      const month = e.entry_date.slice(0, 7);
+      if (!entriesByMonth.has(month)) entriesByMonth.set(month, { revenue: 0, followers: 0 });
+      const m = entriesByMonth.get(month)!;
+      if (e.actual_revenue_usd != null) m.revenue += Number(e.actual_revenue_usd);
+      if (e.actual_followers != null) m.followers += Number(e.actual_followers);
+    }
+
+    let bestRevenue = 1, bestFollowers = 1;
+    for (const m of entriesByMonth.values()) {
+      if (m.revenue > bestRevenue) bestRevenue = m.revenue;
+      if (m.followers > bestFollowers) bestFollowers = m.followers;
+    }
+    const curEntries = entriesByMonth.get(curMonth) ?? { revenue: 0, followers: 0 };
+
+    return {
+      posts:     { cur: curPosts.posts,         best: bestPosts },
+      usd:       { cur: curPosts.usd,           best: bestUsd },
+      views:     { cur: curPosts.views,         best: bestViews },
+      reactions: { cur: curPosts.reactions,     best: bestReactions },
+      revenue:   { cur: curEntries.revenue,     best: bestRevenue },
+      followers: { cur: curEntries.followers,   best: bestFollowers },
+    };
+  }, [allPosts, dailyEntries]);
+
   return (
     <div className="space-y-6">
 
@@ -1634,43 +1689,50 @@ function AdminDashboard() {
                 Missões
               </p>
               <div
-                className="flex gap-5 overflow-x-auto pb-1"
+                className="flex gap-2 overflow-x-auto sm:overflow-visible pb-1"
                 style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
               >
-                {/* Posts publicados */}
                 <MissionStoryCard
                   icon={FileSpreadsheet}
                   label="Posts"
-                  progress={kpis.totalPosts / 100}
-                  value={`${kpis.totalPosts}`}
+                  progress={missionData.posts.cur / missionData.posts.best}
+                  value={`${missionData.posts.cur}`}
+                  goal={`${missionData.posts.best}`}
                 />
-                {/* Views conquistadas */}
                 <MissionStoryCard
                   icon={Eye}
                   label="Views"
-                  progress={totalViews / 1_000_000}
-                  value={totalViews >= 1_000_000 ? `${(totalViews / 1_000_000).toFixed(1)}M` : totalViews >= 1_000 ? `${(totalViews / 1_000).toFixed(0)}k` : `${totalViews}`}
+                  progress={missionData.views.cur / missionData.views.best}
+                  value={missionData.views.cur >= 1e6 ? `${(missionData.views.cur / 1e6).toFixed(1)}M` : missionData.views.cur >= 1e3 ? `${(missionData.views.cur / 1e3).toFixed(0)}k` : `${missionData.views.cur}`}
+                  goal={missionData.views.best >= 1e6 ? `${(missionData.views.best / 1e6).toFixed(1)}M` : `${(missionData.views.best / 1e3).toFixed(0)}k`}
                 />
-                {/* Receita acumulada */}
                 <MissionStoryCard
                   icon={DollarSign}
-                  label="Receita"
-                  progress={totalMonth / 500}
-                  value={`$${totalMonth.toFixed(0)}`}
+                  label="Receita CSV"
+                  progress={missionData.usd.cur / missionData.usd.best}
+                  value={`$${missionData.usd.cur.toFixed(0)}`}
+                  goal={`$${missionData.usd.best.toFixed(0)}`}
                 />
-                {/* Score médio */}
                 <MissionStoryCard
-                  icon={Target}
-                  label="Score"
-                  progress={avgScoreVal / 70}
-                  value={`${avgScoreVal}`}
+                  icon={Zap}
+                  label="Ganhos Reais"
+                  progress={missionData.revenue.cur / missionData.revenue.best}
+                  value={`$${missionData.revenue.cur.toFixed(0)}`}
+                  goal={`$${missionData.revenue.best.toFixed(0)}`}
                 />
-                {/* Importações */}
                 <MissionStoryCard
-                  icon={Upload}
-                  label="Imports"
-                  progress={recentImports.length / 10}
-                  value={`${recentImports.length}`}
+                  icon={TrendingUp}
+                  label="Reações"
+                  progress={missionData.reactions.cur / missionData.reactions.best}
+                  value={missionData.reactions.cur >= 1e6 ? `${(missionData.reactions.cur / 1e6).toFixed(1)}M` : missionData.reactions.cur >= 1e3 ? `${(missionData.reactions.cur / 1e3).toFixed(0)}k` : `${missionData.reactions.cur}`}
+                  goal={missionData.reactions.best >= 1e6 ? `${(missionData.reactions.best / 1e6).toFixed(1)}M` : `${(missionData.reactions.best / 1e3).toFixed(0)}k`}
+                />
+                <MissionStoryCard
+                  icon={Users}
+                  label="Seguidores"
+                  progress={missionData.followers.cur / missionData.followers.best}
+                  value={missionData.followers.cur >= 1e6 ? `${(missionData.followers.cur / 1e6).toFixed(1)}M` : missionData.followers.cur >= 1e3 ? `${(missionData.followers.cur / 1e3).toFixed(0)}k` : `${missionData.followers.cur}`}
+                  goal={missionData.followers.best >= 1e3 ? `${(missionData.followers.best / 1e3).toFixed(0)}k` : `${missionData.followers.best}`}
                 />
               </div>
             </div>
@@ -2189,11 +2251,13 @@ function MissionStoryCard({
   label,
   progress,
   value,
+  goal,
 }: {
   icon: React.ElementType;
   label: string;
   progress: number;   // 0..1
   value: string;
+  goal: string;
 }) {
   const size = 68;
   const sw = 3.5;
@@ -2205,7 +2269,7 @@ function MissionStoryCard({
   const ringColor = done ? "#16a34a" : "#F44708";
 
   return (
-    <div className="flex flex-col items-center gap-1 shrink-0" style={{ width: size }}>
+    <div className="flex-1 min-w-[72px] flex flex-col items-center gap-1 select-none">
       {/* Ring + icon */}
       <div className="relative" style={{ width: size, height: size }}>
         <svg
@@ -2245,12 +2309,9 @@ function MissionStoryCard({
       {/* Current value */}
       <span className="text-[11px] font-bold text-[#1A0A00] tabular-nums leading-none">{value}</span>
       {/* Label */}
-      <span
-        className="text-[9px] font-medium text-[#9B9B9B] text-center leading-tight"
-        style={{ maxWidth: size, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}
-      >
-        {label}
-      </span>
+      <span className="text-[9px] font-medium text-[#9B9B9B] text-center leading-tight">{label}</span>
+      {/* Goal */}
+      <span className="text-[8px] text-[#CACACA] text-center leading-tight tabular-nums">meta {goal}</span>
     </div>
   );
 }
