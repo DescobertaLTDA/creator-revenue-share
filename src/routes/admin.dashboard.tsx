@@ -1788,7 +1788,7 @@ function AdminDashboard() {
                     Missões do Mês
                   </p>
                   <span className="text-[10px] font-bold text-[#F44708] tracking-tight">
-                    · recorde {bestRevBRL}
+                    · {bestRevBRL}
                   </span>
                 </div>
                 <div
