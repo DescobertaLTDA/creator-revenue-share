@@ -256,8 +256,7 @@ function CentralReceita() {
       const prevViewsByColab: Record<string, number> = {};
       const prevViewsByPost: Record<string, number> = {};
       for (const p of prevPostsArr) prevViewsByPost[p.id] = Number(p.views ?? 0);
-      for (const pa of paData) {
-        if (!prevPostIds.includes(pa.post_id)) continue;
+      for (const pa of prevPaData) {
         prevViewsByColab[pa.collaborator_id] =
           (prevViewsByColab[pa.collaborator_id] ?? 0) + (prevViewsByPost[pa.post_id] ?? 0);
       }
