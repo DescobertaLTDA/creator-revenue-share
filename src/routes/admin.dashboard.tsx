@@ -6,10 +6,11 @@ import { StatusBadge } from "@/components/app/StatusBadge";
 import { EmptyState } from "@/components/app/EmptyState";
 import { KpiCard } from "@/components/app/KpiCard";
 import { formatBRL, formatDateTime, formatMonth } from "@/lib/format";
+import { setPendingImportFile } from "@/lib/pending-import";
 import {
   DollarSign, Eye, TrendingUp, Upload, ArrowRight,
   FileSpreadsheet, CheckCircle2, Clock, ChevronRight, ChevronLeft,
-  Target, Zap, Users,
+  Target, Zap, Users, X, CloudUpload,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -432,6 +433,8 @@ function AdminDashboard() {
   const [myCollabId, setMyCollabId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "charts">("overview");
   const [chartMetric, setChartMetric] = useState<"receita" | "views" | "curtidas" | "comentarios" | "compartilhamentos" | "seguidores">("receita");
+
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const [showManual, setShowManual] = useState(true);
   const [filterPage, setFilterPage] = useState("all");
@@ -1400,13 +1403,25 @@ function AdminDashboard() {
               <span className="hidden xs:inline sm:inline">Gráficos</span>
             </button>
           </div>
-          <button onClick={() => navigate({ to: "/admin/importacoes" })}
+          <button onClick={() => setShowImportModal(true)}
             className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gradient-to-r from-[#F44708] to-[#FF5A00] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-[0_4px_14px_rgba(244,71,8,0.35)] hover:from-[#D93D07] transition-all">
             <Upload className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             <span className="hidden sm:inline">Importar CSV</span>
           </button>
         </div>
       </div>
+
+      {/* ── Quick Import Modal ── */}
+      {showImportModal && (
+        <QuickImportModal
+          onClose={() => setShowImportModal(false)}
+          onFile={(file) => {
+            setPendingImportFile(file);
+            setShowImportModal(false);
+            navigate({ to: "/admin/importacoes" });
+          }}
+        />
+      )}
 
       {activeTab === "charts" && !loading && chartData.length > 0 && (
         <Suspense fallback={<div className="h-48 bg-[#FFF0E8] rounded-2xl animate-pulse" />}>
@@ -2115,5 +2130,85 @@ function RankingSparkline({ data }: { data: number[] }) {
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block", flexShrink: 0 }}>
       <polyline points={pts.join(" ")} fill="none" stroke={up ? "#16a34a" : "#dc2626"} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+// ─── Quick Import Modal ────────────────────────────────────────────────────────
+
+function QuickImportModal({
+  onClose,
+  onFile,
+}: {
+  onClose: () => void;
+  onFile: (file: File) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const handleFiles = (files: FileList | null) => {
+    const file = files?.[0];
+    if (!file) return;
+    onFile(file);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm bg-card rounded-2xl border border-border shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-xl bg-[#FFF0E8] flex items-center justify-center">
+              <CloudUpload className="h-4 w-4 text-[#F44708]" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">Importar CSV</p>
+              <p className="text-xs text-muted-foreground">Ganhos, Views ou Posts</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Drop zone */}
+        <div className="px-5 pb-5">
+          <div
+            onClick={() => fileRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files); }}
+            className={`flex flex-col items-center justify-center gap-3 p-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
+              dragging
+                ? "border-[#F44708] bg-[#FFF0E8]"
+                : "border-border hover:border-[#F44708] hover:bg-[#FFF8F5]"
+            }`}
+          >
+            <div className={`h-12 w-12 rounded-2xl flex items-center justify-center transition-colors ${dragging ? "bg-[#F44708]" : "bg-[#FFF0E8]"}`}>
+              <Upload className={`h-5 w-5 ${dragging ? "text-white" : "text-[#F44708]"}`} />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-semibold text-foreground">
+                {dragging ? "Solte o arquivo aqui" : "Clique ou arraste o arquivo"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">Arquivos .csv do Facebook ou Instagram</p>
+            </div>
+            <button
+              type="button"
+              className="px-4 py-2 bg-[#F44708] hover:bg-[#D93D07] text-white text-xs font-semibold rounded-lg transition-colors"
+            >
+              Selecionar arquivo
+            </button>
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={(e) => handleFiles(e.target.files)}
+          />
+        </div>
+      </div>
+    </div>
   );
 }

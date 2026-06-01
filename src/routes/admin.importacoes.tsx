@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useWriteGuard } from "@/hooks/use-write-guard";
 import { parseAnyCsv, parseGanhosCsv, readFileText, hashFile, type CsvSource, type GanhosParseResult, type ParseResult } from "@/features/csv/parser";
+import { takePendingImportFile } from "@/lib/pending-import";
 import { formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
 import {
@@ -102,6 +103,9 @@ export default function DataPipelinePage() {
       setPages((data ?? []) as { id: string; nome: string }[]);
     });
   }, []);
+
+  // Will be set below after onUpload is defined
+  const pendingFileRef = useRef<File | null>(takePendingImportFile());
 
   // ── Daily-metric import: detect & confirm ────────────────────────────────
   const confirmDailyImport = async (parsed: GanhosParseResult, pageId: string, source: "facebook" | "instagram" = "facebook") => {
@@ -226,6 +230,15 @@ export default function DataPipelinePage() {
 
     processPost(file, fromBulk);
   };
+
+  // Auto-process a file forwarded from the Dashboard quick-import modal
+  useEffect(() => {
+    const file = pendingFileRef.current;
+    if (!file || !profile) return;
+    pendingFileRef.current = null;
+    setTimeout(() => onUpload(file), 100);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile]);
 
   const processPost = async (file: File, fromBulk = false, sourceOverride?: "facebook" | "instagram") => {
     if (!profile) return;
