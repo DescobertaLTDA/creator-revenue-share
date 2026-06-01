@@ -1433,15 +1433,15 @@ function AdminDashboard() {
         const { data: entrData } = await (supabase as any)
           .from("daily_revenue_entries")
           .select("entry_date,actual_revenue_usd,actual_followers");
-        type EM = { revenue: number; followers: number; days: number };
+        type EM = { revenue: number; followers: number; days: Set<string> };
         const eByM = new Map<string, EM>();
         for (const e of (entrData ?? [])) {
           const mo = e.entry_date.slice(0, 7);
-          if (!eByM.has(mo)) eByM.set(mo, { revenue: 0, followers: 0, days: 0 });
+          if (!eByM.has(mo)) eByM.set(mo, { revenue: 0, followers: 0, days: new Set() });
           const m = eByM.get(mo)!;
           if (e.actual_revenue_usd != null && Number(e.actual_revenue_usd) > 0) {
             m.revenue += Number(e.actual_revenue_usd);
-            m.days += 1;
+            m.days.add(e.entry_date); // distinct dates only
           }
           if (e.actual_followers != null) m.followers += Number(e.actual_followers);
         }
@@ -1463,12 +1463,13 @@ function AdminDashboard() {
         for (const m of eByM.values()) {
           if (m.revenue > b.revenue) b.revenue = m.revenue;
           if (m.followers > b.followers) b.followers = m.followers;
-          if (m.days > b.days) b.days = m.days;
+          if (m.days.size > b.days) b.days = m.days.size;
         }
 
         // Current month
         const cp = pByM.get(curMonth) ?? { posts: 0, usd: 0, views: 0, reactions: 0, comments: 0, shares: 0, reach: 0, monetized: 0 };
-        const ce = eByM.get(curMonth) ?? { revenue: 0, followers: 0, days: 0 };
+        const ceRaw = eByM.get(curMonth);
+        const ce = { revenue: ceRaw?.revenue ?? 0, followers: ceRaw?.followers ?? 0, days: ceRaw?.days.size ?? 0 };
         const curRpm = cp.views > 0 ? (cp.usd / cp.views) * 1000 : 0;
 
         if (!cancelled) {
