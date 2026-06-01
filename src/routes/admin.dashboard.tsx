@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip,
-  LineChart, Line, Legend, ComposedChart,
+  LineChart, Line, Legend, ComposedChart, Brush,
 } from "recharts";
 
 const DashboardCharts = lazy(() =>
@@ -1196,7 +1196,7 @@ function AdminDashboard() {
   const projectionChartData = useMemo(() => {
     type HistRow = { dia: string; real: number; proj: number | null; optimistic: number | null; conservative: number | null };
     type FutRow = { dia: string; real: null; proj: number; optimistic: number; conservative: number };
-    const hist: HistRow[] = chartDataCsv.slice(-30).map((d) => ({
+    const hist: HistRow[] = chartDataCsv.map((d) => ({
       dia: d.dia, real: d.receita,
       proj: null, optimistic: null, conservative: null,
     }));
@@ -1899,10 +1899,10 @@ function AdminDashboard() {
                 <div className="mb-4 sm:mb-5 shrink-0">
                   <h2 className="text-sm sm:text-base font-bold text-[#1A0A00]">Receita + Projeção</h2>
                   <p className="text-xs text-[#9B9B9B] mt-0.5 hidden sm:block">
-                    Histórico real dos últimos 30 dias e 3 cenários de projeção
+                    Arraste a barra inferior para navegar pelo histórico · 3 cenários de projeção
                   </p>
                 </div>
-                <div className="flex-1 min-h-[180px]">
+                <div className="flex-1 min-h-[200px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart
                       data={showManual ? projectionChartData.map((row) => ({ ...row, actual: dailyActualByDia.get(row.dia) ?? null })) : projectionChartData}
@@ -1945,6 +1945,17 @@ function AdminDashboard() {
                       <Area type="monotone" dataKey="conservative" stroke="#94A3B8" strokeWidth={1.5} strokeDasharray="5 3" fill="none" dot={false} connectNulls={false} legendType="none" />
                       {/* Manual / actual overlay */}
                       {showManual && <Area type="monotone" dataKey="actual" stroke="none" strokeWidth={0} fill="url(#gradActualOverlay)" dot={false} connectNulls={false} legendType="none" />}
+                      {/* Brush — scrollable range selector, shows last 30 days by default */}
+                      <Brush
+                        dataKey="dia"
+                        height={24}
+                        stroke="#E8D0C0"
+                        fill="#FFF8F5"
+                        travellerWidth={8}
+                        startIndex={Math.max(0, projectionChartData.length - 31)}
+                        endIndex={projectionChartData.length - 1}
+                        tickFormatter={() => ""}
+                      />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
