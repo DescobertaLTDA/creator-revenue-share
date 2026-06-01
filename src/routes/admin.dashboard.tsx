@@ -1627,6 +1627,55 @@ function AdminDashboard() {
             );
           })()}
 
+          {/* ═══════════════ MISSÕES ═══════════════ */}
+          {!loading && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#9B9B9B] mb-3">
+                Missões
+              </p>
+              <div
+                className="flex gap-5 overflow-x-auto pb-1"
+                style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
+              >
+                {/* Posts publicados */}
+                <MissionStoryCard
+                  icon={FileSpreadsheet}
+                  label="Posts"
+                  progress={kpis.totalPosts / 100}
+                  value={`${kpis.totalPosts}`}
+                />
+                {/* Views conquistadas */}
+                <MissionStoryCard
+                  icon={Eye}
+                  label="Views"
+                  progress={totalViews / 1_000_000}
+                  value={totalViews >= 1_000_000 ? `${(totalViews / 1_000_000).toFixed(1)}M` : totalViews >= 1_000 ? `${(totalViews / 1_000).toFixed(0)}k` : `${totalViews}`}
+                />
+                {/* Receita acumulada */}
+                <MissionStoryCard
+                  icon={DollarSign}
+                  label="Receita"
+                  progress={totalMonth / 500}
+                  value={`$${totalMonth.toFixed(0)}`}
+                />
+                {/* Score médio */}
+                <MissionStoryCard
+                  icon={Target}
+                  label="Score"
+                  progress={avgScoreVal / 70}
+                  value={`${avgScoreVal}`}
+                />
+                {/* Importações */}
+                <MissionStoryCard
+                  icon={Upload}
+                  label="Imports"
+                  progress={recentImports.length / 10}
+                  value={`${recentImports.length}`}
+                />
+              </div>
+            </div>
+          )}
+
           {/* ═══════════════ MAIN GRID ═══════════════ */}
           <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6">
 
@@ -2130,6 +2179,79 @@ function RankingSparkline({ data }: { data: number[] }) {
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block", flexShrink: 0 }}>
       <polyline points={pts.join(" ")} fill="none" stroke={up ? "#16a34a" : "#dc2626"} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+// ─── Mission Story Card ────────────────────────────────────────────────────────
+
+function MissionStoryCard({
+  icon: Icon,
+  label,
+  progress,
+  value,
+}: {
+  icon: React.ElementType;
+  label: string;
+  progress: number;   // 0..1
+  value: string;
+}) {
+  const size = 68;
+  const sw = 3.5;
+  const r = size / 2 - sw - 2; // ~29
+  const circ = +(2 * Math.PI * r).toFixed(2);
+  const clamped = Math.min(1, Math.max(0, progress));
+  const offset = +(circ * (1 - clamped)).toFixed(2);
+  const done = clamped >= 1;
+  const ringColor = done ? "#16a34a" : "#F44708";
+
+  return (
+    <div className="flex flex-col items-center gap-1 shrink-0" style={{ width: size }}>
+      {/* Ring + icon */}
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg
+          width={size} height={size}
+          viewBox={`0 0 ${size} ${size}`}
+          style={{ transform: "rotate(-90deg)", display: "block" }}
+        >
+          {/* track */}
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#EBEBEB" strokeWidth={sw} />
+          {/* progress arc */}
+          <circle
+            cx={size / 2} cy={size / 2} r={r}
+            fill="none" stroke={ringColor} strokeWidth={sw}
+            strokeDasharray={circ}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            style={{ transition: "stroke-dashoffset 0.55s ease, stroke 0.3s ease" }}
+          />
+        </svg>
+        {/* Inner circle */}
+        <div
+          className="absolute rounded-full flex items-center justify-center"
+          style={{
+            inset: sw + 3,
+            background: done ? "#F0FDF4" : "#FFF3EE",
+          }}
+        >
+          <Icon
+            className="shrink-0"
+            style={{
+              width: 20, height: 20,
+              color: done ? "#16a34a" : "#F44708",
+            }}
+          />
+        </div>
+      </div>
+      {/* Current value */}
+      <span className="text-[11px] font-bold text-[#1A0A00] tabular-nums leading-none">{value}</span>
+      {/* Label */}
+      <span
+        className="text-[9px] font-medium text-[#9B9B9B] text-center leading-tight"
+        style={{ maxWidth: size, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}
+      >
+        {label}
+      </span>
+    </div>
   );
 }
 
