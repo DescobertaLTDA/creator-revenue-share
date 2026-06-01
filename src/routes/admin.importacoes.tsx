@@ -79,6 +79,7 @@ export default function DataPipelinePage() {
   const [pages, setPages] = useState<{ id: string; nome: string }[]>([]);
   const [pendingDaily, setPendingDaily] = useState<{ parsed: GanhosParseResult; fileName: string } | null>(null);
   const [dailyPageId, setDailyPageId] = useState("");
+  const [dailySource, setDailySource] = useState<"facebook" | "instagram">("facebook");
   const [dailyConfirming, setDailyConfirming] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; name: string } | null>(null);
   const [imports, setImports] = useState<ImportRow[]>([]);
@@ -99,7 +100,7 @@ export default function DataPipelinePage() {
   }, []);
 
   // ── Daily-metric import: detect & confirm ────────────────────────────────
-  const confirmDailyImport = async (parsed: GanhosParseResult, pageId: string) => {
+  const confirmDailyImport = async (parsed: GanhosParseResult, pageId: string, source: "facebook" | "instagram" = "facebook") => {
     if (!profile) return;
     setDailyConfirming(true);
     const dbField = parsed.type === "revenue" ? "actual_revenue_usd" : "actual_views";
@@ -127,7 +128,7 @@ export default function DataPipelinePage() {
           updated++;
         } else {
           await (supabase as any).from("daily_revenue_entries")
-            .insert({ page_id: pageId, entry_date: row.date, [dbField]: row.value, distribution_mode: "hybrid", created_by: profile.id });
+            .insert({ page_id: pageId, entry_date: row.date, [dbField]: row.value, distribution_mode: "hybrid", source, created_by: profile.id });
           inserted++;
         }
       }
@@ -514,9 +515,11 @@ export default function DataPipelinePage() {
           pages={pages}
           pageId={dailyPageId}
           onPageChange={setDailyPageId}
+          source={dailySource}
+          onSourceChange={setDailySource}
           confirming={dailyConfirming}
-          onConfirm={() => confirmDailyImport(pendingDaily.parsed, dailyPageId)}
-          onClose={() => { setPendingDaily(null); setDailyPageId(""); }}
+          onConfirm={() => confirmDailyImport(pendingDaily.parsed, dailyPageId, dailySource)}
+          onClose={() => { setPendingDaily(null); setDailyPageId(""); setDailySource("facebook"); }}
         />
       )}
 
@@ -749,13 +752,15 @@ export default function DataPipelinePage() {
 // ─── Daily Confirm Modal ──────────────────────────────────────────────────────
 
 function DailyConfirmModal({
-  parsed, fileName, pages, pageId, onPageChange, confirming, onConfirm, onClose,
+  parsed, fileName, pages, pageId, onPageChange, source, onSourceChange, confirming, onConfirm, onClose,
 }: {
   parsed: GanhosParseResult;
   fileName: string;
   pages: { id: string; nome: string }[];
   pageId: string;
   onPageChange: (id: string) => void;
+  source: "facebook" | "instagram";
+  onSourceChange: (s: "facebook" | "instagram") => void;
   confirming: boolean;
   onConfirm: () => void;
   onClose: () => void;
@@ -828,6 +833,29 @@ function DailyConfirmModal({
 
         {/* Page selector + confirm */}
         <div className="px-5 py-4 space-y-3">
+          {/* Source toggle */}
+          <div>
+            <label className="text-xs font-semibold text-foreground mb-1.5 block">
+              Plataforma de origem
+            </label>
+            <div className="flex rounded-lg border border-border overflow-hidden">
+              {(["facebook", "instagram"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => onSourceChange(s)}
+                  className={cn(
+                    "flex-1 h-9 text-sm font-medium transition-colors",
+                    source === s
+                      ? "bg-[#F44708] text-white"
+                      : "bg-background text-muted-foreground hover:bg-accent"
+                  )}
+                >
+                  {s === "facebook" ? "📘 Facebook" : "📷 Instagram"}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div>
             <label className="text-xs font-semibold text-foreground mb-1.5 block">
               Para qual página esses dados pertencem?
