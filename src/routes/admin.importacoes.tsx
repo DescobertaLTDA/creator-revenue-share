@@ -126,14 +126,15 @@ export default function DataPipelinePage() {
       for (const row of parsed.rows) {
         const existingId = existingMap.get(row.date);
         if (existingId) {
-          await (supabase as any).from("daily_revenue_entries")
+          const { error: updErr } = await (supabase as any).from("daily_revenue_entries")
             .update({ [dbField]: row.value, updated_by: profile.id, updated_at: new Date().toISOString() })
             .eq("id", existingId);
-          updated++;
+          if (!updErr) updated++;
         } else {
-          await (supabase as any).from("daily_revenue_entries")
-            .insert({ page_id: pageId, entry_date: row.date, [dbField]: row.value, distribution_mode: "hybrid", source, created_by: profile.id });
-          inserted++;
+          const { error: insErr } = await (supabase as any).from("daily_revenue_entries")
+            .insert({ page_id: pageId, entry_date: row.date, [dbField]: row.value, distribution_mode: "hybrid", created_by: profile.id });
+          if (!insErr) inserted++;
+          else throw new Error(`Erro ao inserir ${row.date}: ${insErr.message}`);
         }
       }
 
