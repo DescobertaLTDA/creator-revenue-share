@@ -359,18 +359,18 @@ export function parseInstagramCsv(text: string): ParseResult {
 // ─── Ganhos (daily revenue) parser ───────────────────────────────────────────
 
 /** Which daily metric the Facebook CSV contains. */
-export type GanhosType = "revenue" | "views";
+export type GanhosType = "revenue" | "views" | "followers";
 
 export interface GanhosRow {
   date: string;  // YYYY-MM-DD
-  value: number; // revenue_usd or view count, depending on `type`
+  value: number; // revenue_usd, view count, or follower count, depending on `type`
 }
 
 export interface GanhosParseResult {
   rows: GanhosRow[];
   periodStart: string | null;
   periodEnd: string | null;
-  /** "revenue" → actual_revenue_usd, "views" → actual_views */
+  /** "revenue" → actual_revenue_usd, "views" → actual_views, "followers" → actual_followers */
   type: GanhosType;
   /** Human-readable title from first line of CSV, e.g. "Ganhos aproximados" */
   title: string;
@@ -397,9 +397,8 @@ export function parseGanhosCsv(text: string): GanhosParseResult | null {
     if (val) { titleRaw = val; break; }
   }
 
-  // Detect type from title — must be explicitly recognized as revenue or views.
-  // Any other daily-metric CSV (seguidores, curtidas, alcance, impressões, etc.)
-  // should NOT be treated as ganhos → return null so it falls through.
+  // Detect type from title — must be explicitly recognized.
+  // Any other daily-metric CSV (curtidas, alcance, impressões, etc.) → return null.
   const titleNorm = titleRaw.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   let type: GanhosType;
   if (titleNorm.includes("visualiza") || titleNorm.includes("view")) {
@@ -412,8 +411,14 @@ export function parseGanhosCsv(text: string): GanhosParseResult | null {
     titleNorm.includes("revenue")
   ) {
     type = "revenue";
+  } else if (
+    titleNorm.includes("seguidor") ||
+    titleNorm.includes("follower") ||
+    titleNorm.includes("subscriber")
+  ) {
+    type = "followers";
   } else {
-    // Unknown metric (seguidores, curtidas, alcance, impressões, etc.) — not handled here
+    // Unknown metric (curtidas, alcance, impressões, etc.) — not handled here
     return null;
   }
 
