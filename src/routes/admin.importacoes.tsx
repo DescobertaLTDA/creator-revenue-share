@@ -979,148 +979,143 @@ function DailyConfirmModal({
   const hiddenCount = parsed.rows.length - previewRows.length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+      <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl flex flex-col max-h-[calc(100vh-24px)] overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-start justify-between px-5 pt-5 pb-1">
+        <div className="flex items-start justify-between px-5 pt-4 pb-1 shrink-0">
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-[#F44708]">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#F44708]">
               {isRevenue ? "Ganhos diários" : "Visualizações diárias"}
             </p>
-            <h2 className="text-xl font-bold text-gray-900 mt-0.5">
+            <h2 className="text-lg font-bold text-gray-900 mt-0.5 leading-tight">
               {isRevenue ? "Importar ganhos" : "Importar visualizações"}
             </h2>
-            <div className="flex items-center gap-1.5 mt-1">
-              <FileText className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-              <p className="text-xs text-gray-400 truncate max-w-[260px]">{fileName}</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <FileText className="h-3 w-3 text-gray-400 shrink-0" />
+              <p className="text-[11px] text-gray-400 truncate max-w-[260px]">{fileName}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Stats card */}
-        <div className="mx-4 mt-4 rounded-xl bg-[#FFF3EE] p-4 flex items-center gap-4">
-          {/* Total */}
-          <div className="flex items-center gap-3 flex-1">
-            <div className="h-12 w-12 rounded-full bg-[#FFE0D0] flex items-center justify-center shrink-0">
-              {isRevenue
-                ? <DollarSign className="h-5 w-5 text-[#F44708]" />
-                : <Eye className="h-5 w-5 text-[#F44708]" />}
+        {/* Scrollable content */}
+        <div className="overflow-y-auto flex-1 min-h-0">
+
+          {/* Stats card */}
+          <div className="mx-4 mt-3 rounded-xl bg-[#FFF3EE] p-3 flex items-center gap-3">
+            <div className="flex items-center gap-2.5 flex-1">
+              <div className="h-10 w-10 rounded-full bg-[#FFE0D0] flex items-center justify-center shrink-0">
+                {isRevenue
+                  ? <DollarSign className="h-4.5 w-4.5 text-[#F44708]" />
+                  : <Eye className="h-4 w-4 text-[#F44708]" />}
+              </div>
+              <div>
+                <p className="text-[10px] text-gray-500 font-medium">Total encontrado</p>
+                <p className="text-xl font-extrabold text-[#F44708] leading-tight tabular-nums">{formatTotal(total)}</p>
+              </div>
             </div>
+            <div className="w-px h-10 bg-[#F5CABB] shrink-0" />
+            <div className="flex flex-col gap-1 text-right shrink-0">
+              <div className="flex items-center gap-1.5 justify-end">
+                <div>
+                  <p className="text-xs font-bold text-gray-900 leading-tight">{parsed.rows.length} dias</p>
+                  <p className="text-[9px] text-gray-400 leading-tight">encontrados</p>
+                </div>
+                <div className="h-5 w-5 rounded-full bg-[#FFE0D0] flex items-center justify-center shrink-0">
+                  <Clock className="h-2.5 w-2.5 text-[#F44708]" />
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 justify-end">
+                <div>
+                  <p className="text-[10px] font-semibold text-gray-900 leading-tight tabular-nums">{period}</p>
+                  <p className="text-[9px] text-gray-400 leading-tight">Período</p>
+                </div>
+                <div className="h-5 w-5 rounded-full bg-[#FFE0D0] flex items-center justify-center shrink-0">
+                  <Activity className="h-2.5 w-2.5 text-[#F44708]" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Records preview */}
+          <div className="mx-4 mt-3">
+            <p className="text-[11px] font-semibold text-gray-600 mb-1.5">Últimos registros encontrados</p>
+            <div className="rounded-xl border border-gray-100 overflow-hidden">
+              {previewRows.map((r, i) => (
+                <div key={r.date} className={cn("flex items-center justify-between px-3.5 py-2", i > 0 && "border-t border-gray-100")}>
+                  <span className="text-[13px] text-gray-600 tabular-nums">{r.date.split("-").reverse().join("/")}</span>
+                  <span className="text-[13px] font-semibold text-gray-900 tabular-nums">{formatValue(r.value)}</span>
+                </div>
+              ))}
+              {hiddenCount > 0 && (
+                <div className="flex items-center justify-center py-2 border-t border-gray-100">
+                  <span className="text-[11px] text-gray-400 font-medium">+ {hiddenCount} registros</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Controls */}
+          <div className="px-4 mt-3 space-y-2.5">
             <div>
-              <p className="text-[11px] text-gray-500 font-medium">Total encontrado</p>
-              <p className="text-2xl font-extrabold text-[#F44708] leading-tight tabular-nums">{formatTotal(total)}</p>
+              <p className="text-xs font-semibold text-gray-800 mb-1.5">Plataforma</p>
+              <div className="flex gap-2">
+                <button onClick={() => onSourceChange("facebook")}
+                  className={cn("flex-1 flex items-center justify-center gap-1.5 h-9 rounded-full text-xs font-semibold transition-all",
+                    source === "facebook" ? "bg-[#F44708] text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  )}>
+                  <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                  Facebook
+                </button>
+                <button onClick={() => onSourceChange("instagram")}
+                  className={cn("flex-1 flex items-center justify-center gap-1.5 h-9 rounded-full text-xs font-semibold transition-all",
+                    source === "instagram" ? "bg-[#F44708] text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  )}>
+                  <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
+                  </svg>
+                  Instagram
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-gray-800 mb-1.5">Página</p>
+              <select value={pageId} onChange={(e) => onPageChange(e.target.value)}
+                className="w-full h-10 rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#F44708]/30 focus:border-[#F44708]">
+                <option value="">Selecione uma página</option>
+                {pages.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+              </select>
             </div>
           </div>
 
-          {/* Divider */}
-          <div className="w-px h-12 bg-[#F5CABB]" />
-
-          {/* Days + Period */}
-          <div className="flex flex-col gap-1.5 text-right">
-            <div className="flex items-center gap-1.5 justify-end">
-              <div>
-                <p className="text-sm font-bold text-gray-900 leading-tight">{parsed.rows.length} dias</p>
-                <p className="text-[10px] text-gray-400">encontrados</p>
-              </div>
-              <div className="h-6 w-6 rounded-full bg-[#FFE0D0] flex items-center justify-center shrink-0">
-                <Clock className="h-3 w-3 text-[#F44708]" />
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 justify-end">
-              <div>
-                <p className="text-[11px] font-semibold text-gray-900 leading-tight tabular-nums">{period}</p>
-                <p className="text-[10px] text-gray-400">Período</p>
-              </div>
-              <div className="h-6 w-6 rounded-full bg-[#FFE0D0] flex items-center justify-center shrink-0">
-                <Activity className="h-3 w-3 text-[#F44708]" />
-              </div>
-            </div>
-          </div>
+          <div className="h-3" />
         </div>
 
-        {/* Records preview */}
-        <div className="mx-4 mt-4">
-          <p className="text-xs font-semibold text-gray-700 mb-2">Últimos registros encontrados</p>
-          <div className="rounded-xl border border-gray-100 overflow-hidden">
-            {previewRows.map((r, i) => (
-              <div key={r.date} className={cn("flex items-center justify-between px-4 py-2.5", i > 0 && "border-t border-gray-100")}>
-                <span className="text-sm text-gray-600 tabular-nums">{r.date.split("-").reverse().join("/")}</span>
-                <span className="text-sm font-semibold text-gray-900 tabular-nums">{formatValue(r.value)}</span>
-              </div>
-            ))}
-            {hiddenCount > 0 && (
-              <div className="flex items-center justify-center py-2.5 border-t border-gray-100">
-                <span className="text-xs text-gray-400 font-medium">+ {hiddenCount} registros</span>
-              </div>
-            )}
+        {/* Fixed footer */}
+        <div className="shrink-0 px-4 pb-3 pt-2 border-t border-gray-100">
+          <div className="flex gap-2 mb-2">
+            <button onClick={onClose}
+              className="flex-1 h-10 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+              Cancelar
+            </button>
+            <button onClick={onConfirm} disabled={!pageId || confirming}
+              className="flex-1 h-10 rounded-xl bg-[#F44708] text-white text-sm font-bold hover:bg-[#D93D07] disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5 shadow-[0_4px_12px_rgba(244,71,8,0.28)]">
+              {confirming
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando…</>
+                : <><CloudUpload className="h-4 w-4" /> Importar {parsed.rows.length} dias</>}
+            </button>
           </div>
-        </div>
-
-        {/* Controls */}
-        <div className="px-4 mt-4 space-y-3">
-          {/* Platform */}
-          <div>
-            <p className="text-sm font-semibold text-gray-800 mb-2">Plataforma</p>
-            <div className="flex gap-2">
-              <button onClick={() => onSourceChange("facebook")}
-                className={cn("flex-1 flex items-center justify-center gap-2 h-10 rounded-full text-sm font-semibold transition-all",
-                  source === "facebook"
-                    ? "bg-[#F44708] text-white shadow-sm"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                )}>
-                <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                </svg>
-                Facebook
-              </button>
-              <button onClick={() => onSourceChange("instagram")}
-                className={cn("flex-1 flex items-center justify-center gap-2 h-10 rounded-full text-sm font-semibold transition-all",
-                  source === "instagram"
-                    ? "bg-[#F44708] text-white shadow-sm"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                )}>
-                <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
-                </svg>
-                Instagram
-              </button>
-            </div>
+          <div className="flex items-center justify-center gap-1.5">
+            <Shield className="h-3 w-3 text-gray-300" />
+            <p className="text-[10px] text-gray-400">Seus dados estão seguros e não serão compartilhados.</p>
           </div>
-
-          {/* Page selector */}
-          <div>
-            <p className="text-sm font-semibold text-gray-800 mb-2">Página</p>
-            <select value={pageId} onChange={(e) => onPageChange(e.target.value)}
-              className="w-full h-11 rounded-xl border border-gray-200 bg-white px-3.5 text-sm text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#F44708]/30 focus:border-[#F44708] appearance-none">
-              <option value="">Selecione uma página</option>
-              {pages.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
-            </select>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="px-4 pt-3 pb-2 flex gap-3">
-          <button onClick={onClose}
-            className="flex-1 h-11 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
-            Cancelar
-          </button>
-          <button onClick={onConfirm} disabled={!pageId || confirming}
-            className="flex-1 h-11 rounded-xl bg-[#F44708] text-white text-sm font-bold hover:bg-[#D93D07] disabled:opacity-40 transition-colors flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(244,71,8,0.30)]">
-            {confirming
-              ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando…</>
-              : <><CloudUpload className="h-4 w-4" /> Importar {parsed.rows.length} dias</>}
-          </button>
-        </div>
-
-        {/* Security note */}
-        <div className="flex items-center justify-center gap-1.5 pb-4 pt-1">
-          <Shield className="h-3 w-3 text-gray-300" />
-          <p className="text-[11px] text-gray-400">Seus dados estão seguros e não serão compartilhados.</p>
         </div>
 
       </div>
