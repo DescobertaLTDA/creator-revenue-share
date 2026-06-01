@@ -2486,8 +2486,6 @@ function MissionStoryCard({
       <span className="text-[11px] font-bold text-[#1A0A00] tabular-nums leading-none">{value}</span>
       {/* Label */}
       <span className="text-[9px] font-medium text-[#9B9B9B] text-center leading-tight">{label}</span>
-      {/* Goal */}
-      <span className="text-[8px] text-[#CACACA] text-center leading-tight tabular-nums">meta {goal}</span>
     </div>
   );
 }
