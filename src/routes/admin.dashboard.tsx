@@ -1965,17 +1965,21 @@ function AdminDashboard() {
                       <Area type="monotone" dataKey="conservative" stroke="#94A3B8" strokeWidth={1.5} strokeDasharray="5 3" fill="none" dot={false} connectNulls={false} legendType="none" />
                       {/* Manual / actual overlay */}
                       {showManual && <Area type="monotone" dataKey="actual" stroke="none" strokeWidth={0} fill="url(#gradActualOverlay)" dot={false} connectNulls={false} legendType="none" />}
-                      {/* Brush — scrollable range selector, shows last 30 days by default */}
-                      <Brush
-                        dataKey="dia"
-                        height={24}
-                        stroke="#E8D0C0"
-                        fill="#FFF8F5"
-                        travellerWidth={8}
-                        startIndex={Math.max(0, projectionChartData.length - 31)}
-                        endIndex={projectionChartData.length - 1}
-                        tickFormatter={() => ""}
-                      />
+                      {/* Brush — scrollable range selector, shows last 30 days by default.
+                          Only render when there are ≥2 data points; endIndex=-1 (empty
+                          array) or startIndex===endIndex (single point) crashes recharts. */}
+                      {projectionChartData.length > 1 && (
+                        <Brush
+                          dataKey="dia"
+                          height={24}
+                          stroke="#E8D0C0"
+                          fill="#FFF8F5"
+                          travellerWidth={8}
+                          startIndex={Math.max(0, projectionChartData.length - 31)}
+                          endIndex={projectionChartData.length - 1}
+                          tickFormatter={() => ""}
+                        />
+                      )}
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
