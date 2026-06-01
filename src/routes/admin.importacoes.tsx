@@ -183,9 +183,13 @@ export default function DataPipelinePage() {
   const onUpload = async (file: File, fromBulk = false) => {
     if (!profile) return;
 
+    // Read file once up front
+    let text: string;
+    try { text = await readFileText(file); }
+    catch { processPost(file, fromBulk); return; }
+
     // ── Detect daily metric CSVs (Ganhos / Visualizações) ─────────────────
     try {
-      const text = await readFileText(file);
       const daily = parseGanhosCsv(text);
       if (daily && daily.rows.length > 0) {
         setPendingDaily({ parsed: daily, fileName: file.name });
@@ -193,11 +197,25 @@ export default function DataPipelinePage() {
         if (fileRef.current) fileRef.current.value = "";
         return;
       }
+
+      // daily === null but file may still have daily structure (seguidores, alcance, etc.)
+      // Detect: sep=, BOM line + single-quoted title + "Data" column
+      if (daily === null) {
+        const lines = text.replace(/^﻿/, "").split("\n").map(l => l.trim()).filter(Boolean);
+        const hasSingleTitle = lines.length >= 2 && /^"[^","]*"\s*$/.test(lines[1] ?? "");
+        const hasDataCol = lines.some(l => /^"[Dd]ata"/.test(l));
+        if (hasSingleTitle && hasDataCol) {
+          toast.error("Tipo de CSV não suportado", {
+            description: `"${file.name}" é um CSV de métrica diária (seguidores, alcance, etc.) que não pode ser importado aqui.`,
+          });
+          if (fileRef.current) fileRef.current.value = "";
+          return;
+        }
+      }
     } catch { /* not a daily CSV, continue to normal pipeline */ }
 
     // ── Parse and show preview modal before processing ────────────────────
     try {
-      const text = await readFileText(file);
       const parsed = parseAnyCsv(text);
       setPendingPost({ parsed, file });
       setPostSource(parsed.source === "instagram" ? "instagram" : "facebook");
