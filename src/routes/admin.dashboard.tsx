@@ -1674,38 +1674,36 @@ function AdminDashboard() {
                 )}
               </div>
 
-              {/* Second row: posts & views — atual vs mês passado side by side */}
+              {/* Second row: tudo numa única linha horizontal */}
               {!loading && (
-                <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-white/15 grid grid-cols-2 gap-3 sm:gap-6">
-                  {/* Posts */}
-                  <div>
-                    <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-1">Posts</p>
-                    <div className="flex items-end gap-2 sm:gap-3">
-                      <div>
-                        <p className="text-sm sm:text-lg font-bold tabular-nums leading-none">{kpis.totalPosts}</p>
-                        <p className="text-[9px] text-white/40 mt-0.5">atual</p>
-                      </div>
-                      <span className="text-white/25 text-xs mb-3">vs</span>
-                      <div>
-                        <p className="text-sm sm:text-lg font-bold tabular-nums leading-none">{prevMonthStats.posts}</p>
-                        <p className="text-[9px] text-white/40 mt-0.5">mês passado</p>
-                      </div>
-                    </div>
+                <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-white/15 flex items-center gap-3 sm:gap-5 flex-wrap">
+                  {/* Label Posts */}
+                  <span className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-white/50">Posts</span>
+                  {/* Posts atual */}
+                  <div className="flex flex-col items-center">
+                    <span className="text-sm sm:text-base font-bold tabular-nums leading-none">{kpis.totalPosts}</span>
+                    <span className="text-[8px] text-white/40 mt-0.5">atual</span>
                   </div>
-                  {/* Views */}
-                  <div>
-                    <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-1">Views</p>
-                    <div className="flex items-end gap-2 sm:gap-3">
-                      <div>
-                        <p className="text-sm sm:text-lg font-bold tabular-nums leading-none">{fmt(totalViews)}</p>
-                        <p className="text-[9px] text-white/40 mt-0.5">atual</p>
-                      </div>
-                      <span className="text-white/25 text-xs mb-3">vs</span>
-                      <div>
-                        <p className="text-sm sm:text-lg font-bold tabular-nums leading-none">{fmt(prevMonthStats.views)}</p>
-                        <p className="text-[9px] text-white/40 mt-0.5">mês passado</p>
-                      </div>
-                    </div>
+                  <span className="text-white/25 text-[10px]">vs</span>
+                  {/* Posts mês passado */}
+                  <div className="flex flex-col items-center">
+                    <span className="text-sm sm:text-base font-bold tabular-nums leading-none">{prevMonthStats.posts}</span>
+                    <span className="text-[8px] text-white/40 mt-0.5">mês passado</span>
+                  </div>
+                  {/* Divisor */}
+                  <span className="text-white/20 text-base mx-1">·</span>
+                  {/* Label Views */}
+                  <span className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-white/50">Views</span>
+                  {/* Views atual */}
+                  <div className="flex flex-col items-center">
+                    <span className="text-sm sm:text-base font-bold tabular-nums leading-none">{fmt(totalViews)}</span>
+                    <span className="text-[8px] text-white/40 mt-0.5">atual</span>
+                  </div>
+                  <span className="text-white/25 text-[10px]">vs</span>
+                  {/* Views mês passado */}
+                  <div className="flex flex-col items-center">
+                    <span className="text-sm sm:text-base font-bold tabular-nums leading-none">{fmt(prevMonthStats.views)}</span>
+                    <span className="text-[8px] text-white/40 mt-0.5">mês passado</span>
                   </div>
                 </div>
               )}
