@@ -423,38 +423,6 @@ export function MetasPage() {
         <SystemGoalCard key={g.id} g={g} />
       ))}
 
-      {/* ── Metas de Recorde ── */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 px-1">
-          <Trophy className="h-4 w-4 text-amber-500" />
-          <p className="text-sm font-semibold">Metas de Recorde</p>
-          {bestMonth && (
-            <span className="text-xs text-muted-foreground">
-              — bater {formatMonth(bestMonth.month).replace(/\/(\d{4})$/, (_, y) => `/${y.slice(2)}`)}
-              <span className="ml-1 font-bold text-emerald-600">{recFmtBRL(bestMonth.revenue)}</span>
-            </span>
-          )}
-        </div>
-        {recordLoading ? (
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-card rounded-xl border border-border h-24 animate-pulse" />
-            ))}
-          </div>
-        ) : bestMonth ? (
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-            <RecordCard label="Posts"      icon={TrendingUp}  fmtFn={(n) => String(Math.round(n))} current={currentMonthRec?.posts ?? 0}                                    target={bestMonth.posts} />
-            <RecordCard label="Views"      icon={Eye}         fmtFn={recFmtRound}                   current={currentMonthRec?.views ?? 0}                                    target={bestMonth.views} />
-            <RecordCard label="Receita"    icon={DollarSign}  fmtFn={(n) => recFmtBRL(n / REC_USD_TO_BRL)} current={(currentMonthRec?.revenue ?? 0) * REC_USD_TO_BRL}       target={bestMonth.revenue * REC_USD_TO_BRL} />
-            <RecordCard label="Views/Post" icon={Eye}         fmtFn={recFmtRound}                   current={currentMonthRec && currentMonthRec.posts > 0 ? currentMonthRec.views / currentMonthRec.posts : 0} target={bestMonth.posts > 0 ? bestMonth.views / bestMonth.posts : 0} />
-            <RecordCard label="Vídeos"     icon={Play}        fmtFn={(n) => String(Math.round(n))} current={currentMonthRec?.videos ?? 0}                                   target={bestMonth.videos} />
-            <RecordCard label="Fotos"      icon={ImageIcon}   fmtFn={(n) => String(Math.round(n))} current={currentMonthRec?.photos ?? 0}                                   target={bestMonth.photos} />
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground px-1">Nenhum dado histórico disponível ainda.</p>
-        )}
-      </div>
-
       {/* Empty state — only when there are no user goals AND no system goals visible */}
       {userGoals.length === 0 && systemGoals.length === 0 && (
         <div className="rounded-xl border border-border bg-card p-12 flex flex-col items-center gap-3 text-center">
