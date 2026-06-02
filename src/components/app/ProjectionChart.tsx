@@ -30,21 +30,19 @@ export function ProjectionChart({
   const chartData = (() => {
     if (!showManual) return projectionChartData;
 
-    // Build base rows with actual overlay
-    const rows: Array<ProjectionRow & { actual: number | null }> =
-      projectionChartData.map((row) => ({
+    // Combine projectionChartData rows with manual-only days
+    const existingDias = new Set(projectionChartData.map((r) => r.dia));
+    const rows: Array<ProjectionRow & { actual: number | null }> = [
+      ...projectionChartData.map((row) => ({
         ...row,
         actual: dailyActualByDia.get(row.dia) ?? null,
-      }));
-
-    // Include days that have manual data but are NOT in projectionChartData
-    // (e.g. current month days before today when no CSV has been imported yet)
-    const existingDias = new Set(projectionChartData.map((r) => r.dia));
-    for (const [dia, actual] of dailyActualByDia) {
-      if (!existingDias.has(dia)) {
-        rows.push({ dia, real: null, proj: null, optimistic: null, conservative: null, actual });
-      }
-    }
+      })),
+      ...[...dailyActualByDia.entries()]
+        .filter(([dia]) => !existingDias.has(dia))
+        .map(([dia, val]) => ({
+          dia, real: null, proj: null, optimistic: null, conservative: null, actual: val,
+        })),
+    ];
 
     // Sort chronologically by dd/mm
     rows.sort((a, b) => {
@@ -53,36 +51,27 @@ export function ProjectionChart({
       return am !== bm ? am - bm : ad - bd;
     });
 
-    // Bridge: fill projection values onto ALL days that have actual/real data
-    // so the dashed projection lines span the full chart (from 01/06 onwards),
-    // not just floating from the first future day.
-    const firstProjRow = rows.find((r) => r.proj != null);
-    if (firstProjRow) {
-      for (let i = 0; i < rows.length; i++) {
-        const r = rows[i] as any;
-        if ((r.actual != null || r.real != null) && rows[i].proj == null) {
-          rows[i] = {
-            ...rows[i],
-            proj: firstProjRow.proj,
-            optimistic: firstProjRow.optimistic,
-            conservative: firstProjRow.conservative,
-          };
-        }
+    // Convert per-day actual values to a running cumulative total so the
+    // manual line grows alongside the cumulative projection lines.
+    let cumActual = 0;
+    for (const row of rows) {
+      const r = row as any;
+      if (r.actual != null) {
+        cumActual += r.actual;
+        r.actual = cumActual;
       }
     }
 
     return rows;
   })();
 
-  // Base the Y-axis ceiling on real/actual values only so that projection
-  // lines (which can be much larger) don't dwarf the historical data.
-  const realMax = Math.max(
+  // Y-axis: scale to fit all visible lines (real, actual, and projections).
+  const allMax = Math.max(
     0,
-    ...chartData.map((r) => r.real ?? 0),
+    ...chartData.map((r) => Math.max(r.real ?? 0, r.optimistic ?? 0, r.proj ?? 0, r.conservative ?? 0)),
     ...(showManual ? chartData.map((r: any) => r.actual ?? 0) : []),
   );
-  // If we have real data use 1.4× its peak; otherwise fall through to recharts auto.
-  const yMax: number | undefined = realMax > 0 ? realMax * 1.4 : undefined;
+  const yMax: number | undefined = allMax > 0 ? allMax * 1.05 : undefined;
 
   return (
     <ResponsiveContainer width="100%" height="100%">

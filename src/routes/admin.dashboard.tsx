@@ -1210,45 +1210,8 @@ function AdminDashboard() {
 
   // Projection chart data: full history real + future projection
   // Uses allTimeAvgDaily (weighted avg across ALL historical months) if available, else last-7-days avg
-  const projectionChartData = useMemo(() => {
-    type HistRow = { dia: string; real: number; proj: number | null; optimistic: number | null; conservative: number | null };
-    type FutRow = { dia: string; real: null; proj: number; optimistic: number; conservative: number };
-    const hist: HistRow[] = chartDataCsv.map((d) => ({
-      dia: d.dia, real: d.receita,
-      proj: null, optimistic: null, conservative: null,
-    }));
-    const baseDaily = allTimeAvgDaily > 0 ? allTimeAvgDaily : projections.today;
-    const last = chartDataCsv[chartDataCsv.length - 1];
-    const today = new Date();
-    const todayStr = today.toISOString().slice(0, 10);
-    // Only add future-projection days when the selected range covers the current
-    // month. If the user is viewing a past period the projection lines would
-    // dominate the y-scale and make real data invisible.
-    const periodIncludesToday = !filterTo || filterTo >= todayStr;
-    const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    const daysLeftInMonth = periodIncludesToday ? lastDayOfMonth - today.getDate() : 0;
-    const futuro: FutRow[] = [];
-    for (let i = 1; i <= daysLeftInMonth; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      const [, mo, dy] = d.toISOString().slice(0, 10).split("-");
-      futuro.push({
-        dia: `${dy}/${mo}`, real: null,
-        proj: baseDaily,
-        optimistic: baseDaily * 1.72,
-        conservative: baseDaily * 0.65,
-      });
-    }
-    if (last && daysLeftInMonth > 0) hist[hist.length - 1] = {
-      ...hist[hist.length - 1],
-      proj: baseDaily,
-      optimistic: baseDaily * 1.72,
-      conservative: baseDaily * 0.65,
-    };
-    return [...hist, ...futuro];
-  }, [chartDataCsv, projections, allTimeAvgDaily, filterTo]);
-
-  // Map "dd/mm" → actual_revenue_usd for overlay on revenue charts (filtered by selected page)
+  // Map "dd/mm" → actual_revenue_usd — declared BEFORE projectionChartData so it
+  // can be used to seed the cumulative starting point when there is no CSV data.
   const dailyActualByDia = useMemo(() => {
     const map = new Map<string, number>();
     for (const e of dailyEntries) {
@@ -1259,6 +1222,60 @@ function AdminDashboard() {
     }
     return map;
   }, [dailyEntries, filterPage]);
+
+  // Projection chart data — CUMULATIVE values so the chart grows like a running total.
+  // Real line = cumulative CSV revenue per day.
+  // Projection lines start from the last known cumulative total (CSV or manual)
+  // and grow each day by the average daily rate (3 scenarios).
+  const projectionChartData = useMemo(() => {
+    type Row = { dia: string; real: number | null; proj: number | null; optimistic: number | null; conservative: number | null };
+
+    // Build cumulative CSV history
+    let cumReal = 0;
+    const hist: Row[] = chartDataCsv.map((d) => {
+      cumReal += d.receita;
+      return { dia: d.dia, real: cumReal, proj: null, optimistic: null, conservative: null };
+    });
+
+    const baseDaily = allTimeAvgDaily > 0 ? allTimeAvgDaily : projections.today;
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    // Only project into the future when the selected period includes today.
+    const periodIncludesToday = !filterTo || filterTo >= todayStr;
+    const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const daysLeftInMonth = periodIncludesToday ? lastDayOfMonth - today.getDate() : 0;
+
+    // No CSV? Seed cumReal from manual daily entries so the projection
+    // starts from the correct running total.
+    if (hist.length === 0 && periodIncludesToday) {
+      for (const val of dailyActualByDia.values()) cumReal += val;
+      // Add today as anchor row so the 3 projection lines originate from cumReal.
+      if (cumReal > 0 && daysLeftInMonth > 0) {
+        const [, mo, dy] = todayStr.split("-");
+        hist.push({ dia: `${dy}/${mo}`, real: null, proj: cumReal, optimistic: cumReal, conservative: cumReal });
+      }
+    }
+
+    // Bridge: mark the last CSV hist row as the departure point for projections.
+    if (hist.length > 0 && daysLeftInMonth > 0 && hist[hist.length - 1].proj == null) {
+      hist[hist.length - 1] = { ...hist[hist.length - 1], proj: cumReal, optimistic: cumReal, conservative: cumReal };
+    }
+
+    // Future rows — cumulative growth from the last known total.
+    const futuro: Row[] = [];
+    let cumProj = cumReal, cumOpt = cumReal, cumCons = cumReal;
+    for (let i = 1; i <= daysLeftInMonth; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const [, mo, dy] = d.toISOString().slice(0, 10).split("-");
+      cumProj += baseDaily;
+      cumOpt  += baseDaily * 1.72;
+      cumCons += baseDaily * 0.65;
+      futuro.push({ dia: `${dy}/${mo}`, real: null, proj: cumProj, optimistic: cumOpt, conservative: cumCons });
+    }
+
+    return [...hist, ...futuro];
+  }, [chartDataCsv, projections, allTimeAvgDaily, filterTo, dailyActualByDia]);
 
   // Map "dd/mm" → actual_views (filtered by selected page, for single-page overlay)
   const dailyActualViewsByDia = useMemo(() => {
