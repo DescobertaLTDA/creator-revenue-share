@@ -19,6 +19,7 @@ interface Props {
   showManual: boolean;
   dailyActualByDia: Map<string, number>;
   usdBrl: number | null;
+  baseDaily: number;
 }
 
 export function ProjectionChart({
@@ -26,22 +27,36 @@ export function ProjectionChart({
   showManual,
   dailyActualByDia,
   usdBrl,
+  baseDaily,
 }: Props) {
   const chartData = (() => {
     if (!showManual) return projectionChartData;
 
-    // Combine projectionChartData rows with manual-only days
+    // Days that already have projection data (from CSV history or future rows)
     const existingDias = new Set(projectionChartData.map((r) => r.dia));
+
+    // For manual-only days (no CSV), compute straight-line projection values
+    // using the same formula: proj = baseDaily × dayOfMonth
+    const extraRows: Array<ProjectionRow & { actual: number | null }> =
+      [...dailyActualByDia.entries()]
+        .filter(([dia]) => !existingDias.has(dia))
+        .map(([dia, val]) => {
+          const [dd] = dia.split("/").map(Number);
+          return {
+            dia, real: null,
+            proj: +(baseDaily * dd).toFixed(6),
+            optimistic: +(baseDaily * 1.72 * dd).toFixed(6),
+            conservative: +(baseDaily * 0.65 * dd).toFixed(6),
+            actual: val,
+          };
+        });
+
     const rows: Array<ProjectionRow & { actual: number | null }> = [
       ...projectionChartData.map((row) => ({
         ...row,
         actual: dailyActualByDia.get(row.dia) ?? null,
       })),
-      ...[...dailyActualByDia.entries()]
-        .filter(([dia]) => !existingDias.has(dia))
-        .map(([dia, val]) => ({
-          dia, real: null, proj: null, optimistic: null, conservative: null, actual: val,
-        })),
+      ...extraRows,
     ];
 
     // Sort chronologically by dd/mm
@@ -52,7 +67,7 @@ export function ProjectionChart({
     });
 
     // Convert per-day actual values to a running cumulative total so the
-    // manual line grows alongside the cumulative projection lines.
+    // manual overlay grows like the straight-line projection.
     let cumActual = 0;
     for (const row of rows) {
       const r = row as any;
@@ -65,13 +80,18 @@ export function ProjectionChart({
     return rows;
   })();
 
-  // Y-axis: scale to fit all visible lines (real, actual, and projections).
-  const allMax = Math.max(
-    0,
-    ...chartData.map((r) => Math.max(r.real ?? 0, r.optimistic ?? 0, r.proj ?? 0, r.conservative ?? 0)),
-    ...(showManual ? chartData.map((r: any) => r.actual ?? 0) : []),
-  );
-  const yMax: number | undefined = allMax > 0 ? allMax * 1.05 : undefined;
+  // Y-axis: scale to the optimistic end-of-month value so all 3 scenario lines
+  // fit. Real/actual data will occupy the lower portion of the chart early in
+  // the month and grow to fill it as the month progresses.
+  const yMax: number | undefined = (() => {
+    const top = Math.max(
+      0,
+      ...chartData.map((r) => r.optimistic ?? 0),
+      ...chartData.map((r) => r.real ?? 0),
+      ...(showManual ? chartData.map((r: any) => r.actual ?? 0) : []),
+    );
+    return top > 0 ? top * 1.08 : undefined;
+  })();
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -176,13 +196,13 @@ export function ProjectionChart({
           connectNulls={false}
           legendType="none"
         />
-        {/* Manual / actual overlay */}
+        {/* Manual / actual overlay — visible stroke so it's readable early in month */}
         {showManual && (
           <Area
             type="monotone"
             dataKey="actual"
-            stroke="none"
-            strokeWidth={0}
+            stroke="#F44708"
+            strokeWidth={2}
             fill="url(#gradActualOverlay)"
             dot={false}
             connectNulls={false}
