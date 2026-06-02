@@ -27,12 +27,34 @@ export function ProjectionChart({
   dailyActualByDia,
   usdBrl,
 }: Props) {
-  const chartData = showManual
-    ? projectionChartData.map((row) => ({
+  const chartData = (() => {
+    if (!showManual) return projectionChartData;
+
+    // Build base rows with actual overlay
+    const rows: Array<ProjectionRow & { actual: number | null }> =
+      projectionChartData.map((row) => ({
         ...row,
         actual: dailyActualByDia.get(row.dia) ?? null,
-      }))
-    : projectionChartData;
+      }));
+
+    // Include days that have manual data but are NOT in projectionChartData
+    // (e.g. current month days before today when no CSV has been imported yet)
+    const existingDias = new Set(projectionChartData.map((r) => r.dia));
+    for (const [dia, actual] of dailyActualByDia) {
+      if (!existingDias.has(dia)) {
+        rows.push({ dia, real: null, proj: null, optimistic: null, conservative: null, actual });
+      }
+    }
+
+    // Sort chronologically by dd/mm
+    rows.sort((a, b) => {
+      const [ad, am] = a.dia.split("/").map(Number);
+      const [bd, bm] = b.dia.split("/").map(Number);
+      return am !== bm ? am - bm : ad - bd;
+    });
+
+    return rows;
+  })();
 
   // Base the Y-axis ceiling on real/actual values only so that projection
   // lines (which can be much larger) don't dwarf the historical data.
