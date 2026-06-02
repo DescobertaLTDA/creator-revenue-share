@@ -1879,7 +1879,7 @@ function AdminDashboard() {
             const u = (v: number) => `$${v.toFixed(0)}`;
             const r = (v: number) => `$${v.toFixed(2)}`;
             const missions: { icon: React.ElementType; label: string; cur: number; best: number; fmt: (v: number) => string }[] = [
-              { icon: FileSpreadsheet, label: "Posts",          cur: missionCur.posts,       best: missionBest.posts,       fmt: n },
+              { icon: DollarSign,      label: "Meta $100",      cur: missionCur.revenue,     best: 100,                     fmt: r },
               { icon: Eye,             label: "Views",          cur: missionCur.views,       best: missionBest.views,       fmt: n },
               { icon: DollarSign,      label: "Receita CSV",    cur: missionCur.usd,         best: missionBest.usd,         fmt: u },
               { icon: Zap,             label: "Ganhos Reais",   cur: missionCur.revenue,     best: missionBest.revenue,     fmt: u },
