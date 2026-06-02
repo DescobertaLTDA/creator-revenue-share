@@ -288,21 +288,12 @@ export function MetasPage() {
       is_system: isSystemMap.get(g.id) ?? false,
     }));
 
-    // Override progress for system goals using actual USD revenue
+    // Override progress for system goals using actual USD revenue.
+    // Always call fetchSystemGoalRevenue — the date-bounded query ensures
+    // only that month's data is used regardless of what vw_goal_progress returns.
     const today = new Date().toISOString().slice(0, 10);
     for (const g of enriched.filter((g) => g.is_system)) {
       const isExpired = g.end_date < today;
-
-      // If already locked in DB (EXPIRED/COMPLETED/ARCHIVED), don't recalculate —
-      // use the stored current_amount so the value never drifts after closing.
-      if (g.status === "EXPIRED" || g.status === "COMPLETED" || g.status === "ARCHIVED") {
-        const pct = parseFloat(Math.min(100, (g.current_amount / 100) * 100).toFixed(2));
-        g.remaining_amount = parseFloat(Math.max(0, 100 - g.current_amount).toFixed(2));
-        g.progress_percentage = pct;
-        g.calculated_status = g.status as CalcStatus;
-        g.risk_level = pct >= 70 ? "GREEN" : pct >= 40 ? "YELLOW" : "RED";
-        continue;
-      }
 
       const revenue = await fetchSystemGoalRevenue(g.start_date, g.end_date);
       const pct = parseFloat(Math.min(100, (revenue / 100) * 100).toFixed(2));
@@ -311,23 +302,18 @@ export function MetasPage() {
       g.remaining_amount = parseFloat(Math.max(0, 100 - revenue).toFixed(2));
       g.progress_percentage = pct;
       g.calculated_status =
-        revenue >= 100 ? "COMPLETED" :
-        isExpired      ? "EXPIRED"   : "ACTIVE";
+        g.status === "ARCHIVED" ? "ARCHIVED" :
+        revenue >= 100          ? "COMPLETED" :
+        isExpired               ? "EXPIRED"   : "ACTIVE";
       g.risk_level = pct >= 70 ? "GREEN" : pct >= 40 ? "YELLOW" : "RED";
 
-      // Persist the final state when the period has ended so it never changes again
+      // Persist EXPIRED/COMPLETED in DB so the UI shows locked state consistently
       if (isExpired && g.status === "ACTIVE") {
-        await (supabase as any)
-          .from("goals")
-          .update({ status: "EXPIRED" })
-          .eq("id", g.id);
+        await (supabase as any).from("goals").update({ status: "EXPIRED" }).eq("id", g.id);
         g.status = "EXPIRED";
       }
       if (revenue >= 100 && g.status === "ACTIVE") {
-        await (supabase as any)
-          .from("goals")
-          .update({ status: "COMPLETED" })
-          .eq("id", g.id);
+        await (supabase as any).from("goals").update({ status: "COMPLETED" }).eq("id", g.id);
         g.status = "COMPLETED";
       }
     }
