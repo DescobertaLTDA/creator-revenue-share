@@ -2470,7 +2470,7 @@ function MissionStoryCard({
           className="absolute rounded-full flex items-center justify-center overflow-hidden"
           style={{
             inset: sw + 3,
-            background: hovered ? "rgba(90,90,90,0.82)" : done ? "#F0FDF4" : "#FFF3EE",
+            background: hovered ? "rgba(26,10,0,0.78)" : done ? "#F0FDF4" : "#FFF3EE",
             transition: "background 0.2s ease",
           }}
         >
