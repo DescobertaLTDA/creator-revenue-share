@@ -596,34 +596,45 @@ function Section({
 function SystemGoalCard({ g }: { g: GoalProgress }) {
   const pct = Math.min(100, Number(g.progress_percentage));
   const isCompleted = g.calculated_status === "COMPLETED";
+  const isExpired   = g.calculated_status === "EXPIRED";
 
   const barColor =
-    isCompleted         ? "bg-emerald-500" :
-    pct >= 70           ? "bg-emerald-500" :
-    pct >= 40           ? "bg-amber-400"   : "bg-red-400";
+    isExpired            ? "bg-slate-300"   :
+    isCompleted          ? "bg-emerald-500" :
+    pct >= 70            ? "bg-emerald-500" :
+    pct >= 40            ? "bg-amber-400"   : "bg-red-400";
 
   const pctColor =
-    isCompleted         ? "text-emerald-600" :
-    pct >= 70           ? "text-emerald-600" :
-    pct >= 40           ? "text-amber-500"   : "text-red-500";
+    isExpired            ? "text-slate-400"  :
+    isCompleted          ? "text-emerald-600":
+    pct >= 70            ? "text-emerald-600":
+    pct >= 40            ? "text-amber-500"  : "text-red-500";
+
+  const borderClass = isExpired
+    ? "border-slate-200 dark:border-slate-700 opacity-70"
+    : "border-orange-200 dark:border-orange-800";
 
   return (
-    <div className="rounded-2xl border border-orange-200 dark:border-orange-800 bg-card p-4 flex flex-col gap-3">
+    <div className={`rounded-2xl border bg-card p-4 flex flex-col gap-3 ${borderClass}`}>
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="shrink-0 h-8 w-8 rounded-full bg-orange-500/10 flex items-center justify-center">
-            <Lock className="h-3.5 w-3.5 text-orange-500" />
+          <div className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${isExpired ? "bg-slate-100" : "bg-orange-500/10"}`}>
+            <Lock className={`h-3.5 w-3.5 ${isExpired ? "text-slate-400" : "text-orange-500"}`} />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold leading-tight">{g.title}</p>
+            <p className={`text-sm font-semibold leading-tight ${isExpired ? "text-muted-foreground" : ""}`}>{g.title}</p>
             <p className="text-[11px] text-muted-foreground">
               Meta mensal do sistema · {fmtDate(g.start_date)} → {fmtDate(g.end_date)}
             </p>
           </div>
         </div>
         <div className="shrink-0 text-right">
-          <p className={`text-xl font-bold tabular-nums ${pctColor}`}>{pct.toFixed(0)}%</p>
+          {isExpired ? (
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Encerrada</p>
+          ) : (
+            <p className={`text-xl font-bold tabular-nums ${pctColor}`}>{pct.toFixed(0)}%</p>
+          )}
           {isCompleted && (
             <p className="text-[10px] text-emerald-600 font-semibold">Pagamento liberado ✓</p>
           )}
@@ -639,7 +650,7 @@ function SystemGoalCard({ g }: { g: GoalProgress }) {
           />
         </div>
         <div className="flex justify-between text-xs text-muted-foreground tabular-nums">
-          <span className="font-medium text-foreground">{fmtUsd(Number(g.current_amount))}</span>
+          <span className={`font-medium ${isExpired ? "text-muted-foreground" : "text-foreground"}`}>{fmtUsd(Number(g.current_amount))}</span>
           <span>de {fmtUsd(Number(g.target_amount))}</span>
         </div>
       </div>
