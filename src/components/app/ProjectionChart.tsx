@@ -53,6 +53,27 @@ export function ProjectionChart({
       return am !== bm ? am - bm : ad - bd;
     });
 
+    // Bridge: add projection values to the last day that has an actual/real
+    // value, so the dashed projection lines visually connect from that point
+    // instead of appearing disconnected (floating from day+1 onwards).
+    const firstProjRow = rows.find((r) => r.proj != null);
+    if (firstProjRow) {
+      // Find last row with any real data (actual overlay or CSV real)
+      let lastRealIdx = -1;
+      for (let i = rows.length - 1; i >= 0; i--) {
+        const r = rows[i] as any;
+        if (r.actual != null || r.real != null) { lastRealIdx = i; break; }
+      }
+      if (lastRealIdx >= 0 && rows[lastRealIdx].proj == null) {
+        rows[lastRealIdx] = {
+          ...rows[lastRealIdx],
+          proj: firstProjRow.proj,
+          optimistic: firstProjRow.optimistic,
+          conservative: firstProjRow.conservative,
+        };
+      }
+    }
+
     return rows;
   })();
 
