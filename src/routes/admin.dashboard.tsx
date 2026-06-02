@@ -1701,7 +1701,7 @@ function AdminDashboard() {
                   <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">RPM</p>
                   {loading ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
                     : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(3)}`}</p>}
-                  <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 hidden sm:block">por mil views</p>
+                  <p className="text-[9px] sm:text-xs text-white/50 mt-0.5">por mil views</p>
                 </div>
                 {/* 2 Views */}
                 <div>
