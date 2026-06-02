@@ -2421,7 +2421,7 @@ function MissionStoryCard({
   value: string;
   goal: string;
 }) {
-  const [hovered, setHovered] = React.useState(false);
+  const [hovered, setHovered] = useState(false);
   const size = 68;
   const sw = 3.5;
   const r = size / 2 - sw - 2; // ~29
