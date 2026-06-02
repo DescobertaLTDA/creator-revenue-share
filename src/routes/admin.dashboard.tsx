@@ -2421,6 +2421,7 @@ function MissionStoryCard({
   value: string;
   goal: string;
 }) {
+  const [hovered, setHovered] = React.useState(false);
   const size = 68;
   const sw = 3.5;
   const r = size / 2 - sw - 2; // ~29
@@ -2429,11 +2430,24 @@ function MissionStoryCard({
   const offset = +(circ * (1 - clamped)).toFixed(2);
   const done = clamped >= 1;
   const ringColor = done ? "#16a34a" : "#F44708";
+  const pct = Math.round(clamped * 100);
 
   return (
-    <div className="flex-1 min-w-[72px] flex flex-col items-center gap-1 select-none">
+    <div
+      className="flex-1 min-w-[72px] flex flex-col items-center gap-1 select-none cursor-pointer"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       {/* Ring + icon */}
-      <div className="relative" style={{ width: size, height: size }}>
+      <div
+        className="relative"
+        style={{
+          width: size, height: size,
+          transition: "transform 0.2s ease, filter 0.2s ease",
+          transform: hovered ? "scale(1.08)" : "scale(1)",
+          filter: hovered ? "drop-shadow(0 2px 6px rgba(0,0,0,0.18))" : "none",
+        }}
+      >
         <svg
           width={size} height={size}
           viewBox={`0 0 ${size} ${size}`}
@@ -2451,21 +2465,36 @@ function MissionStoryCard({
             style={{ transition: "stroke-dashoffset 0.55s ease, stroke 0.3s ease" }}
           />
         </svg>
-        {/* Inner circle */}
+        {/* Inner circle — icon or % overlay on hover */}
         <div
-          className="absolute rounded-full flex items-center justify-center"
+          className="absolute rounded-full flex items-center justify-center overflow-hidden"
           style={{
             inset: sw + 3,
-            background: done ? "#F0FDF4" : "#FFF3EE",
+            background: hovered ? "rgba(90,90,90,0.82)" : done ? "#F0FDF4" : "#FFF3EE",
+            transition: "background 0.2s ease",
           }}
         >
-          <Icon
-            className="shrink-0"
-            style={{
-              width: 20, height: 20,
-              color: done ? "#16a34a" : "#F44708",
-            }}
-          />
+          {hovered ? (
+            <span
+              style={{
+                fontSize: pct >= 100 ? 13 : 14,
+                fontWeight: 700,
+                color: "#FFFFFF",
+                lineHeight: 1,
+                letterSpacing: "-0.5px",
+              }}
+            >
+              {pct}%
+            </span>
+          ) : (
+            <Icon
+              className="shrink-0"
+              style={{
+                width: 20, height: 20,
+                color: done ? "#16a34a" : "#F44708",
+              }}
+            />
+          )}
         </div>
       </div>
       {/* Current value */}
