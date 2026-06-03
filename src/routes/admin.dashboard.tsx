@@ -497,25 +497,21 @@ function AdminDashboard() {
       });
   }, [profile?.id]);
 
-  // Fetch accumulated pending balance from past months whose closing is still "aberto" (not finalized)
+  // Fetch total pending balance = sum of total_gross of all open closings from past months (company-wide)
   useEffect(() => {
-    if (!myCollabId) { setPendingBalance(0); return; }
     const curMonth = new Date().toISOString().slice(0, 7);
     (supabase as any)
-      .from("monthly_closing_items")
-      .select("final_amount, monthly_closings!inner(month_ref, status)")
-      .eq("collaborator_id", myCollabId)
+      .from("monthly_closings")
+      .select("total_gross, month_ref, status")
+      .eq("status", "aberto")
       .then(({ data }: any) => {
-        // Filter in JS: only open closings from past months (PostgREST foreign-table filters are unreliable)
+        // Filter past months in JS (PostgREST lt filter on text dates can be unreliable)
         const total = (data ?? [])
-          .filter((e: any) =>
-            e.monthly_closings?.status === "aberto" &&
-            e.monthly_closings?.month_ref < curMonth
-          )
-          .reduce((s: number, e: any) => s + Number(e.final_amount ?? 0), 0);
+          .filter((e: any) => e.month_ref < curMonth)
+          .reduce((s: number, e: any) => s + Number(e.total_gross ?? 0), 0);
         setPendingBalance(total);
       });
-  }, [myCollabId]);
+  }, []);
 
   useEffect(() => {
     const applyCache = (cache: DashCache) => {
@@ -1847,17 +1843,15 @@ function AdminDashboard() {
                 )}
               </div>
               {/* Bottom: metrics grid — mobile: 4 cols, desktop: 6/7 cols */}
-              <div className={`mt-5 sm:mt-8 pt-4 sm:pt-6 border-t border-white/20 grid gap-2 sm:gap-4 grid-cols-4 ${myCard ? "sm:grid-cols-8" : "sm:grid-cols-7"}`}>
-                {/* 0 Saldo Pendente — only for collaborators, desktop only */}
-                {myCard && (
-                  <div className="hidden sm:block">
-                    <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Saldo Pend.</p>
-                    {loading ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
-                      : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{usdBrl ? formatBRL(pendingBalance * usdBrl) : `$${pendingBalance.toFixed(2)}`}</p>}
-                    {usdBrl && pendingBalance > 0 && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums">${pendingBalance.toFixed(2)} USD</p>}
-                    {pendingBalance === 0 && !loading && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5">acumulado</p>}
-                  </div>
-                )}
+              <div className={`mt-5 sm:mt-8 pt-4 sm:pt-6 border-t border-white/20 grid gap-2 sm:gap-4 grid-cols-4 ${myCard ? "sm:grid-cols-8" : "sm:grid-cols-8"}`}>
+                {/* 0 Saldo Pendente — total de fechamentos abertos de meses passados, desktop only */}
+                <div className="hidden sm:block">
+                  <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Saldo Pend.</p>
+                  {loading ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
+                    : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{usdBrl ? formatBRL(pendingBalance * usdBrl) : `$${pendingBalance.toFixed(2)}`}</p>}
+                  {usdBrl && pendingBalance > 0 && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums">${pendingBalance.toFixed(2)} USD</p>}
+                  {pendingBalance === 0 && !loading && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5">acumulado</p>}
+                </div>
                 {/* 1 RPM */}
                 <div>
                   <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">RPM</p>
@@ -2041,7 +2035,7 @@ function AdminDashboard() {
             const u = (v: number) => `$${v.toFixed(0)}`;
             const r = (v: number) => `$${v.toFixed(2)}`;
             const missions: { icon: React.ElementType; label: string; cur: number; best: number; fmt: (v: number) => string }[] = [
-              { icon: DollarSign,      label: "Meta $100",      cur: missionCur.revenue + (myCard ? pendingBalance : 0), best: 100, fmt: r },
+              { icon: DollarSign,      label: "Meta $100",      cur: missionCur.revenue + pendingBalance, best: 100, fmt: r },
               { icon: Eye,             label: "Views",          cur: missionCur.views,       best: missionBest.views,       fmt: n },
               { icon: DollarSign,      label: "Receita CSV",    cur: missionCur.usd,         best: missionBest.usd,         fmt: u },
               { icon: Zap,             label: "Ganhos Reais",   cur: missionCur.revenue,     best: missionBest.revenue,     fmt: u },
