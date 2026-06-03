@@ -497,7 +497,7 @@ function AdminDashboard() {
       });
   }, [profile?.id]);
 
-  // Fetch accumulated pending balance from months whose closing is still "aberto" (not finalized)
+  // Fetch accumulated pending balance from past months whose closing is still "aberto" (not finalized)
   useEffect(() => {
     if (!myCollabId) { setPendingBalance(0); return; }
     const curMonth = new Date().toISOString().slice(0, 7);
@@ -505,11 +505,13 @@ function AdminDashboard() {
       .from("monthly_closing_items")
       .select("final_amount, monthly_closings!inner(month_ref, status)")
       .eq("collaborator_id", myCollabId)
-      .neq("monthly_closings.month_ref", curMonth)
       .then(({ data }: any) => {
-        // Only sum items whose parent closing is still open (aberto), not finalized
+        // Filter in JS: only open closings from past months (PostgREST foreign-table filters are unreliable)
         const total = (data ?? [])
-          .filter((e: any) => e.monthly_closings?.status === "aberto")
+          .filter((e: any) =>
+            e.monthly_closings?.status === "aberto" &&
+            e.monthly_closings?.month_ref < curMonth
+          )
           .reduce((s: number, e: any) => s + Number(e.final_amount ?? 0), 0);
         setPendingBalance(total);
       });
