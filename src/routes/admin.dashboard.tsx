@@ -11,7 +11,7 @@ import {
   DollarSign, Eye, TrendingUp, Upload, ArrowRight,
   FileSpreadsheet, CheckCircle2, Clock, ChevronRight, ChevronLeft,
   Target, Zap, Users, X, CloudUpload,
-  Heart, MessageSquare, Share2, Maximize2, Calendar,
+  Heart, MessageSquare, Share2, Maximize2, Calendar, Trophy,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -2206,7 +2206,7 @@ function AdminDashboard() {
             const currentCards = activeCollabCards.filter((c) => c.id !== SEM_COLAB_ID && c.receita > 0.001).slice(0, 8);
             const isFallback = currentCards.length === 0;
             const displayCards = isFallback ? prevMonthTopColabs : currentCards;
-            const medals = ["🥇", "🥈", "🥉"];
+            const medalColors = ["#F5A623", "#9BA3AF", "#CD7F32"];
 
             return (
               <div className="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
@@ -2253,8 +2253,11 @@ function AdminDashboard() {
                         className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-[#FAFAFA] transition-colors text-left group"
                       >
                         {/* Position */}
-                        <span className="text-base w-7 text-center shrink-0 select-none">
-                          {medals[i] ?? <span className="text-sm font-bold text-[#999]">{i + 1}°</span>}
+                        <span className="w-7 flex items-center justify-center shrink-0">
+                          {i < 3
+                            ? <Trophy className="h-4 w-4 shrink-0" style={{ color: medalColors[i] }} />
+                            : <span className="text-xs font-bold text-[#BDBDBD]">{i + 1}</span>
+                          }
                         </span>
 
                         {/* Avatar */}
