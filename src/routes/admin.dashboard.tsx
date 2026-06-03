@@ -67,6 +67,7 @@ interface RawPost {
   post_type: string | null;
   permalink: string | null;
   source: "facebook" | "instagram" | null;
+  thumbnail_url: string | null;
 }
 
 interface PostAuthorRow {
@@ -540,7 +541,7 @@ function AdminDashboard() {
         await Promise.all([
           fetchAllRows<RawPost>(() =>
             supabase.from("posts").select(
-              "id, page_id, published_at, monetization_approx, estimated_usd, views, reach, reactions, comments, shares, title, post_type, permalink, source"
+              "id, page_id, published_at, monetization_approx, estimated_usd, views, reach, reactions, comments, shares, title, post_type, permalink, source, thumbnail_url"
             ).gte("published_at", dateFrom).lte("published_at", dateTo + "T23:59:59")
           ),
           fetchAllRows<PostAuthorRow>(() =>
@@ -1104,6 +1105,20 @@ function AdminDashboard() {
       }
     }
 
+    // Top 5 posts by views in the filtered period
+    const top5Posts = [...filtered]
+      .sort((a, b) => Number(b.views ?? 0) - Number(a.views ?? 0))
+      .slice(0, 5)
+      .map((p) => ({
+        id: p.id,
+        title: p.title,
+        pageName: pageMap.get(p.page_id) ?? "—",
+        views: Number(p.views ?? 0),
+        revenue: getPostUsd(p),
+        thumbnail_url: p.thumbnail_url ?? null,
+        published_at: p.published_at,
+      }));
+
     return {
       kpis: {
         totalMonth: geralUsd,
@@ -1131,12 +1146,14 @@ function AdminDashboard() {
       },
       sparklineByPage,
       sparklineByColab,
+      top5Posts,
     };
   }, [allPosts, postAuthors, splitRules, colabs, manualBonuses, dailyEntries, filterPage, filterColab, filterFrom, filterTo, pages]);
 
   const {
     kpis, chartData, chartDataCsv, activeMonthRef, collabCards, collabCardsCsv,
     rulesByPage, postToCollabs, pageStats, projections, sparklineByPage, sparklineByColab,
+    top5Posts,
   } = computed;
 
   const activeCollabCards = showManual ? collabCards : collabCardsCsv;
@@ -2087,6 +2104,79 @@ function AdminDashboard() {
               </div>
             ))}
           </div>
+
+          {/* ═══════════════ TOP 5 POSTS ═══════════════ */}
+          {!loading && top5Posts.length > 0 && (
+            <div className="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+              <div className="px-5 pt-4 pb-3 border-b border-[#F7F7F7] flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-bold text-[#111]">Top 5 Posts</h2>
+                  <p className="text-[11px] text-[#999] mt-0.5">
+                    {filterPage !== "all"
+                      ? "Melhores posts da página selecionada no período"
+                      : "Melhores posts de todas as páginas no período"}
+                  </p>
+                </div>
+                <Trophy className="h-4 w-4 text-[#FF6B00]" />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y divide-[#F7F7F7]">
+                {top5Posts.map((post, idx) => {
+                  const rankColors = ["#F44708", "#FAA613", "#FAA613", "#94a3b8", "#94a3b8"];
+                  const rankColor = rankColors[idx] ?? "#94a3b8";
+                  const dateLabel = post.published_at
+                    ? (() => { const [, m, d] = post.published_at!.slice(0,10).split("-"); return `${d}/${m}`; })()
+                    : "—";
+                  return (
+                    <div key={post.id} className="flex flex-col">
+                      {/* 4:3 thumbnail */}
+                      <div className="relative w-full" style={{ paddingTop: "75%" }}>
+                        {post.thumbnail_url ? (
+                          <img
+                            src={post.thumbnail_url}
+                            alt={post.title ?? "Post"}
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 bg-[#F7F4F1] flex items-center justify-center">
+                            <FileText className="h-8 w-8 text-[#E0D8D0]" />
+                          </div>
+                        )}
+                        {/* Rank badge */}
+                        <div
+                          className="absolute top-2 left-2 h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow"
+                          style={{ background: rankColor }}
+                        >
+                          {idx + 1}
+                        </div>
+                      </div>
+                      {/* Info */}
+                      <div className="p-3 flex flex-col gap-1 flex-1">
+                        <p className="text-xs font-semibold text-[#111] line-clamp-2 leading-snug">
+                          {post.title ?? `Post de ${dateLabel}`}
+                        </p>
+                        {filterPage === "all" && (
+                          <p className="text-[10px] text-[#999] truncate">{post.pageName}</p>
+                        )}
+                        <div className="mt-auto pt-1.5 flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            <Eye className="h-3 w-3 text-[#FF6B00]" />
+                            <span className="text-xs font-bold text-[#111] tabular-nums">
+                              {fmt(post.views)}
+                            </span>
+                          </div>
+                          {post.revenue > 0 && usdBrl && (
+                            <span className="text-[10px] font-semibold text-[#10b981]">
+                              {formatBRL(post.revenue * usdBrl)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* ═══════════════ PLATFORM TABLE + INSIGHTS ═══════════════ */}
           <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 items-stretch">
