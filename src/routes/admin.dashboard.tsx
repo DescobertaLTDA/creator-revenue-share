@@ -1855,37 +1855,54 @@ function AdminDashboard() {
         <>
 
           {/* ═══════════════ HERO CARD ═══════════════ */}
-          <div className="relative w-full rounded-2xl sm:rounded-3xl overflow-hidden text-white"
-            style={{ background: "linear-gradient(135deg,#FF5A00 0%,#FF3D00 100%)", boxShadow: "0 20px 50px rgba(255,90,0,.18)" }}>
-            <div className="pointer-events-none absolute -top-16 -right-16 h-64 w-64 rounded-full bg-white/5" />
-            <div className="pointer-events-none absolute -bottom-12 -left-12 h-48 w-48 rounded-full bg-white/5" />
-            <div className="relative p-5 sm:p-8 pb-4 sm:pb-6">
-              {/* Top: label + sparkline */}
-              <div className="flex items-start justify-between gap-3">
+          <div className="rounded-2xl overflow-hidden text-white" style={{ background: "linear-gradient(135deg, #FF6B00 0%, #E85500 100%)", boxShadow: "0 8px 32px rgba(255,107,0,.22)" }}>
+            <div className="p-6 sm:p-8">
+              {/* Top: revenue + sparkline */}
+              <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[.15em] text-white/70 mb-2 sm:mb-3">
-                    {myCard ? "Receita Total das Páginas" : "Receita do Período"}
+                  <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-white/60 mb-2">
+                    Receita Total das Páginas
                   </p>
                   {loading ? (
-                    <div className="space-y-2">
-                      <div className="h-10 sm:h-16 w-48 sm:w-64 rounded-xl bg-white/20 animate-pulse" />
-                      <div className="h-3 sm:h-4 w-24 sm:w-32 rounded bg-white/15 animate-pulse" />
-                    </div>
+                    <div className="h-12 w-52 rounded-xl bg-white/20 animate-pulse" />
                   ) : (
                     <>
-                      <p className="font-extrabold leading-none tabular-nums"
-                        style={{ fontSize: "clamp(32px, 9vw, 64px)" }}>
+                      <p className="font-black text-white tabular-nums leading-none" style={{ fontSize: "clamp(36px, 8vw, 60px)" }}>
                         {usdBrl ? formatBRL(totalMonth * usdBrl) : `$${totalMonth.toFixed(2)}`}
                       </p>
-                      <div className="flex items-center gap-2 sm:gap-3 mt-2 sm:mt-3 flex-wrap">
-                        {usdBrl && <span className="text-xs sm:text-base font-semibold text-white/80 tabular-nums">${totalMonth.toFixed(2)} USD</span>}
+                      <div className="flex items-center gap-3 mt-3 flex-wrap">
+                        {usdBrl && <span className="text-sm font-semibold text-white/70 tabular-nums">${totalMonth.toFixed(2)} USD</span>}
+                        {prevMonthRevenue != null && prevMonthRevenue > 0 && (() => {
+                          const growth = ((totalMonth - prevMonthRevenue) / prevMonthRevenue) * 100;
+                          return (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-bold text-white">
+                              {growth >= 0 ? "▲" : "▼"} {Math.abs(growth).toFixed(0)}% vs mês anterior
+                            </span>
+                          );
+                        })()}
                         {showManual && manualDelta > 0.001 && (
-                          <span className="flex items-center gap-1 bg-white/15 rounded-full px-2.5 sm:px-3 py-0.5 sm:py-1 text-xs sm:text-sm font-bold">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-bold text-white">
                             ▲ {manualDeltaPct > 0 ? `${manualDeltaPct.toFixed(0)}%` : ""} vs CSV
                           </span>
                         )}
                       </div>
                     </>
+                  )}
+                  {/* Meta $100 progress */}
+                  {!loading && (
+                    <div className="mt-5 space-y-1.5 max-w-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-medium text-white/60">Meta $100 · mês atual</span>
+                        <span className="text-[10px] font-bold text-white">{Math.min(100, Math.round((missionCur.revenue / 100) * 100))}%</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-white/20 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-white transition-all duration-700"
+                          style={{ width: `${Math.min(100, (missionCur.revenue / 100) * 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-white/50">${missionCur.revenue.toFixed(2)} de $100 · {monthCountdown} restantes</p>
+                    </div>
                   )}
                 </div>
                 {!loading && heroSparkData.length >= 2 && (
@@ -1894,67 +1911,35 @@ function AdminDashboard() {
                   </div>
                 )}
               </div>
-              {/* Bottom: metrics grid — mobile: 4 cols, desktop: 6/7 cols */}
-              <div className={`mt-5 sm:mt-8 pt-4 sm:pt-6 border-t border-white/20 grid gap-2 sm:gap-4 grid-cols-4 ${myCard ? "sm:grid-cols-8" : "sm:grid-cols-8"}`}>
-                {/* 0 Saldo Pendente — total de fechamentos abertos de meses passados, desktop only */}
-                <div className="hidden sm:block">
-                  <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Saldo Pend.</p>
-                  {loading ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
-                    : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{usdBrl ? formatBRL(pendingBalance * usdBrl) : `$${pendingBalance.toFixed(2)}`}</p>}
-                  {usdBrl && pendingBalance > 0 && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums">${pendingBalance.toFixed(2)} USD</p>}
-                  {pendingBalance === 0 && !loading && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5">acumulado</p>}
-                </div>
-                {/* 1 RPM */}
+
+              {/* Bottom: 4 quick stats */}
+              <div className="mt-6 pt-5 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
-                  <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">RPM</p>
-                  {loading ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
-                    : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(3)}`}</p>}
-                  <p className="text-[9px] sm:text-xs text-white/50 mt-0.5">por mil views</p>
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-1">Mês Anterior</p>
+                  {loading || prevMonthRevenue === null
+                    ? <div className="h-5 w-24 rounded bg-white/20 animate-pulse" />
+                    : <p className="text-base font-bold tabular-nums">{usdBrl ? formatBRL(prevMonthRevenue * usdBrl) : `$${prevMonthRevenue.toFixed(2)}`}</p>}
+                  {usdBrl && prevMonthRevenue !== null && !loading && <p className="text-[9px] text-white/40 mt-0.5">${prevMonthRevenue.toFixed(2)} USD</p>}
                 </div>
-                {/* 2 Views */}
-                <div>
-                  <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Views</p>
-                  {loading ? <div className="h-5 sm:h-7 w-14 sm:w-20 rounded bg-white/20 animate-pulse" />
-                    : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{fmt(totalViews)}</p>}
-                  <p className="text-[9px] sm:text-xs text-white/50 mt-0.5">{kpis.totalPosts} posts</p>
-                </div>
-                {/* 3 Score */}
-                <div>
-                  <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Score</p>
-                  {loading ? <div className="h-5 sm:h-7 w-10 sm:w-16 rounded bg-white/20 animate-pulse" />
-                    : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{avgScoreVal}<span className="text-xs font-normal text-white/60">/100</span></p>}
-                  <p className="text-[9px] sm:text-xs text-white/50 mt-0.5">{pageStatsWithGlobalScores.length} págs</p>
-                </div>
-                {/* 4 Mês Passado — hidden on mobile when user is a collaborator
-                    (Sua Receita takes the 4th mobile slot instead) */}
-                <div className={myCard ? "hidden sm:block" : ""}>
-                  <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Mês Ant.</p>
-                  {loading || prevMonthRevenue === null ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
-                    : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{usdBrl ? formatBRL(prevMonthRevenue * usdBrl) : `$${prevMonthRevenue.toFixed(2)}`}</p>}
-                  {usdBrl && prevMonthRevenue !== null && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums hidden sm:block">${prevMonthRevenue.toFixed(2)} USD</p>}
-                </div>
-                {/* 5 Sua Receita — mobile + desktop (4th slot on mobile for collaborators) */}
                 {myCard && (
                   <div>
-                    <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Seus Ganhos</p>
-                    {loading ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
-                      : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{usdBrl ? formatBRL(myReceita * usdBrl) : `$${myReceita.toFixed(2)}`}</p>}
-                    {usdBrl && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums">${myReceita.toFixed(2)} USD</p>}
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-1">Seus Ganhos</p>
+                    {loading ? <div className="h-5 w-24 rounded bg-white/20 animate-pulse" />
+                      : <p className="text-base font-bold tabular-nums">{usdBrl ? formatBRL(myReceita * usdBrl) : `$${myReceita.toFixed(2)}`}</p>}
+                    {usdBrl && !loading && <p className="text-[9px] text-white/40 mt-0.5">${myReceita.toFixed(2)} USD</p>}
                   </div>
                 )}
-                {/* 6 Posts — só desktop */}
-                <div className="hidden sm:block">
-                  <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Posts</p>
-                  {loading ? <div className="h-5 sm:h-7 w-10 sm:w-16 rounded bg-white/20 animate-pulse" />
-                    : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{kpis.totalPosts}</p>}
-                  {!loading && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums">atual vs {prevMonthStats.posts}</p>}
+                <div>
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-1">Saldo Pend.</p>
+                  {loading ? <div className="h-5 w-24 rounded bg-white/20 animate-pulse" />
+                    : <p className="text-base font-bold tabular-nums">{usdBrl ? formatBRL(pendingBalance * usdBrl) : `$${pendingBalance.toFixed(2)}`}</p>}
+                  {!loading && <p className="text-[9px] text-white/40 mt-0.5">{pendingBalance > 0 ? `$${pendingBalance.toFixed(2)} USD` : "acumulado"}</p>}
                 </div>
-                {/* 7 Views comparativo — só desktop */}
-                <div className="hidden sm:block">
-                  <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Views Ant.</p>
-                  {loading ? <div className="h-5 sm:h-7 w-14 sm:w-20 rounded bg-white/20 animate-pulse" />
-                    : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{fmt(prevMonthStats.views)}</p>}
-                  {!loading && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5">{prevMonthStats.label}</p>}
+                <div>
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-1">Score Geral</p>
+                  {loading ? <div className="h-5 w-16 rounded bg-white/20 animate-pulse" />
+                    : <p className="text-base font-bold tabular-nums">{avgScoreVal}<span className="text-xs font-normal text-white/50">/100</span></p>}
+                  {!loading && <p className="text-[9px] text-white/40 mt-0.5">{pageStatsWithGlobalScores.length} páginas</p>}
                 </div>
               </div>
             </div>
@@ -2077,222 +2062,230 @@ function AdminDashboard() {
             );
           })()}
 
-          {/* ═══════════════ MISSÕES ═══════════════ */}
-          {!loading && (missionBest || missionBestIG) && (() => {
-            const n = (v: number) =>
-              v >= 1e9 ? `${(v / 1e9).toFixed(1)}B`
-              : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M`
-              : v >= 1e3 ? `${(v / 1e3).toFixed(0)}k`
-              : `${Math.round(v)}`;
-            const u = (v: number) => `$${v.toFixed(0)}`;
-            const r = (v: number) => `$${v.toFixed(2)}`;
-
-            type MissionDef = { icon: React.ElementType; label: string; cur: number; best: number; fmt: (v: number) => string };
-
-            const missionsFB: MissionDef[] = missionBest ? [
-              { icon: DollarSign,      label: "Meta $100",      cur: missionCur.revenue,     best: 100,                     fmt: r },
-              { icon: Eye,             label: "Views",          cur: missionCur.views,       best: missionBest.views,       fmt: n },
-              { icon: DollarSign,      label: "Receita CSV",    cur: missionCur.usd,         best: missionBest.usd,         fmt: u },
-              { icon: Zap,             label: "Ganhos Reais",   cur: missionCur.revenue,     best: missionBest.revenue,     fmt: u },
-              { icon: Heart,           label: "Reações",        cur: missionCur.reactions,   best: missionBest.reactions,   fmt: n },
-              { icon: MessageSquare,   label: "Comentários",    cur: missionCur.comments,    best: missionBest.comments,    fmt: n },
-              { icon: Share2,          label: "Compartilhados", cur: missionCur.shares,      best: missionBest.shares,      fmt: n },
-              { icon: Maximize2,       label: "Alcance",        cur: missionCur.reach,       best: missionBest.reach,       fmt: n },
-              { icon: Users,           label: "Seguidores",     cur: missionCur.followers,   best: missionBest.followers,   fmt: n },
-              { icon: CheckCircle2,    label: "Monetizados",    cur: missionCur.monetized,   best: missionBest.monetized,   fmt: n },
-              { icon: Calendar,        label: "Dias c/ Ganho",  cur: missionCur.daysRevenue, best: missionBest.daysRevenue, fmt: n },
-              { icon: Target,          label: "RPM",            cur: missionCur.rpm,         best: missionBest.rpm,         fmt: r },
-            ] : [];
-
-            const missionsIG: MissionDef[] = missionBestIG ? [
-              { icon: Eye,             label: "Views",          cur: missionCurIG.views,     best: missionBestIG.views,     fmt: n },
-              { icon: DollarSign,      label: "Receita CSV",    cur: missionCurIG.usd,       best: missionBestIG.usd,       fmt: u },
-              { icon: Heart,           label: "Reações",        cur: missionCurIG.reactions, best: missionBestIG.reactions, fmt: n },
-              { icon: MessageSquare,   label: "Comentários",    cur: missionCurIG.comments,  best: missionBestIG.comments,  fmt: n },
-              { icon: Share2,          label: "Compartilhados", cur: missionCurIG.shares,    best: missionBestIG.shares,    fmt: n },
-              { icon: Maximize2,       label: "Alcance",        cur: missionCurIG.reach,     best: missionBestIG.reach,     fmt: n },
-              { icon: CheckCircle2,    label: "Monetizados",    cur: missionCurIG.monetized, best: missionBestIG.monetized, fmt: n },
-              { icon: Target,          label: "RPM",            cur: missionCurIG.rpm,       best: missionBestIG.rpm,       fmt: r },
-            ] : [];
-
-            const MissionRow = ({ missions, accentColor, innerBg }: { missions: MissionDef[]; accentColor: string; innerBg: string }) => (
-              <div
-                className="flex gap-1 overflow-x-auto pb-1"
-                style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
-              >
-                {missions.map(({ icon, label, cur, best, fmt }) => (
-                  <MissionStoryCard
-                    key={label}
-                    icon={icon}
-                    label={label}
-                    progress={best > 0 ? cur / best : 0}
-                    value={fmt(cur)}
-                    goal={fmt(best)}
-                    accentColor={accentColor}
-                    innerBg={innerBg}
-                  />
-                ))}
+          {/* ═══════════════ 4 KPI CARDS ═══════════════ */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {loading ? [1,2,3,4].map(i => (
+              <div key={i} className="bg-white rounded-2xl p-5 border border-[#F0F0F0] space-y-3" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+                <Sk w="w-20" h="h-2.5" /><Sk w="w-28" h="h-7" /><Sk w="w-24" h="h-2.5" />
               </div>
-            );
-
-            return (
-              <div className="space-y-3">
-                {/* Section header */}
-                <div className="flex items-baseline gap-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#9B9B9B]">
-                    Missões do Mês
-                  </p>
-                  <span className="text-[10px] font-mono font-semibold text-[#C0C0C0] tracking-widest tabular-nums">
-                    · {monthCountdown}
-                  </span>
+            )) : ([
+              { label: "Views", value: fmt(totalViews), sub: `${kpis.totalPosts} posts`, icon: Eye },
+              { label: "Alcance", value: fmt(missionCur.reach + missionCurIG.reach), sub: "pessoas alcançadas", icon: Maximize2 },
+              { label: "RPM", value: usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(3)}`, sub: "por mil visualizações", icon: Target },
+              { label: "Monetizados", value: String(missionCur.monetized + missionCurIG.monetized), sub: "posts com receita", icon: CheckCircle2 },
+            ] as { label: string; value: string; sub: string; icon: React.ElementType }[]).map(({ label, value, sub, icon: Icon }) => (
+              <div key={label} className="bg-white rounded-2xl p-4 sm:p-5 border border-[#F0F0F0] transition-shadow hover:shadow-md" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[#666]">{label}</span>
+                  <div className="h-7 w-7 rounded-lg bg-[#FFF3EE] flex items-center justify-center">
+                    <Icon className="h-3.5 w-3.5 text-[#FF6B00]" />
+                  </div>
                 </div>
-
-                {/* Facebook card */}
-                {missionsFB.length > 0 && (
-                  <div className="rounded-2xl border border-[#1877F2]/20 bg-[#EEF4FF] px-4 pt-3 pb-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      {/* Facebook "f" logo */}
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2">
-                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                      </svg>
-                      <span className="text-xs font-bold text-[#1877F2] uppercase tracking-wider">Facebook</span>
-                    </div>
-                    <MissionRow missions={missionsFB} accentColor="#1877F2" innerBg="#DDEAFF" />
-                  </div>
-                )}
-
-                {/* Instagram card */}
-                {missionsIG.length > 0 && (
-                  <div className="rounded-2xl border border-[#C13584]/20 px-4 pt-3 pb-4"
-                    style={{ background: "linear-gradient(135deg, #fdf0ff 0%, #fff0f7 50%, #fff4ec 100%)" }}>
-                    <div className="flex items-center gap-2 mb-3">
-                      {/* Instagram gradient logo */}
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                        <defs>
-                          <linearGradient id="igGrad" x1="0" y1="1" x2="1" y2="0">
-                            <stop offset="0%" stopColor="#FCAF45"/>
-                            <stop offset="30%" stopColor="#E1306C"/>
-                            <stop offset="70%" stopColor="#833AB4"/>
-                          </linearGradient>
-                        </defs>
-                        <path fill="url(#igGrad)" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
-                      </svg>
-                      <span className="text-xs font-bold uppercase tracking-wider"
-                        style={{ background: "linear-gradient(90deg, #833AB4, #E1306C, #FCAF45)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                        Instagram
-                      </span>
-                    </div>
-                    <MissionRow missions={missionsIG} accentColor="#C13584" innerBg="#fde8f5" />
-                  </div>
-                )}
+                <p className="text-2xl font-black tabular-nums text-[#111]">{value}</p>
+                <p className="text-[10px] text-[#999] mt-1">{sub}</p>
               </div>
-            );
-          })()}
+            ))}
+          </div>
 
-          {/* ═══════════════ RANKING CAROUSEL ═══════════════ */}
+          {/* ═══════════════ PLATFORM TABLE + INSIGHTS ═══════════════ */}
+          <div className="grid grid-cols-1 lg:grid-cols-7 gap-4">
+            {/* Comparison table */}
+            <div className="lg:col-span-4 bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+              <div className="px-5 pt-5 pb-3 border-b border-[#F7F7F7]">
+                <h2 className="text-sm font-bold text-[#111]">Desempenho por Rede</h2>
+                <p className="text-[11px] text-[#999] mt-0.5">Comparativo Facebook vs Instagram no período</p>
+              </div>
+              {loading ? (
+                <div className="p-5 space-y-3">
+                  {[1,2,3,4,5,6,7,8,9].map(i => <div key={i} className="flex items-center justify-between"><Sk w="w-32" h="h-3" /><Sk w="w-16" h="h-3" /><Sk w="w-16" h="h-3" /></div>)}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-[10px] font-semibold uppercase tracking-wider text-[#999] bg-[#FAFAFA]">
+                        <th className="text-left px-5 py-3 font-semibold">Métrica</th>
+                        <th className="text-right px-5 py-3 font-semibold">Facebook</th>
+                        <th className="text-right px-5 py-3 font-semibold">Instagram</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#F7F7F7]">
+                      {([
+                        { label: "Views",             fb: fmt(missionCur.views),        ig: fmt(missionCurIG.views),        primary: true },
+                        { label: "Alcance",           fb: fmt(missionCur.reach),        ig: fmt(missionCurIG.reach),        primary: true },
+                        { label: "RPM",               fb: usdBrl ? formatBRL(missionCur.rpm * usdBrl) : `$${missionCur.rpm.toFixed(3)}`,   ig: usdBrl ? formatBRL(missionCurIG.rpm * usdBrl) : `$${missionCurIG.rpm.toFixed(3)}`, primary: true },
+                        { label: "Receita CSV",       fb: usdBrl ? formatBRL(missionCur.usd * usdBrl) : `$${missionCur.usd.toFixed(2)}`,   ig: usdBrl ? formatBRL(missionCurIG.usd * usdBrl) : `$${missionCurIG.usd.toFixed(2)}`, primary: true },
+                        { label: "Ganhos Reais",      fb: usdBrl ? formatBRL(missionCur.revenue * usdBrl) : `$${missionCur.revenue.toFixed(2)}`, ig: "—", primary: true },
+                        { label: "Monetizados",       fb: `${missionCur.monetized} posts`,   ig: `${missionCurIG.monetized} posts` },
+                        { label: "Reações",           fb: fmt(missionCur.reactions),    ig: fmt(missionCurIG.reactions) },
+                        { label: "Comentários",       fb: fmt(missionCur.comments),     ig: fmt(missionCurIG.comments) },
+                        { label: "Compartilhamentos", fb: fmt(missionCur.shares),       ig: fmt(missionCurIG.shares) },
+                      ] as { label: string; fb: string; ig: string; primary?: boolean }[]).map(({ label, fb, ig, primary }) => (
+                        <tr key={label} className="hover:bg-[#FAFAFA] transition-colors">
+                          <td className={`px-5 py-3 text-sm ${primary ? "font-medium text-[#111]" : "text-[#666]"}`}>{label}</td>
+                          <td className={`px-5 py-3 text-right tabular-nums text-sm ${primary ? "font-semibold text-[#111]" : "text-[#999]"}`}>{fb}</td>
+                          <td className={`px-5 py-3 text-right tabular-nums text-sm ${primary ? "font-semibold text-[#111]" : "text-[#999]"}`}>{ig}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Insights sidebar */}
+            <div className="lg:col-span-3 flex flex-col gap-3">
+              {/* Meta $100 */}
+              <div className="bg-white rounded-2xl border border-[#F0F0F0] p-5" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#999] mb-3">🎯 Meta do Mês</p>
+                <div className="flex items-end justify-between mb-2">
+                  <p className="text-2xl font-black tabular-nums text-[#111]">${missionCur.revenue.toFixed(2)}</p>
+                  <p className="text-sm text-[#999] mb-0.5">de $100,00</p>
+                </div>
+                <div className="h-2 rounded-full bg-[#F0F0F0] overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[#FF6B00] transition-all duration-700"
+                    style={{ width: `${Math.min(100, (missionCur.revenue / 100) * 100)}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-1.5">
+                  <p className="text-[10px] text-[#999]">{Math.min(100, Math.round((missionCur.revenue / 100) * 100))}% concluído</p>
+                  <p className="text-[10px] text-[#999]">{monthCountdown} restantes</p>
+                </div>
+              </div>
+
+              {/* Best collaborator */}
+              {(() => {
+                const top = activeCollabCards.filter(c => c.id !== SEM_COLAB_ID && c.receita > 0.001)[0];
+                if (!top) return null;
+                return (
+                  <div className="bg-white rounded-2xl border border-[#F0F0F0] p-5" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-[#999] mb-3">🔥 Melhor Colaborador</p>
+                    <div className="flex items-center gap-3">
+                      <ColabInitials nome={top.nome} idx={0} size={40} avatarUrl={top.avatar_url} />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-[#111] truncate">{top.nome.split(" ")[0]}</p>
+                        <p className="text-xs text-[#999] tabular-nums">{fmt(Math.round(top.views))} views</p>
+                      </div>
+                      <p className="text-sm font-black tabular-nums text-[#FF6B00] shrink-0">
+                        {usdBrl ? formatBRL(top.receita * usdBrl) : `$${top.receita.toFixed(2)}`}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Pending balance */}
+              {pendingBalance > 0 && (
+                <div className="bg-white rounded-2xl border border-[#F0F0F0] p-5" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#999] mb-2">⏳ Saldo Pendente</p>
+                  <p className="text-xl font-black tabular-nums text-[#111]">{usdBrl ? formatBRL(pendingBalance * usdBrl) : `$${pendingBalance.toFixed(2)}`}</p>
+                  <p className="text-[10px] text-[#999] mt-1">fechamentos abertos de meses anteriores</p>
+                  <p className="text-[10px] text-[#999] tabular-nums">${pendingBalance.toFixed(2)} USD</p>
+                </div>
+              )}
+
+              {/* Score */}
+              <div className="bg-white rounded-2xl border border-[#F0F0F0] p-5" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#999] mb-2">📊 Score Geral</p>
+                <p className="text-xl font-black tabular-nums text-[#111]">{loading ? "—" : avgScoreVal}<span className="text-sm font-normal text-[#999]">/100</span></p>
+                <p className="text-[10px] text-[#999] mt-1">{pageStatsWithGlobalScores.length} páginas avaliadas no período</p>
+              </div>
+
+              {/* Posts this period */}
+              <div className="bg-white rounded-2xl border border-[#F0F0F0] p-5" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#999] mb-2">📝 Posts</p>
+                <p className="text-xl font-black tabular-nums text-[#111]">{loading ? "—" : kpis.totalPosts}</p>
+                <p className="text-[10px] text-[#999] mt-1">vs {prevMonthStats.posts} no mês anterior</p>
+              </div>
+            </div>
+          </div>
+
+          {/* ═══════════════ RANKING ═══════════════ */}
           {(() => {
             const currentCards = activeCollabCards.filter((c) => c.id !== SEM_COLAB_ID && c.receita > 0.001).slice(0, 8);
             const isFallback = currentCards.length === 0;
             const displayCards = isFallback ? prevMonthTopColabs : currentCards;
-
-            // rank accent colours: gold / silver / bronze / neutral
-            const rankAccent = [
-              { bg: "#FFF7E6", border: "#F5C842", label: "#B8860B" },
-              { bg: "#F5F5F5", border: "#B0B0B0", label: "#6B6B6B" },
-              { bg: "#FFF1EB", border: "#E07A50", label: "#C05A30" },
-            ];
-            const defaultAccent = { bg: "#FAFAFA", border: "#E8E8E8", label: "#9B9B9B" };
+            const medals = ["🥇", "🥈", "🥉"];
 
             return (
-              <div className="bg-white border border-[#F1F1F1] rounded-2xl overflow-hidden" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+              <div className="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
                 {/* Header */}
-                <div className="flex items-center justify-between px-4 sm:px-5 pt-4 sm:pt-5 pb-3">
+                <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-[#F7F7F7]">
                   <div>
-                    <h2 className="text-sm sm:text-base font-bold text-[#1A0A00]">Ranking</h2>
-                    <p className="text-[11px] text-[#9B9B9B] mt-0.5">
-                      {isFallback ? "Top colaboradores · mês passado" : "Colaboradores no período"}
+                    <h2 className="text-sm font-bold text-[#111]">Ranking de Colaboradores</h2>
+                    <p className="text-[11px] text-[#999] mt-0.5">
+                      {isFallback ? "Dados do mês anterior" : "Período selecionado"}
                     </p>
                   </div>
-                  <button onClick={() => navigate({ to: "/admin/colaboradores" })} className="text-xs font-semibold text-[#F44708] hover:text-[#D93D07] transition-colors">
+                  <button
+                    onClick={() => navigate({ to: "/admin/colaboradores" })}
+                    className="text-xs font-semibold text-[#FF6B00] hover:opacity-70 transition-opacity"
+                  >
                     Ver todos →
                   </button>
                 </div>
 
-                {/* Carousel */}
-                <div
-                  className="flex gap-2 px-4 sm:px-5 pb-4 sm:pb-5 overflow-x-auto"
-                  style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
-                >
+                {/* Rows */}
+                <div className="divide-y divide-[#F7F7F7]">
                   {loading ? (
                     [1,2,3,4,5].map(i => (
-                      <div key={i} className="flex-none w-[130px] rounded-2xl border border-[#F1F1F1] p-3 space-y-2">
-                        <Sk w="w-8" h="h-4" className="rounded-full" />
-                        <Sk w="w-10" h="h-10" className="rounded-full" />
-                        <Sk w="w-16" h="h-3" />
-                        <Sk w="w-12" h="h-2.5" />
-                        <Sk w="w-14" h="h-4" />
+                      <div key={i} className="flex items-center gap-4 px-5 py-3.5">
+                        <Sk w="w-6" h="h-4" className="rounded" />
+                        <Sk w="w-9" h="h-9" className="rounded-full" />
+                        <div className="flex-1 space-y-1.5"><Sk w="w-24" h="h-3.5" /><Sk w="w-16" h="h-2.5" /></div>
+                        <div className="space-y-1.5 text-right"><Sk w="w-20" h="h-4" /></div>
                       </div>
                     ))
                   ) : displayCards.length === 0 ? (
-                    <p className="text-xs text-[#9B9B9B] py-6 px-2">Nenhum colaborador no período</p>
+                    <p className="text-xs text-[#999] px-5 py-10 text-center">Nenhum colaborador com receita no período</p>
                   ) : displayCards.map((card, i) => {
                     const displayReceita = isFallback ? 0 : card.receita;
                     const displayViews   = isFallback ? 0 : card.views;
                     const receitaOn  = collabCards.find(c => c.id === card.id)?.receita ?? card.receita;
                     const receitaOff = collabCardsCsv.find(c => c.id === card.id)?.receita ?? card.receita;
                     const delta = !isFallback && showManual && receitaOff > 0.001 ? ((receitaOn - receitaOff) / receitaOff) * 100 : null;
-                    const accent = rankAccent[i] ?? defaultAccent;
-                    const isFirst = i === 0;
 
                     return (
                       <button
                         key={card.id}
                         onClick={() => setAuditColabId(card.id)}
-                        className="flex-none flex flex-col gap-2 p-3 rounded-2xl transition-all active:scale-95 text-left"
-                        style={{
-                          minWidth: isFirst ? 148 : 132,
-                          background: accent.bg,
-                          border: `1.5px solid ${accent.border}`,
-                        }}
+                        className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-[#FAFAFA] transition-colors text-left group"
                       >
-                        {/* Rank label */}
-                        <div className="flex items-center justify-between w-full">
-                          <span
-                            className="text-[10px] font-black uppercase tracking-widest"
-                            style={{ color: accent.label }}
-                          >
-                            {i === 0 ? "1º lugar" : i === 1 ? "2º lugar" : i === 2 ? "3º lugar" : `${i + 1}º`}
-                          </span>
-                          {delta !== null && (
-                            <span className={`text-[9px] font-bold px-1 py-0.5 rounded-full ${delta >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
-                              {delta >= 0 ? "▲" : "▼"}{Math.abs(delta).toFixed(0)}%
-                            </span>
-                          )}
-                        </div>
+                        {/* Position */}
+                        <span className="text-base w-7 text-center shrink-0 select-none">
+                          {medals[i] ?? <span className="text-sm font-bold text-[#999]">{i + 1}°</span>}
+                        </span>
 
                         {/* Avatar */}
-                        <div
-                          className="relative flex items-center justify-center"
-                          style={{ width: isFirst ? 52 : 44, height: isFirst ? 52 : 44 }}
-                        >
-                          <GoalRing revenueUsd={displayReceita} size={isFirst ? 52 : 44} />
-                          <ColabInitials nome={card.nome} idx={i} size={isFirst ? 42 : 34} avatarUrl={card.avatar_url} />
+                        <div className="shrink-0">
+                          <ColabInitials nome={card.nome} idx={i} size={38} avatarUrl={card.avatar_url} />
                         </div>
 
-                        {/* Name */}
-                        <div>
-                          <p className={`text-xs font-bold leading-tight truncate max-w-[110px] ${isFallback ? "text-[#9B9B9B]" : "text-[#1A0A00]"}`}>
-                            {card.nome.split(" ")[0]}
-                          </p>
-                          <p className="text-[10px] text-[#9B9B9B] tabular-nums mt-0.5">
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-[#111] truncate">{card.nome.split(" ")[0]}</p>
+                          <p className="text-[11px] text-[#999] tabular-nums mt-0.5">
                             {isFallback ? "—" : `${fmt(Math.round(displayViews))} views`}
                           </p>
                         </div>
 
-                        {/* Revenue — main focus */}
-                        <p className={`text-sm font-black tabular-nums mt-auto ${isFallback ? "text-[#C0C0C0]" : "text-[#1A0A00]"}`}>
-                          {isFallback ? "R$ 0,00" : (usdBrl ? formatBRL(displayReceita * usdBrl) : `$${displayReceita.toFixed(2)}`)}
-                        </p>
+                        {/* Delta badge */}
+                        {delta !== null && (
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${delta >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"}`}>
+                            {delta >= 0 ? "▲" : "▼"}{Math.abs(delta).toFixed(0)}%
+                          </span>
+                        )}
+
+                        {/* Revenue */}
+                        <div className="text-right shrink-0">
+                          <p className={`text-sm font-bold tabular-nums ${isFallback ? "text-[#999]" : "text-[#111]"}`}>
+                            {isFallback ? "—" : (usdBrl ? formatBRL(displayReceita * usdBrl) : `$${displayReceita.toFixed(2)}`)}
+                          </p>
+                        </div>
+
+                        {/* Chevron */}
+                        <ChevronRight className="h-4 w-4 text-[#D9D9D9] group-hover:text-[#999] transition-colors shrink-0" />
                       </button>
                     );
                   })}
