@@ -193,10 +193,14 @@ function PageSelect({
   pages,
   value,
   onChange,
+  igPageIds,
+  platform,
 }: {
   pages: PageOption[];
   value: string;
   onChange: (v: string) => void;
+  igPageIds: Set<string>;
+  platform: Platform;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -251,7 +255,10 @@ function PageSelect({
                     }`}
                   >
                     <Coins className={`h-3.5 w-3.5 shrink-0 ${value === p.id ? "text-white/80" : "text-emerald-500"}`} />
-                    <span className="truncate">{p.nome}</span>
+                    <span className="truncate flex-1">{p.nome}</span>
+                    {igPageIds.has(p.id) && (
+                      <span className={`text-[9px] font-bold px-1 py-0.5 rounded shrink-0 ${value === p.id ? "bg-white/20 text-white" : "bg-gradient-to-r from-[#833AB4] to-[#F77737] text-white"}`}>IG</span>
+                    )}
                   </button>
                 ))}
               </>
@@ -271,7 +278,10 @@ function PageSelect({
                     }`}
                   >
                     <Coins className={`h-3.5 w-3.5 shrink-0 ${value === p.id ? "text-white/80" : "text-red-400"}`} />
-                    <span className="truncate">{p.nome}</span>
+                    <span className="truncate flex-1">{p.nome}</span>
+                    {igPageIds.has(p.id) && (
+                      <span className={`text-[9px] font-bold px-1 py-0.5 rounded shrink-0 ${value === p.id ? "bg-white/20 text-white" : "bg-gradient-to-r from-[#833AB4] to-[#F77737] text-white"}`}>IG</span>
+                    )}
                   </button>
                 ))}
               </>
@@ -348,6 +358,7 @@ function BonusManualPage() {
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const isIG = platform === "instagram";
+  const [igPageIds, setIgPageIds] = useState<Set<string>>(new Set());
 
   // Load pages list once
   useEffect(() => {
@@ -359,15 +370,24 @@ function BonusManualPage() {
 
       if (!pagesData || pagesData.length === 0) return;
 
-      const { data: revPosts } = await supabase
-        .from("posts")
-        .select("page_id, monetization_approx, estimated_usd")
-        .or("monetization_approx.gt.0,estimated_usd.gt.0");
+      const [{ data: revPosts }, { data: igPosts }] = await Promise.all([
+        supabase
+          .from("posts")
+          .select("page_id, monetization_approx, estimated_usd")
+          .or("monetization_approx.gt.0,estimated_usd.gt.0"),
+        supabase
+          .from("posts")
+          .select("page_id")
+          .eq("source", "instagram"),
+      ]);
 
       const revCounts = new Map<string, number>();
       for (const p of (revPosts ?? []) as any[]) {
         revCounts.set(p.page_id, (revCounts.get(p.page_id) ?? 0) + 1);
       }
+
+      const igIds = new Set<string>((igPosts ?? []).map((p: any) => p.page_id));
+      setIgPageIds(igIds);
 
       const list: PageOption[] = (pagesData as any[]).map((p) => ({
         id: p.id,
@@ -742,13 +762,24 @@ function BonusManualPage() {
 
       {/* Platform selector */}
       <div className="flex flex-wrap items-center gap-3">
-        <PlatformTabs value={platform} onChange={(p) => { setPlatform(p); setRows([]); }} />
+        <PlatformTabs
+          value={platform}
+          onChange={(p) => {
+            setPlatform(p);
+            setRows([]);
+            // Auto-select first page with IG posts when switching to Instagram
+            if (p === "instagram" && !igPageIds.has(selectedPageId)) {
+              const firstIg = pages.find((pg) => igPageIds.has(pg.id));
+              if (firstIg) setSelectedPageId(firstIg.id);
+            }
+          }}
+        />
       </div>
 
       {/* Page + Month selectors */}
       <div className="flex flex-wrap items-center gap-3">
         {pages.length > 0 && (
-          <PageSelect pages={pages} value={selectedPageId} onChange={setSelectedPageId} />
+          <PageSelect pages={pages} value={selectedPageId} onChange={setSelectedPageId} igPageIds={igPageIds} platform={platform} />
         )}
 
         {/* Month navigation */}
