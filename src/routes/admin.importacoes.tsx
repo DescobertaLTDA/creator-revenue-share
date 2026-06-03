@@ -356,6 +356,36 @@ export default function DataPipelinePage() {
         }
       }
 
+      // ── Step 3b: Auto-fill Instagram seguimentos in daily_revenue_entries ──
+      if (parsed.source === "instagram") {
+        const followsByPageDay = new Map<string, { pageId: string; date: string; follows: number }>();
+        for (const r of parsed.rows) {
+          if (!r.published_at || !r.follows_gained) continue;
+          const pageId = pageIdMap.get(r.external_page_id);
+          if (!pageId) continue;
+          const day = r.published_at.toISOString().slice(0, 10);
+          const key = `${pageId}::${day}`;
+          const cur = followsByPageDay.get(key);
+          if (cur) cur.follows += r.follows_gained;
+          else followsByPageDay.set(key, { pageId, date: day, follows: r.follows_gained });
+        }
+        if (followsByPageDay.size > 0) {
+          const followsPayload = Array.from(followsByPageDay.values()).map(({ pageId, date, follows }) => ({
+            entry_date: date,
+            page_id: pageId,
+            platform: "instagram",
+            actual_followers: Math.round(follows),
+            distribution_mode: "hybrid",
+            updated_at: new Date().toISOString(),
+            updated_by: profile!.id,
+            created_by: profile!.id,
+          }));
+          await (supabase as any)
+            .from("daily_revenue_entries")
+            .upsert(followsPayload, { onConflict: "entry_date,page_id,platform" });
+        }
+      }
+
       setActiveUploadStep(4);
       const { data: collaborators } = await (supabase as any)
         .from("collaborators").select("id, hashtag").eq("ativo", true).not("hashtag", "is", null);
