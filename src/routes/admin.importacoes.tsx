@@ -1566,10 +1566,10 @@ function PipelineStepper({ imp, activeStep }: { imp: ImportRow | null; activeSte
           return (
             <div key={step.key} className="flex-1 flex flex-col items-center min-w-0">
               <div className="flex items-center w-full">
-                <div className={cn("h-0.5 flex-1 transition-all duration-500", i === 0 ? "opacity-0" : done ? "bg-green-400" : "bg-border")} />
+                <div className={cn("h-0.5 flex-1 transition-all duration-500", i === 0 ? "opacity-0" : done ? "bg-[#F44708]" : "bg-border")} />
                 <div className={cn(
                   "h-7 w-7 rounded-full flex items-center justify-center shrink-0 border-2 transition-all duration-500",
-                  done   ? "bg-green-500 border-green-500 text-white" :
+                  done   ? "bg-[#F44708] border-[#F44708] text-white" :
                   active ? "bg-[#F44708] border-[#F44708] text-white" :
                   error  ? "bg-red-500 border-red-500 text-white" :
                            "bg-card border-border"
@@ -1579,7 +1579,7 @@ function PipelineStepper({ imp, activeStep }: { imp: ImportRow | null; activeSte
                   : error  ? <AlertCircle className="h-4 w-4" />
                   : <div className="h-2 w-2 rounded-full bg-border" />}
                 </div>
-                <div className={cn("h-0.5 flex-1 transition-all duration-500", i === STEPS.length - 1 ? "opacity-0" : done ? "bg-green-400" : "bg-border")} />
+                <div className={cn("h-0.5 flex-1 transition-all duration-500", i === STEPS.length - 1 ? "opacity-0" : done ? "bg-[#F44708]" : "bg-border")} />
               </div>
               <div className="mt-3 text-center px-1 w-full">
                 <p className={cn(
@@ -1589,7 +1589,7 @@ function PipelineStepper({ imp, activeStep }: { imp: ImportRow | null; activeSte
                 {sub && (
                   <p className={cn(
                     "text-[10px] font-medium mt-0.5",
-                    active ? "text-[#F44708] animate-pulse" : error ? "text-red-500" : "text-green-600"
+                    active ? "text-[#F44708] animate-pulse" : error ? "text-red-500" : "text-[#F44708]"
                   )}>{sub}</p>
                 )}
               </div>
