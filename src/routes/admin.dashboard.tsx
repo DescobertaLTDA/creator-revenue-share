@@ -2107,27 +2107,43 @@ function AdminDashboard() {
 
           {/* ═══════════════ TOP 5 POSTS ═══════════════ */}
           {!loading && top5Posts.length > 0 && (
-            <div className="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-              <div className="px-5 pt-4 pb-3 border-b border-[#F7F7F7] flex items-center justify-between">
+            <div>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-3 px-0.5">
                 <div>
-                  <h2 className="text-sm font-bold text-[#111]">Top 5 Posts</h2>
-                  <p className="text-[11px] text-[#999] mt-0.5">
+                  <h2 className="text-sm font-bold text-[#111] flex items-center gap-2">
+                    <Trophy className="h-3.5 w-3.5 text-[#F44708]" />
+                    Top 5 Posts
+                  </h2>
+                  <p className="text-[11px] text-[#999] mt-0.5 ml-5">
                     {filterPage !== "all"
                       ? "Melhores posts da página selecionada no período"
                       : "Melhores posts de todas as páginas no período"}
                   </p>
                 </div>
-                <Trophy className="h-4 w-4 text-[#FF6B00]" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#BBB]">por views</span>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y divide-[#F7F7F7]">
+
+              {/* Cards row */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 {top5Posts.map((post, idx) => {
-                  const rankColors = ["#F44708", "#FAA613", "#FAA613", "#94a3b8", "#94a3b8"];
-                  const rankColor = rankColors[idx] ?? "#94a3b8";
+                  const rankMeta = [
+                    { color: "#F44708", bg: "bg-[#F44708]", label: "bg-[#FFF1ED] text-[#F44708]" },
+                    { color: "#FAA613", bg: "bg-[#FAA613]", label: "bg-[#FFF8ED] text-[#E0900A]" },
+                    { color: "#FAA613", bg: "bg-[#FAA613]", label: "bg-[#FFF8ED] text-[#E0900A]" },
+                    { color: "#94a3b8", bg: "bg-[#94a3b8]", label: "bg-[#F1F5F9] text-[#64748b]" },
+                    { color: "#94a3b8", bg: "bg-[#94a3b8]", label: "bg-[#F1F5F9] text-[#64748b]" },
+                  ];
+                  const rank = rankMeta[idx] ?? rankMeta[4];
                   const dateLabel = post.published_at
                     ? (() => { const [, m, d] = post.published_at!.slice(0,10).split("-"); return `${d}/${m}`; })()
                     : "—";
                   return (
-                    <div key={post.id} className="flex flex-col">
+                    <div
+                      key={post.id}
+                      className="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden flex flex-col"
+                      style={{ boxShadow: "0 1px 4px rgba(0,0,0,.05)" }}
+                    >
                       {/* 4:3 thumbnail */}
                       <div className="relative w-full" style={{ paddingTop: "75%" }}>
                         {post.thumbnail_url ? (
@@ -2137,35 +2153,37 @@ function AdminDashboard() {
                             className="absolute inset-0 w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="absolute inset-0 bg-[#F7F4F1] flex items-center justify-center">
-                            <FileText className="h-8 w-8 text-[#E0D8D0]" />
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2"
+                            style={{ background: "linear-gradient(135deg,#FAF7F5 0%,#F2EDE8 100%)" }}>
+                            <FileText className="h-7 w-7 text-[#DDD4CB]" />
+                            <span className="text-[9px] font-medium text-[#C5B9B0] tracking-wide uppercase">Sem imagem</span>
                           </div>
                         )}
                         {/* Rank badge */}
                         <div
-                          className="absolute top-2 left-2 h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow"
-                          style={{ background: rankColor }}
+                          className={`absolute top-2 left-2 h-6 w-6 rounded-full flex items-center justify-center text-[11px] font-black text-white shadow-md ${rank.bg}`}
                         >
                           {idx + 1}
                         </div>
+                        {/* Views pill — overlaid at bottom */}
+                        <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
+                          <Eye className="h-2.5 w-2.5 text-white/80" />
+                          <span className="text-[10px] font-bold text-white tabular-nums">{fmt(post.views)}</span>
+                        </div>
                       </div>
+
                       {/* Info */}
-                      <div className="p-3 flex flex-col gap-1 flex-1">
-                        <p className="text-xs font-semibold text-[#111] line-clamp-2 leading-snug">
+                      <div className="p-3 flex flex-col gap-1.5 flex-1">
+                        <p className="text-[11px] font-semibold text-[#111] line-clamp-2 leading-snug">
                           {post.title ?? `Post de ${dateLabel}`}
                         </p>
                         {filterPage === "all" && (
-                          <p className="text-[10px] text-[#999] truncate">{post.pageName}</p>
+                          <p className="text-[10px] text-[#AAA] truncate leading-none">{post.pageName}</p>
                         )}
-                        <div className="mt-auto pt-1.5 flex items-center justify-between">
-                          <div className="flex items-center gap-1">
-                            <Eye className="h-3 w-3 text-[#FF6B00]" />
-                            <span className="text-xs font-bold text-[#111] tabular-nums">
-                              {fmt(post.views)}
-                            </span>
-                          </div>
+                        <div className="mt-auto pt-1 flex items-center justify-between">
+                          <span className="text-[9px] font-semibold text-[#C0B8B0] tabular-nums uppercase tracking-wide">{dateLabel}</span>
                           {post.revenue > 0 && usdBrl && (
-                            <span className="text-[10px] font-semibold text-[#10b981]">
+                            <span className="text-[10px] font-bold text-[#10b981] tabular-nums">
                               {formatBRL(post.revenue * usdBrl)}
                             </span>
                           )}
