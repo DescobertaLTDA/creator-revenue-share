@@ -1328,6 +1328,11 @@ function AdminDashboard() {
     reach: number; monetized: number;
     revenue: number; followers: number; daysRevenue: number; rpm: number;
   } | null>(null);
+  const [missionBestIG, setMissionBestIG] = useState<{
+    posts: number; views: number; usd: number;
+    reactions: number; comments: number; shares: number;
+    reach: number; monetized: number; rpm: number;
+  } | null>(null);
   const [allTimeAvgDaily, setAllTimeAvgDaily] = useState<number>(0);
 
   // Projection chart data: full history real + future projection
@@ -1612,39 +1617,46 @@ function AdminDashboard() {
     let cancelled = false;
     (async () => {
       try {
-        // Fetch ALL Facebook posts (paginated, lightweight fields)
-        type FbRow = { published_at: string; monetization_approx: number | null; estimated_usd: number | null; views: number | null; reactions: number | null; comments: number | null; shares: number | null; reach: number | null };
-        const fbPosts: FbRow[] = [];
+        // Fetch ALL posts (FB + IG) for best-ever computation
+        type PostRow = { published_at: string; monetization_approx: number | null; estimated_usd: number | null; views: number | null; reactions: number | null; comments: number | null; shares: number | null; reach: number | null; source: string | null };
+        const allHistPosts: PostRow[] = [];
         let from = 0;
         while (true) {
           const { data, error } = await (supabase as any)
             .from("posts")
-            .select("published_at,monetization_approx,estimated_usd,views,reactions,comments,shares,reach")
-            .eq("source", "facebook")
+            .select("published_at,monetization_approx,estimated_usd,views,reactions,comments,shares,reach,source")
             .not("published_at", "is", null)
             .range(from, from + 999);
           if (error || !data || data.length === 0) break;
-          fbPosts.push(...data);
+          allHistPosts.push(...data);
           if (data.length < 1000) break;
           from += data.length;
         }
 
-        // Monthly aggregates for posts
+        // Monthly aggregates helper
         type PM = { posts: number; usd: number; views: number; reactions: number; comments: number; shares: number; reach: number; monetized: number };
-        const pByM = new Map<string, PM>();
-        for (const p of fbPosts) {
-          const mo = p.published_at.slice(0, 7);
-          if (!pByM.has(mo)) pByM.set(mo, { posts: 0, usd: 0, views: 0, reactions: 0, comments: 0, shares: 0, reach: 0, monetized: 0 });
-          const m = pByM.get(mo)!;
-          const usd = Number(p.monetization_approx ?? p.estimated_usd ?? 0);
-          m.posts += 1; m.usd += usd;
-          if (usd > 0) m.monetized += 1;
-          m.views += Number(p.views ?? 0);
-          m.reactions += Number(p.reactions ?? 0);
-          m.comments += Number(p.comments ?? 0);
-          m.shares += Number(p.shares ?? 0);
-          m.reach += Number(p.reach ?? 0);
-        }
+        const aggregateByMonth = (posts: PostRow[]) => {
+          const byM = new Map<string, PM>();
+          for (const p of posts) {
+            const mo = p.published_at.slice(0, 7);
+            if (!byM.has(mo)) byM.set(mo, { posts: 0, usd: 0, views: 0, reactions: 0, comments: 0, shares: 0, reach: 0, monetized: 0 });
+            const m = byM.get(mo)!;
+            const usd = Number(p.monetization_approx ?? p.estimated_usd ?? 0);
+            m.posts += 1; m.usd += usd;
+            if (usd > 0) m.monetized += 1;
+            m.views += Number(p.views ?? 0);
+            m.reactions += Number(p.reactions ?? 0);
+            m.comments += Number(p.comments ?? 0);
+            m.shares += Number(p.shares ?? 0);
+            m.reach += Number(p.reach ?? 0);
+          }
+          return byM;
+        };
+
+        const fbPosts = allHistPosts.filter((p) => (p.source ?? "facebook") === "facebook");
+        const igPosts = allHistPosts.filter((p) => p.source === "instagram");
+        const pByM = aggregateByMonth(fbPosts);
+        const pByMIG = aggregateByMonth(igPosts);
 
         // Fetch ALL daily entries
         const { data: entrData } = await (supabase as any)
@@ -1700,6 +1712,21 @@ function AdminDashboard() {
         }
         const computedAllTimeAvgDaily = wTotal > 0 ? wSum / wTotal : 0;
 
+        // Compute IG bests
+        const ig = { posts: 1, views: 1, usd: 1, reactions: 1, comments: 1, shares: 1, reach: 1, monetized: 1, rpm: 0.001 };
+        for (const m of pByMIG.values()) {
+          if (m.posts > ig.posts) ig.posts = m.posts;
+          if (m.usd > ig.usd) ig.usd = m.usd;
+          if (m.views > ig.views) ig.views = m.views;
+          if (m.reactions > ig.reactions) ig.reactions = m.reactions;
+          if (m.comments > ig.comments) ig.comments = m.comments;
+          if (m.shares > ig.shares) ig.shares = m.shares;
+          if (m.reach > ig.reach) ig.reach = m.reach;
+          if (m.monetized > ig.monetized) ig.monetized = m.monetized;
+          const igRpm = m.views > 0 ? (m.usd / m.views) * 1000 : 0;
+          if (igRpm > ig.rpm) ig.rpm = igRpm;
+        }
+
         if (!cancelled) {
           setMissionBest({
             posts: b.posts, views: b.views, usd: b.usd,
@@ -1707,6 +1734,11 @@ function AdminDashboard() {
             reach: b.reach, monetized: b.monetized,
             revenue: b.revenue, followers: b.followers,
             daysRevenue: b.days, rpm: b.rpm,
+          });
+          setMissionBestIG({
+            posts: ig.posts, views: ig.views, usd: ig.usd,
+            reactions: ig.reactions, comments: ig.comments, shares: ig.shares,
+            reach: ig.reach, monetized: ig.monetized, rpm: ig.rpm,
           });
           setAllTimeAvgDaily(computedAllTimeAvgDaily);
         }
@@ -1745,6 +1777,26 @@ function AdminDashboard() {
     const rpm = views > 0 ? (usd / views) * 1000 : 0;
     return { posts, views, usd, reactions, comments, shares, reach, monetized, revenue, followers, daysRevenue: daysSet.size, rpm };
   }, [allPosts, dailyEntries, filterFrom, filterTo]);
+
+  const missionCurIG = useMemo(() => {
+    let posts = 0, views = 0, usd = 0, reactions = 0, comments = 0, shares = 0, reach = 0, monetized = 0;
+    for (const p of allPosts) {
+      if (p.source !== "instagram") continue;
+      if (filterFrom && p.published_at && p.published_at.slice(0, 10) < filterFrom) continue;
+      if (filterTo   && p.published_at && p.published_at.slice(0, 10) > filterTo)   continue;
+      posts += 1;
+      const rev = getPostUsd(p);
+      usd += rev;
+      if (rev > 0) monetized += 1;
+      views     += Number(p.views     ?? 0);
+      reactions += Number(p.reactions ?? 0);
+      comments  += Number(p.comments  ?? 0);
+      shares    += Number(p.shares    ?? 0);
+      reach     += Number(p.reach     ?? 0);
+    }
+    const rpm = views > 0 ? (usd / views) * 1000 : 0;
+    return { posts, views, usd, reactions, comments, shares, reach, monetized, rpm };
+  }, [allPosts, filterFrom, filterTo]);
 
   return (
     <div className="space-y-6">
@@ -2026,7 +2078,7 @@ function AdminDashboard() {
           })()}
 
           {/* ═══════════════ MISSÕES ═══════════════ */}
-          {!loading && missionBest && (() => {
+          {!loading && (missionBest || missionBestIG) && (() => {
             const n = (v: number) =>
               v >= 1e9 ? `${(v / 1e9).toFixed(1)}B`
               : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M`
@@ -2034,7 +2086,10 @@ function AdminDashboard() {
               : `${Math.round(v)}`;
             const u = (v: number) => `$${v.toFixed(0)}`;
             const r = (v: number) => `$${v.toFixed(2)}`;
-            const missions: { icon: React.ElementType; label: string; cur: number; best: number; fmt: (v: number) => string }[] = [
+
+            type MissionDef = { icon: React.ElementType; label: string; cur: number; best: number; fmt: (v: number) => string };
+
+            const missionsFB: MissionDef[] = missionBest ? [
               { icon: DollarSign,      label: "Meta $100",      cur: missionCur.revenue,     best: 100,                     fmt: r },
               { icon: Eye,             label: "Views",          cur: missionCur.views,       best: missionBest.views,       fmt: n },
               { icon: DollarSign,      label: "Receita CSV",    cur: missionCur.usd,         best: missionBest.usd,         fmt: u },
@@ -2047,10 +2102,43 @@ function AdminDashboard() {
               { icon: CheckCircle2,    label: "Monetizados",    cur: missionCur.monetized,   best: missionBest.monetized,   fmt: n },
               { icon: Calendar,        label: "Dias c/ Ganho",  cur: missionCur.daysRevenue, best: missionBest.daysRevenue, fmt: n },
               { icon: Target,          label: "RPM",            cur: missionCur.rpm,         best: missionBest.rpm,         fmt: r },
-            ];
+            ] : [];
+
+            const missionsIG: MissionDef[] = missionBestIG ? [
+              { icon: Eye,             label: "Views",          cur: missionCurIG.views,     best: missionBestIG.views,     fmt: n },
+              { icon: DollarSign,      label: "Receita CSV",    cur: missionCurIG.usd,       best: missionBestIG.usd,       fmt: u },
+              { icon: Heart,           label: "Reações",        cur: missionCurIG.reactions, best: missionBestIG.reactions, fmt: n },
+              { icon: MessageSquare,   label: "Comentários",    cur: missionCurIG.comments,  best: missionBestIG.comments,  fmt: n },
+              { icon: Share2,          label: "Compartilhados", cur: missionCurIG.shares,    best: missionBestIG.shares,    fmt: n },
+              { icon: Maximize2,       label: "Alcance",        cur: missionCurIG.reach,     best: missionBestIG.reach,     fmt: n },
+              { icon: CheckCircle2,    label: "Monetizados",    cur: missionCurIG.monetized, best: missionBestIG.monetized, fmt: n },
+              { icon: Target,          label: "RPM",            cur: missionCurIG.rpm,       best: missionBestIG.rpm,       fmt: r },
+            ] : [];
+
+            const MissionRow = ({ missions, accentColor, innerBg }: { missions: MissionDef[]; accentColor: string; innerBg: string }) => (
+              <div
+                className="flex gap-1 overflow-x-auto pb-1"
+                style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
+              >
+                {missions.map(({ icon, label, cur, best, fmt }) => (
+                  <MissionStoryCard
+                    key={label}
+                    icon={icon}
+                    label={label}
+                    progress={best > 0 ? cur / best : 0}
+                    value={fmt(cur)}
+                    goal={fmt(best)}
+                    accentColor={accentColor}
+                    innerBg={innerBg}
+                  />
+                ))}
+              </div>
+            );
+
             return (
-              <div>
-                <div className="flex items-baseline gap-2 mb-3">
+              <div className="space-y-3">
+                {/* Section header */}
+                <div className="flex items-baseline gap-2">
                   <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#9B9B9B]">
                     Missões do Mês
                   </p>
@@ -2058,21 +2146,45 @@ function AdminDashboard() {
                     · {monthCountdown}
                   </span>
                 </div>
-                <div
-                  className="flex gap-1 overflow-x-auto sm:overflow-visible pb-1"
-                  style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
-                >
-                  {missions.map(({ icon, label, cur, best, fmt }) => (
-                    <MissionStoryCard
-                      key={label}
-                      icon={icon}
-                      label={label}
-                      progress={best > 0 ? cur / best : 0}
-                      value={fmt(cur)}
-                      goal={fmt(best)}
-                    />
-                  ))}
-                </div>
+
+                {/* Facebook card */}
+                {missionsFB.length > 0 && (
+                  <div className="rounded-2xl border border-[#1877F2]/20 bg-[#EEF4FF] px-4 pt-3 pb-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      {/* Facebook "f" logo */}
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      </svg>
+                      <span className="text-xs font-bold text-[#1877F2] uppercase tracking-wider">Facebook</span>
+                    </div>
+                    <MissionRow missions={missionsFB} accentColor="#1877F2" innerBg="#DDEAFF" />
+                  </div>
+                )}
+
+                {/* Instagram card */}
+                {missionsIG.length > 0 && (
+                  <div className="rounded-2xl border border-[#C13584]/20 px-4 pt-3 pb-4"
+                    style={{ background: "linear-gradient(135deg, #fdf0ff 0%, #fff0f7 50%, #fff4ec 100%)" }}>
+                    <div className="flex items-center gap-2 mb-3">
+                      {/* Instagram gradient logo */}
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                        <defs>
+                          <linearGradient id="igGrad" x1="0" y1="1" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#FCAF45"/>
+                            <stop offset="30%" stopColor="#E1306C"/>
+                            <stop offset="70%" stopColor="#833AB4"/>
+                          </linearGradient>
+                        </defs>
+                        <path fill="url(#igGrad)" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
+                      </svg>
+                      <span className="text-xs font-bold uppercase tracking-wider"
+                        style={{ background: "linear-gradient(90deg, #833AB4, #E1306C, #FCAF45)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                        Instagram
+                      </span>
+                    </div>
+                    <MissionRow missions={missionsIG} accentColor="#C13584" innerBg="#fde8f5" />
+                  </div>
+                )}
               </div>
             );
           })()}
@@ -2634,12 +2746,16 @@ function MissionStoryCard({
   progress,
   value,
   goal,
+  accentColor = "#F44708",
+  innerBg = "#FFF3EE",
 }: {
   icon: React.ElementType;
   label: string;
   progress: number;   // 0..1
   value: string;
   goal: string;
+  accentColor?: string;
+  innerBg?: string;
 }) {
   const [hovered, setHovered] = useState(false);
   const size = 68;
@@ -2649,7 +2765,7 @@ function MissionStoryCard({
   const clamped = Math.min(1, Math.max(0, progress));
   const offset = +(circ * (1 - clamped)).toFixed(2);
   const done = clamped >= 1;
-  const ringColor = done ? "#16a34a" : "#F44708";
+  const ringColor = done ? "#16a34a" : accentColor;
   const pct = Math.round(clamped * 100);
 
   return (
@@ -2690,7 +2806,7 @@ function MissionStoryCard({
           className="absolute rounded-full flex items-center justify-center overflow-hidden"
           style={{
             inset: sw + 3,
-            background: hovered ? "rgba(26,10,0,0.78)" : done ? "#F0FDF4" : "#FFF3EE",
+            background: hovered ? "rgba(26,10,0,0.78)" : done ? "#F0FDF4" : innerBg,
             transition: "background 0.2s ease",
           }}
         >
@@ -2711,7 +2827,7 @@ function MissionStoryCard({
               className="shrink-0"
               style={{
                 width: 20, height: 20,
-                color: done ? "#16a34a" : "#F44708",
+                color: done ? "#16a34a" : accentColor,
               }}
             />
           )}
