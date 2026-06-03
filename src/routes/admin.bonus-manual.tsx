@@ -214,9 +214,12 @@ function PageSelect({
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
+  // Filter pages by platform: IG tab → only pages with IG posts; FB tab → only pages without IG posts
+  const filtered = pages.filter((p) =>
+    platform === "instagram" ? igPageIds.has(p.id) : !igPageIds.has(p.id)
+  );
+
   const selected = pages.find((p) => p.id === value);
-  const monetized = pages.filter((p) => p.isMonetized);
-  const nonMonetized = pages.filter((p) => !p.isMonetized);
 
   return (
     <div ref={ref} className="relative">
@@ -227,65 +230,32 @@ function PageSelect({
         }`}
       >
         {selected ? (
-          <>
-            <Coins className={`h-4 w-4 shrink-0 ${selected.isMonetized ? "text-emerald-500" : "text-red-400"}`} />
-            <span className="flex-1 truncate text-left font-medium text-foreground">{selected.nome}</span>
-          </>
+          <span className="flex-1 truncate text-left font-medium text-foreground">{selected.nome}</span>
         ) : (
-          <span className="flex-1 text-left text-muted-foreground">Selecionar página…</span>
+          <span className="flex-1 text-left text-muted-foreground">Selecionar…</span>
         )}
         <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
-        <div className="absolute z-50 top-full mt-1 left-0 min-w-full w-max max-w-sm bg-white border border-border rounded-xl overflow-hidden">
-          <div className="max-h-72 overflow-y-auto p-1.5 space-y-px">
-            {monetized.length > 0 && (
-              <>
-                <div className="flex items-center gap-1.5 px-3 pt-2 pb-1">
-                  <Coins className="h-3 w-3 text-emerald-500" />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Monetizadas</span>
-                </div>
-                {monetized.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => { onChange(p.id); setOpen(false); }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left ${
-                      value === p.id ? "bg-[#F44708] text-white" : "hover:bg-[#FFF0E8] text-foreground"
-                    }`}
-                  >
-                    <Coins className={`h-3.5 w-3.5 shrink-0 ${value === p.id ? "text-white/80" : "text-emerald-500"}`} />
-                    <span className="truncate flex-1">{p.nome}</span>
-                    {igPageIds.has(p.id) && (
-                      <span className={`text-[9px] font-bold px-1 py-0.5 rounded shrink-0 ${value === p.id ? "bg-white/20 text-white" : "bg-gradient-to-r from-[#833AB4] to-[#F77737] text-white"}`}>IG</span>
-                    )}
-                  </button>
-                ))}
-              </>
+        <div className="absolute z-50 top-full mt-1 left-0 min-w-full w-max max-w-xs bg-white border border-border rounded-xl shadow-lg overflow-hidden">
+          <div className="max-h-64 overflow-y-auto p-1">
+            {filtered.length === 0 && (
+              <p className="px-3 py-4 text-xs text-center text-muted-foreground">Nenhuma página encontrada</p>
             )}
-            {nonMonetized.length > 0 && (
-              <>
-                <div className="flex items-center gap-1.5 px-3 pt-2 pb-1">
-                  <Coins className="h-3 w-3 text-red-400" />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-red-500">Não Monetizadas</span>
-                </div>
-                {nonMonetized.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => { onChange(p.id); setOpen(false); }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left ${
-                      value === p.id ? "bg-[#F44708] text-white" : "hover:bg-[#FFF0E8] text-foreground"
-                    }`}
-                  >
-                    <Coins className={`h-3.5 w-3.5 shrink-0 ${value === p.id ? "text-white/80" : "text-red-400"}`} />
-                    <span className="truncate flex-1">{p.nome}</span>
-                    {igPageIds.has(p.id) && (
-                      <span className={`text-[9px] font-bold px-1 py-0.5 rounded shrink-0 ${value === p.id ? "bg-white/20 text-white" : "bg-gradient-to-r from-[#833AB4] to-[#F77737] text-white"}`}>IG</span>
-                    )}
-                  </button>
-                ))}
-              </>
-            )}
+            {filtered.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => { onChange(p.id); setOpen(false); }}
+                className={`w-full flex items-center px-3 py-2 rounded-lg text-sm text-left transition-colors ${
+                  value === p.id
+                    ? "bg-[#F44708] text-white font-semibold"
+                    : "text-foreground hover:bg-muted"
+                }`}
+              >
+                <span className="truncate">{p.nome}</span>
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -774,12 +744,20 @@ function BonusManualPage() {
           onChange={(p) => {
             setPlatform(p);
             setRows([]);
-            // Auto-select first page with IG posts when switching to Instagram
-            if (p === "instagram" && !igPageIds.has(selectedPageId)) {
-              const firstIg = [...pages]
-                .filter((pg) => igPageIds.has(pg.id))
-                .sort((a, b) => (igPostCounts.get(b.id) ?? 0) - (igPostCounts.get(a.id) ?? 0))[0];
-              if (firstIg) setSelectedPageId(firstIg.id);
+            if (p === "instagram") {
+              // Switch to IG: pick page with most IG posts
+              if (!igPageIds.has(selectedPageId)) {
+                const firstIg = [...pages]
+                  .filter((pg) => igPageIds.has(pg.id))
+                  .sort((a, b) => (igPostCounts.get(b.id) ?? 0) - (igPostCounts.get(a.id) ?? 0))[0];
+                if (firstIg) setSelectedPageId(firstIg.id);
+              }
+            } else {
+              // Switch to Facebook: pick first FB-only page if current is IG-only
+              if (igPageIds.has(selectedPageId)) {
+                const firstFb = pages.find((pg) => !igPageIds.has(pg.id));
+                if (firstFb) setSelectedPageId(firstFb.id);
+              }
             }
           }}
         />
