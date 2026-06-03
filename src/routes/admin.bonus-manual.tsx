@@ -15,6 +15,8 @@ export const Route = createFileRoute("/admin/bonus-manual")({
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type Platform = "facebook" | "instagram";
+
 interface PageOption {
   id: string;
   nome: string;
@@ -45,7 +47,6 @@ interface DayEntry {
   followers_editors: FieldEditor[];
   revenue_editors: FieldEditor[];
   last_edited_field: "views" | "followers" | "revenue" | null;
-  // snapshot of DB values at load time — used as before_json in audit log
   _db_views: number | null;
   _db_followers: number | null;
   _db_revenue: number | null;
@@ -127,7 +128,7 @@ function daysInMonth(ref: string): string[] {
   );
 }
 
-async function fetchViewsByColabForMonth(ref: string, pageId: string): Promise<ColabDist[]> {
+async function fetchViewsByColabForMonth(ref: string, pageId: string, platform: Platform): Promise<ColabDist[]> {
   const days = daysInMonth(ref);
   const from = days[0];
   const to = days[days.length - 1];
@@ -136,6 +137,7 @@ async function fetchViewsByColabForMonth(ref: string, pageId: string): Promise<C
     .from("posts")
     .select("id, views")
     .eq("page_id", pageId)
+    .eq("source", platform)
     .gte("published_at", from)
     .lte("published_at", to + "T23:59:59");
 
@@ -281,12 +283,56 @@ function PageSelect({
   );
 }
 
+// ─── Platform Tab ─────────────────────────────────────────────────────────────
+
+function PlatformTabs({
+  value,
+  onChange,
+}: {
+  value: Platform;
+  onChange: (v: Platform) => void;
+}) {
+  return (
+    <div className="inline-flex items-center bg-muted rounded-xl p-1 gap-1">
+      <button
+        onClick={() => onChange("facebook")}
+        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+          value === "facebook"
+            ? "bg-[#1877F2] text-white shadow-sm"
+            : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        {/* Facebook "f" icon via SVG */}
+        <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+        </svg>
+        Facebook
+      </button>
+      <button
+        onClick={() => onChange("instagram")}
+        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+          value === "instagram"
+            ? "bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] text-white shadow-sm"
+            : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        {/* Instagram icon via SVG */}
+        <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+        </svg>
+        Instagram
+      </button>
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 function BonusManualPage() {
   const { profile } = useAuth();
   const { guard, canWrite, WriteGuardDialog } = useWriteGuard();
   const todayMonth = new Date().toISOString().slice(0, 7);
+  const [platform, setPlatform] = useState<Platform>("facebook");
   const [monthRef, setMonthRef] = useState(todayMonth);
   const [pages, setPages] = useState<PageOption[]>([]);
   const [selectedPageId, setSelectedPageId] = useState<string>("");
@@ -301,6 +347,8 @@ function BonusManualPage() {
   const [followersFocusDate, setFollowersFocusDate] = useState<string | null>(null);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
+  const isIG = platform === "instagram";
+
   // Load pages list once
   useEffect(() => {
     async function loadPages() {
@@ -311,7 +359,6 @@ function BonusManualPage() {
 
       if (!pagesData || pagesData.length === 0) return;
 
-      // A page is monetized if it has ≥3 posts with revenue
       const { data: revPosts } = await supabase
         .from("posts")
         .select("page_id, monetization_approx, estimated_usd")
@@ -329,7 +376,6 @@ function BonusManualPage() {
       }));
 
       setPages(list);
-      // Default to first monetized page, or first page
       const first = list.find((p) => p.isMonetized) ?? list[0];
       if (first) setSelectedPageId(first.id);
     }
@@ -376,31 +422,40 @@ function BonusManualPage() {
     []
   );
 
-  const load = useCallback(async (ref: string, pageId: string) => {
+  const load = useCallback(async (ref: string, pageId: string, plat: Platform) => {
     if (!pageId) return;
     setLoading(true);
     const days = daysInMonth(ref);
     const from = days[0];
     const to = days[days.length - 1];
 
+    // For Facebook: match source = 'facebook' OR source is null (legacy rows)
+    const postsQuery = plat === "facebook"
+      ? supabase.from("posts").select("published_at, monetization_approx, views")
+          .eq("page_id", pageId)
+          .or("source.eq.facebook,source.is.null")
+          .gte("published_at", from)
+          .lte("published_at", to + "T23:59:59")
+      : supabase.from("posts").select("published_at, monetization_approx, views")
+          .eq("page_id", pageId)
+          .eq("source", "instagram")
+          .gte("published_at", from)
+          .lte("published_at", to + "T23:59:59");
+
     const [{ data: postsData }, { data: dbData }, { data: auditData }] = await Promise.all([
-      supabase
-        .from("posts")
-        .select("published_at, monetization_approx, views")
-        .eq("page_id", pageId)
-        .gte("published_at", from)
-        .lte("published_at", to + "T23:59:59"),
+      postsQuery,
       (supabase as any)
         .from("daily_revenue_entries")
         .select("id, entry_date, actual_revenue_usd, actual_views, actual_followers, distribution_mode, note, updated_by")
         .eq("page_id", pageId)
+        .eq("platform", plat)
         .gte("entry_date", from)
         .lte("entry_date", to),
       (supabase as any)
         .from("audit_logs")
         .select("entity_id, actor_profile_id, before_json, after_json")
         .eq("action", "update_daily_revenue")
-        .like("entity_id", `${ref}-%:${pageId}`)
+        .like("entity_id", `${plat}:${ref}-%:${pageId}`)
         .order("created_at", { ascending: false }),
     ]);
 
@@ -418,12 +473,12 @@ function BonusManualPage() {
       dbEntries[e.entry_date] = e;
     }
 
-    // Build per-field editor arrays: collect unique editors per field per date,
-    // ordered most-recent first (auditData is already sorted DESC).
     const fieldEditorIds = new Map<string, { views: string[]; followers: string[]; revenue: string[] }>();
     const allActorIds = new Set<string>();
     for (const audit of (auditData ?? []) as any[]) {
-      const date = audit.entity_id.split(":")[0];
+      // entity_id format: "platform:date:pageId"
+      const parts = audit.entity_id.split(":");
+      const date = parts[1] ?? audit.entity_id.split(":")[0];
       if (!fieldEditorIds.has(date)) fieldEditorIds.set(date, { views: [], followers: [], revenue: [] });
       const entry = fieldEditorIds.get(date)!;
       const before = audit.before_json ?? {};
@@ -468,28 +523,24 @@ function BonusManualPage() {
     setLoading(false);
   }, [buildRows]);
 
-  const loadDist = useCallback(async (ref: string, pageId: string) => {
+  const loadDist = useCallback(async (ref: string, pageId: string, plat: Platform) => {
     if (!pageId) return;
     setDistLoading(true);
     const prev = prevMonth(ref);
-    const dist = await fetchViewsByColabForMonth(prev, pageId);
+    const dist = await fetchViewsByColabForMonth(prev, pageId, plat);
     setColabDist(dist);
     setDistLoading(false);
   }, []);
 
-  const loadAuditLogs = useCallback(async (ref: string, pageId: string) => {
+  const loadAuditLogs = useCallback(async (ref: string, pageId: string, plat: Platform) => {
     if (!pageId) return;
     setAuditLoading(true);
-    const days = daysInMonth(ref);
-    const from = days[0];
-    const to = days[days.length - 1];
-    const prefix = `${from.slice(0, 7)}-`;
 
     const { data: logs } = await (supabase as any)
       .from("audit_logs")
       .select("id, created_at, actor_profile_id, before_json, after_json, entity_id")
       .eq("action", "update_daily_revenue")
-      .like("entity_id", `${ref}-%:${pageId}`)
+      .like("entity_id", `${plat}:${ref}-%:${pageId}`)
       .order("created_at", { ascending: false });
 
     if (!logs || logs.length === 0) { setAuditLogs([]); setAuditLoading(false); return; }
@@ -513,10 +564,10 @@ function BonusManualPage() {
 
   useEffect(() => {
     if (!selectedPageId) return;
-    load(monthRef, selectedPageId);
-    loadDist(monthRef, selectedPageId);
-    loadAuditLogs(monthRef, selectedPageId);
-  }, [monthRef, selectedPageId, load, loadDist, loadAuditLogs]);
+    load(monthRef, selectedPageId, platform);
+    loadDist(monthRef, selectedPageId, platform);
+    loadAuditLogs(monthRef, selectedPageId, platform);
+  }, [monthRef, selectedPageId, platform, load, loadDist, loadAuditLogs]);
 
   const updateRow = (date: string, updates: Partial<DayEntry>) => {
     setRows((prev) =>
@@ -537,6 +588,7 @@ function BonusManualPage() {
     const payload = {
       entry_date: row.date,
       page_id: selectedPageId,
+      platform,
       actual_revenue_usd: row.actual_revenue,
       actual_views: row.actual_views,
       actual_followers: row.actual_followers,
@@ -548,7 +600,7 @@ function BonusManualPage() {
     };
     const { data, error } = await (supabase as any)
       .from("daily_revenue_entries")
-      .upsert(payload, { onConflict: "entry_date,page_id" })
+      .upsert(payload, { onConflict: "entry_date,page_id,platform" })
       .select("id")
       .single();
 
@@ -566,7 +618,8 @@ function BonusManualPage() {
           actor_profile_id: profile.id,
           action: "update_daily_revenue",
           entity: "daily_revenue_entry",
-          entity_id: `${row.date}:${selectedPageId}`,
+          // New format: "platform:date:pageId"
+          entity_id: `${platform}:${row.date}:${selectedPageId}`,
           before_json: before,
           after_json: after,
         });
@@ -673,17 +726,27 @@ function BonusManualPage() {
   const prevMonthRef = prevMonth(monthRef);
   const selectedPage = pages.find((p) => p.id === selectedPageId);
 
+  // Labels that change per platform
+  const followersLabel = isIG ? "Seguimentos" : "Seguidores";
+  const tableDescription = isIG
+    ? "Digite as views reais e ganhos do Instagram em cada dia. Salvo automaticamente."
+    : "Digite o valor real do Facebook em cada dia. Salvo automaticamente.";
+
   return (
     <div className="space-y-6">
       <WriteGuardDialog />
       <PageHeader
         title="Histórico"
-        description="Views reais e receita dia a dia. Compare o que o Facebook pagou vs o que os posts geraram."
+        description="Views reais e receita dia a dia. Compare o que a plataforma pagou vs o que os posts geraram."
       />
+
+      {/* Platform selector */}
+      <div className="flex flex-wrap items-center gap-3">
+        <PlatformTabs value={platform} onChange={(p) => { setPlatform(p); setRows([]); }} />
+      </div>
 
       {/* Page + Month selectors */}
       <div className="flex flex-wrap items-center gap-3">
-        {/* Page selector */}
         {pages.length > 0 && (
           <PageSelect pages={pages} value={selectedPageId} onChange={setSelectedPageId} />
         )}
@@ -726,7 +789,7 @@ function BonusManualPage() {
               Receita dia a dia
             </button>
             <button
-              onClick={() => { setActiveTab("transparencia"); loadAuditLogs(monthRef, selectedPageId); }}
+              onClick={() => { setActiveTab("transparencia"); loadAuditLogs(monthRef, selectedPageId, platform); }}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "transparencia" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
             >
               <History className="h-3.5 w-3.5" />
@@ -736,29 +799,35 @@ function BonusManualPage() {
 
           {activeTab === "receita" && (<>
           {/* KPIs */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className={`grid gap-3 ${isIG ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-5"}`}>
             <div className="bg-card border border-border rounded-lg p-4">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Views reais</p>
               <p className="text-xl font-bold mt-1 text-[#F44708]">{fmtViews(totalViews)}</p>
               <p className="text-xs text-muted-foreground mt-0.5">no mês</p>
             </div>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Posts (USD)</p>
-              <p className="text-xl font-bold mt-1">${totalPosts.toFixed(2)}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">calculado do CSV</p>
-            </div>
+            {/* Posts (USD) — Facebook only */}
+            {!isIG && (
+              <div className="bg-card border border-border rounded-lg p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Posts (USD)</p>
+                <p className="text-xl font-bold mt-1">${totalPosts.toFixed(2)}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">calculado do CSV</p>
+              </div>
+            )}
             <div className="bg-card border border-border rounded-lg p-4">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Real recebido (USD)</p>
               <p className="text-xl font-bold mt-1">${totalActual.toFixed(2)}</p>
               <p className="text-xs text-muted-foreground mt-0.5">{filledDays} dias preenchidos</p>
             </div>
-            <div className={`bg-card border rounded-lg p-4 ${totalBonus > 0 ? "border-[#16a34a]/30" : totalBonus < 0 ? "border-destructive/30" : "border-border"}`}>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Diferença (USD)</p>
-              <p className={`text-xl font-bold mt-1 ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
-                {totalBonus >= 0 ? "+" : ""}${totalBonus.toFixed(2)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">real − posts</p>
-            </div>
+            {/* Diferença — Facebook only */}
+            {!isIG && (
+              <div className={`bg-card border rounded-lg p-4 ${totalBonus > 0 ? "border-[#16a34a]/30" : totalBonus < 0 ? "border-destructive/30" : "border-border"}`}>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Diferença (USD)</p>
+                <p className={`text-xl font-bold mt-1 ${totalBonus > 0 ? "text-[#16a34a]" : totalBonus < 0 ? "text-destructive" : ""}`}>
+                  {totalBonus >= 0 ? "+" : ""}${totalBonus.toFixed(2)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">real − posts</p>
+              </div>
+            )}
             <div className="bg-card border border-border rounded-lg p-4">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Progresso</p>
               <p className="text-xl font-bold mt-1">{filledDays}/{rows.length}</p>
@@ -783,7 +852,7 @@ function BonusManualPage() {
                       {" · "}
                     </span>
                   )}
-                  {canWrite ? "Digite o valor real do Facebook em cada dia. Salvo automaticamente." : "Somente leitura — seu perfil não tem permissão para editar."}
+                  {canWrite ? tableDescription : "Somente leitura — seu perfil não tem permissão para editar."}
                 </p>
               </div>
             </div>
@@ -812,14 +881,12 @@ function BonusManualPage() {
                               : null}
                           </div>
                         </div>
-                        {/* Views CSV read-only row */}
                         {row.views > 0 && (
                           <div className="flex items-center justify-between text-xs text-muted-foreground">
                             <span className="font-semibold uppercase tracking-wider">Views CSV</span>
                             <span className="tabular-nums">{fmtViews(row.views)}</span>
                           </div>
                         )}
-                        {/* Inputs grid: 2 cols on mobile */}
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <div className="flex items-center gap-1.5 mb-1">
@@ -842,7 +909,7 @@ function BonusManualPage() {
                           </div>
                           <div>
                             <div className="flex items-center gap-1.5 mb-1">
-                              <p className="text-[10px] uppercase tracking-wider text-emerald-600 font-semibold">Seguidores</p>
+                              <p className="text-[10px] uppercase tracking-wider text-emerald-600 font-semibold">{followersLabel}</p>
                               <AvatarStack editors={row.followers_editors} />
                             </div>
                             <input
@@ -874,7 +941,7 @@ function BonusManualPage() {
                             />
                           </div>
                         </div>
-                        {bonus != null && (
+                        {bonus != null && !isIG && (
                           <div className="flex items-center justify-between text-xs">
                             <span className="font-semibold uppercase tracking-wider text-muted-foreground">Bônus</span>
                             <div className="text-right">
@@ -901,7 +968,7 @@ function BonusManualPage() {
                     <span>Total</span>
                     <div className="text-right">
                       <p>${totalActual.toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground font-normal">posts: ${totalPosts.toFixed(2)}</p>
+                      {!isIG && <p className="text-xs text-muted-foreground font-normal">posts: ${totalPosts.toFixed(2)}</p>}
                     </div>
                   </div>
                 </div>
@@ -914,8 +981,8 @@ function BonusManualPage() {
                         <th className="text-left px-4 py-3 font-medium w-36">Dia</th>
                         <th className="text-right px-4 py-3 font-medium">Views CSV</th>
                         <th className="text-right px-4 py-3 font-medium text-[#F44708]">Views manuais</th>
-                        <th className="text-right px-4 py-3 font-medium text-emerald-600">Seguidores</th>
-                        <th className="text-right px-4 py-3 font-medium">Posts (USD)</th>
+                        <th className="text-right px-4 py-3 font-medium text-emerald-600">{followersLabel}</th>
+                        {!isIG && <th className="text-right px-4 py-3 font-medium">Posts (USD)</th>}
                         <th className="text-right px-4 py-3 font-medium">Real recebido (USD)</th>
                         <th className="w-8 px-4 py-3" />
                       </tr>
@@ -969,9 +1036,11 @@ function BonusManualPage() {
                                 <AvatarStack editors={row.followers_editors} />
                               </div>
                             </td>
-                            <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
-                              {row.posts_revenue > 0 ? `$${row.posts_revenue.toFixed(2)}` : <span className="text-muted-foreground/40">—</span>}
-                            </td>
+                            {!isIG && (
+                              <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                                {row.posts_revenue > 0 ? `$${row.posts_revenue.toFixed(2)}` : <span className="text-muted-foreground/40">—</span>}
+                              </td>
+                            )}
                             <td className="px-4 py-2.5 text-right">
                               <div className="flex items-center justify-end gap-1.5">
                                 <input
@@ -1007,7 +1076,7 @@ function BonusManualPage() {
                         <td className="px-4 py-3 text-right tabular-nums text-emerald-600">
                           {(() => { const t = rows.reduce((s, r) => s + (r.actual_followers ?? 0), 0); return t > 0 ? t.toLocaleString("pt-BR") : "—"; })()}
                         </td>
-                        <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">${totalPosts.toFixed(2)}</td>
+                        {!isIG && <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">${totalPosts.toFixed(2)}</td>}
                         <td className="px-4 py-3 text-right tabular-nums">${totalActual.toFixed(2)}</td>
                         <td />
                       </tr>
@@ -1037,7 +1106,9 @@ function BonusManualPage() {
               ) : (
                 <div className="divide-y divide-border">
                   {auditLogs.map((log) => {
-                    const datePart = log.entity_id.split(":")[0];
+                    // entity_id format: "platform:date:pageId"
+                    const parts = log.entity_id.split(":");
+                    const datePart = parts.length >= 3 ? parts[1] : parts[0];
                     const [y, mo, d] = datePart.split("-");
                     const dayLabel = `${d}/${mo}`;
                     const ts = new Date(log.created_at);
@@ -1046,7 +1117,7 @@ function BonusManualPage() {
                     const changes: { field: string; before: string; after: string }[] = [];
                     const fields: { key: keyof typeof log.after_json; label: string; fmt: (v: unknown) => string }[] = [
                       { key: "actual_views", label: "Views Manuais", fmt: (v) => v != null ? Number(v).toLocaleString("pt-BR") : "—" },
-                      { key: "actual_followers", label: "Seguidores", fmt: (v) => v != null ? Number(v).toLocaleString("pt-BR") : "—" },
+                      { key: "actual_followers", label: followersLabel, fmt: (v) => v != null ? Number(v).toLocaleString("pt-BR") : "—" },
                       { key: "actual_revenue_usd", label: "Real Recebido", fmt: (v) => v != null ? `$${Number(v).toFixed(2)}` : "—" },
                     ];
                     for (const f of fields) {
@@ -1097,7 +1168,7 @@ function BonusManualPage() {
       )}
 
       <p className="text-xs text-muted-foreground text-center">
-        Dados salvos automaticamente por página. Dias futuros são bloqueados. Finais de semana em destaque.
+        Dados salvos automaticamente por página e plataforma. Dias futuros são bloqueados. Finais de semana em destaque.
       </p>
     </div>
   );
