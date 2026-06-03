@@ -12,6 +12,7 @@ import {
   FileSpreadsheet, CheckCircle2, Clock, ChevronRight, ChevronLeft,
   Target, Zap, Users, X, CloudUpload,
   Heart, MessageSquare, Share2, Maximize2, Calendar, Trophy,
+  Flame, Hourglass, BarChart2, FileText,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -2135,32 +2136,15 @@ function AdminDashboard() {
 
             {/* Insights sidebar */}
             <div className="lg:col-span-3 flex flex-col gap-3">
-              {/* Meta $100 */}
-              <div className="bg-white rounded-2xl border border-[#F0F0F0] p-5" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#999] mb-3">🎯 Meta do Mês</p>
-                <div className="flex items-end justify-between mb-2">
-                  <p className="text-2xl font-black tabular-nums text-[#111]">${missionCur.revenue.toFixed(2)}</p>
-                  <p className="text-sm text-[#999] mb-0.5">de $100,00</p>
-                </div>
-                <div className="h-2 rounded-full bg-[#F0F0F0] overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-[#FF6B00] transition-all duration-700"
-                    style={{ width: `${Math.min(100, (missionCur.revenue / 100) * 100)}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between mt-1.5">
-                  <p className="text-[10px] text-[#999]">{Math.min(100, Math.round((missionCur.revenue / 100) * 100))}% concluído</p>
-                  <p className="text-[10px] text-[#999]">{monthCountdown} restantes</p>
-                </div>
-              </div>
-
               {/* Best collaborator */}
               {(() => {
                 const top = activeCollabCards.filter(c => c.id !== SEM_COLAB_ID && c.receita > 0.001)[0];
                 if (!top) return null;
                 return (
                   <div className="bg-white rounded-2xl border border-[#F0F0F0] p-5" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-[#999] mb-3">🔥 Melhor Colaborador</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-[#999] mb-3 flex items-center gap-1.5">
+                      <Flame className="h-3 w-3 text-[#FF6B00]" /> Melhor Colaborador
+                    </p>
                     <div className="flex items-center gap-3">
                       <ColabInitials nome={top.nome} idx={0} size={40} avatarUrl={top.avatar_url} />
                       <div className="min-w-0 flex-1">
@@ -2178,7 +2162,9 @@ function AdminDashboard() {
               {/* Pending balance */}
               {pendingBalance > 0 && (
                 <div className="bg-white rounded-2xl border border-[#F0F0F0] p-5" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#999] mb-2">⏳ Saldo Pendente</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#999] mb-2 flex items-center gap-1.5">
+                    <Hourglass className="h-3 w-3 text-[#999]" /> Saldo Pendente
+                  </p>
                   <p className="text-xl font-black tabular-nums text-[#111]">{usdBrl ? formatBRL(pendingBalance * usdBrl) : `$${pendingBalance.toFixed(2)}`}</p>
                   <p className="text-[10px] text-[#999] mt-1">fechamentos abertos de meses anteriores</p>
                   <p className="text-[10px] text-[#999] tabular-nums">${pendingBalance.toFixed(2)} USD</p>
@@ -2187,14 +2173,18 @@ function AdminDashboard() {
 
               {/* Score */}
               <div className="bg-white rounded-2xl border border-[#F0F0F0] p-5" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#999] mb-2">📊 Score Geral</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#999] mb-2 flex items-center gap-1.5">
+                  <BarChart2 className="h-3 w-3 text-[#999]" /> Score Geral
+                </p>
                 <p className="text-xl font-black tabular-nums text-[#111]">{loading ? "—" : avgScoreVal}<span className="text-sm font-normal text-[#999]">/100</span></p>
                 <p className="text-[10px] text-[#999] mt-1">{pageStatsWithGlobalScores.length} páginas avaliadas no período</p>
               </div>
 
               {/* Posts this period */}
               <div className="bg-white rounded-2xl border border-[#F0F0F0] p-5" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#999] mb-2">📝 Posts</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#999] mb-2 flex items-center gap-1.5">
+                  <FileText className="h-3 w-3 text-[#999]" /> Posts
+                </p>
                 <p className="text-xl font-black tabular-nums text-[#111]">{loading ? "—" : kpis.totalPosts}</p>
                 <p className="text-[10px] text-[#999] mt-1">vs {prevMonthStats.posts} no mês anterior</p>
               </div>
