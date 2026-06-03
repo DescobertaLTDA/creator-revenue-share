@@ -6,7 +6,7 @@ import {
   LayoutDashboard, FileSpreadsheet, FileText,
   CalendarCheck, Users, HandCoins, LogOut, Menu, X, UserCog, Target, BarChart3, Coins, FlaskConical,
 } from "lucide-react";
-import LOGO from "@/assets/logo.webp";
+import LOGO from "@/assets/logo.svg";
 
 interface NavItem {
   to: string;

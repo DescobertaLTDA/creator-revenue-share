@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import LOGO from "@/assets/logo.webp";
+import LOGO from "@/assets/logo.svg";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
