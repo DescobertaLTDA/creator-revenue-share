@@ -497,18 +497,20 @@ function AdminDashboard() {
       });
   }, [profile?.id]);
 
-  // Fetch accumulated unpaid closing balance (months where collaborator earned < $100)
+  // Fetch accumulated pending balance from months whose closing is still "aberto" (not finalized)
   useEffect(() => {
     if (!myCollabId) { setPendingBalance(0); return; }
     const curMonth = new Date().toISOString().slice(0, 7);
     (supabase as any)
       .from("monthly_closing_items")
-      .select("final_amount, monthly_closings!inner(month_ref)")
+      .select("final_amount, monthly_closings!inner(month_ref, status)")
       .eq("collaborator_id", myCollabId)
-      .eq("payment_status", "a_pagar")
       .neq("monthly_closings.month_ref", curMonth)
       .then(({ data }: any) => {
-        const total = (data ?? []).reduce((s: number, e: any) => s + Number(e.final_amount ?? 0), 0);
+        // Only sum items whose parent closing is still open (aberto), not finalized
+        const total = (data ?? [])
+          .filter((e: any) => e.monthly_closings?.status === "aberto")
+          .reduce((s: number, e: any) => s + Number(e.final_amount ?? 0), 0);
         setPendingBalance(total);
       });
   }, [myCollabId]);
