@@ -30,6 +30,10 @@ const ProjectionChart = lazy(() =>
   import("@/components/app/ProjectionChart").then((m) => ({ default: m.ProjectionChart }))
 );
 
+const DollarChart = lazy(() =>
+  import("@/components/app/DollarChart").then((m) => ({ default: m.DollarChart }))
+);
+
 export const Route = createFileRoute("/admin/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard - Gestão de Páginas" }] }),
   component: AdminDashboard,
@@ -165,7 +169,7 @@ const CACHE_TTL = 3 * 60 * 1000; // 3 minutes
 const fmt = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M`
   : n >= 1_000 ? `${(n / 1_000).toFixed(1)}k`
-  : String(n);
+  : String(Math.round(n));
 
 async function fetchAllRows<T>(
   query: () => ReturnType<typeof supabase.from>
@@ -446,6 +450,11 @@ function AdminDashboard() {
   const [manualBonuses, setManualBonuses] = useState<ManualBonusRow[]>([]);
   const [dailyEntries, setDailyEntries] = useState<DailyEntry[]>([]);
   const [prevMonthRevenue, setPrevMonthRevenue] = useState<number | null>(null);
+  const [dollarHistory, setDollarHistory] = useState<{ date: string; rate: number }[]>([]);
+  const [dollarLoading, setDollarLoading] = useState(true);
+  const [dollarError, setDollarError] = useState(false);
+  // Accumulated unpaid closing balance from previous months (< $100 threshold)
+  const [pendingBalance, setPendingBalance] = useState<number>(0);
   const [recentImports, setRecentImports] = useState<RecentImport[]>(() => _dashCache?.imports ?? []);
   const [usdBrl, setUsdBrl] = useState<number | null>(null);
   const [myCollabId, setMyCollabId] = useState<string | null>(null);
@@ -487,6 +496,22 @@ function AdminDashboard() {
         setMyCollabId(data?.id ?? null);
       });
   }, [profile?.id]);
+
+  // Fetch accumulated unpaid closing balance (months where collaborator earned < $100)
+  useEffect(() => {
+    if (!myCollabId) { setPendingBalance(0); return; }
+    const curMonth = new Date().toISOString().slice(0, 7);
+    (supabase as any)
+      .from("monthly_closing_items")
+      .select("final_amount, monthly_closings!inner(month_ref)")
+      .eq("collaborator_id", myCollabId)
+      .eq("payment_status", "a_pagar")
+      .neq("monthly_closings.month_ref", curMonth)
+      .then(({ data }: any) => {
+        const total = (data ?? []).reduce((s: number, e: any) => s + Number(e.final_amount ?? 0), 0);
+        setPendingBalance(total);
+      });
+  }, [myCollabId]);
 
   useEffect(() => {
     const applyCache = (cache: DashCache) => {
@@ -583,7 +608,7 @@ function AdminDashboard() {
     fetchEntries();
   }, [filterFrom, filterTo]);
 
-  // Fetch previous month total revenue
+  // Fetch previous month total revenue — respects filterPage
   useEffect(() => {
     const fetchPrevMonth = async () => {
       const baseMonth = filterFrom ? filterFrom.slice(0, 7) : (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; })();
@@ -591,16 +616,79 @@ function AdminDashboard() {
       const prevD = new Date(y, m - 2, 1);
       const prevRef = `${prevD.getFullYear()}-${String(prevD.getMonth() + 1).padStart(2, "0")}`;
       const prevLastDay = new Date(prevD.getFullYear(), prevD.getMonth() + 1, 0).getDate();
-      const { data } = await (supabase as any)
+      let query = (supabase as any)
         .from("daily_revenue_entries")
         .select("actual_revenue_usd")
         .gte("entry_date", `${prevRef}-01`)
         .lte("entry_date", `${prevRef}-${String(prevLastDay).padStart(2, "0")}`);
+      if (filterPage !== "all") query = query.eq("page_id", filterPage);
+      const { data } = await query;
       const total = (data ?? []).reduce((s: number, e: { actual_revenue_usd: number | null }) => s + Number(e.actual_revenue_usd ?? 0), 0);
       setPrevMonthRevenue(total);
     };
     fetchPrevMonth();
-  }, [filterFrom]);
+  }, [filterFrom, filterPage]);
+
+  // Fetch 30-day USD/BRL history — tries Frankfurter first, falls back to AwesomeAPI
+  useEffect(() => {
+    const fetchDollar = async () => {
+      setDollarLoading(true);
+      setDollarError(false);
+      try {
+        const end = new Date().toISOString().slice(0, 10);
+        const startD = new Date(); startD.setDate(startD.getDate() - 45); // ask 45d, use last 30 with data
+        const start = startD.toISOString().slice(0, 10);
+
+        // ── Attempt 1: Frankfurter (ECB data, reliable) ──
+        let points: { date: string; rate: number }[] = [];
+        try {
+          const res = await fetch(
+            `https://api.frankfurter.app/${start}..${end}?from=USD&to=BRL`,
+            { signal: AbortSignal.timeout(6000) }
+          );
+          if (res.ok) {
+            const json = await res.json();
+            points = Object.entries(json.rates as Record<string, { BRL: number }>)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([dateStr, v]) => {
+                const [, mo, dd] = dateStr.split("-");
+                return { date: `${dd}/${mo}`, rate: v.BRL };
+              });
+          }
+        } catch { /* try fallback */ }
+
+        // ── Attempt 2: AwesomeAPI (Brazilian, has BRL) ──
+        if (points.length === 0) {
+          const res2 = await fetch(
+            "https://economia.awesomeapi.com.br/json/daily/USD-BRL/30",
+            { signal: AbortSignal.timeout(6000) }
+          );
+          if (res2.ok) {
+            const arr = await res2.json() as { timestamp: string; bid: string }[];
+            points = arr
+              .map(e => {
+                const d = new Date(Number(e.timestamp) * 1000);
+                const dd = String(d.getDate()).padStart(2, "0");
+                const mo = String(d.getMonth() + 1).padStart(2, "0");
+                return { date: `${dd}/${mo}`, rate: parseFloat(e.bid) };
+              })
+              .reverse();
+          }
+        }
+
+        if (points.length > 0) {
+          setDollarHistory(points);
+        } else {
+          setDollarError(true);
+        }
+      } catch {
+        setDollarError(true);
+      } finally {
+        setDollarLoading(false);
+      }
+    };
+    fetchDollar();
+  }, []); // fetch once on mount
 
   useEffect(() => {
     const loadManualBonuses = async () => {
@@ -817,15 +905,19 @@ function AdminDashboard() {
     // Entries are now per-page (page_id). When a specific page is selected, only
     // apply corrections for that page. When "all", sum across all pages per day.
     let totalDailyBonus = 0;
+    let totalDailyViews = 0; // actual_views from daily entries — distributed to collabs below
     {
       // Group entries by date, summing only entries that match the page filter
       const actualByDate = new Map<string, number>();
+      const actualViewsByDate = new Map<string, number>();
       for (const e of dailyEntries) {
-        if (e.actual_revenue_usd === null) continue;
         if (filterFrom && e.entry_date < filterFrom) continue;
         if (filterTo && e.entry_date > filterTo) continue;
         if (filterPage !== "all" && e.page_id !== filterPage) continue;
-        actualByDate.set(e.entry_date, (actualByDate.get(e.entry_date) ?? 0) + Number(e.actual_revenue_usd));
+        if (e.actual_revenue_usd !== null)
+          actualByDate.set(e.entry_date, (actualByDate.get(e.entry_date) ?? 0) + Number(e.actual_revenue_usd));
+        if (e.actual_views != null)
+          actualViewsByDate.set(e.entry_date, (actualViewsByDate.get(e.entry_date) ?? 0) + Number(e.actual_views));
       }
       for (const [date, actual] of actualByDate) {
         const postsRevForDay = byDay[date]?.receita ?? 0;
@@ -839,6 +931,14 @@ function AdminDashboard() {
           const [, mo, d] = date.split("-");
           byDay[date] = { dia: `${d}/${mo}`, posts: 0, views: 0, alcance: 0, reacoes: 0, receita: actual };
         }
+      }
+      for (const [date, views] of actualViewsByDate) {
+        // Add actual_views into byDay so the chart shows correct views too
+        if (byDay[date]) {
+          // Only top-up if manual views exceed CSV views (avoid double-count)
+          if (views > byDay[date].views) byDay[date].views = views;
+        }
+        totalDailyViews += views;
       }
       geralUsd += totalDailyBonus;
     }
@@ -877,6 +977,27 @@ function AdminDashboard() {
         if (eligibleIds.length > 0) {
           const share = totalDailyBonus / eligibleIds.length;
           for (const id of eligibleIds) merged.get(id)!.receita += share;
+        }
+      }
+    }
+
+    // Distribute actual_views from daily entries to collaborators using the same
+    // proportional weights as revenue (prevViewsByColab, or equal split as fallback).
+    // This ensures the ranking shows meaningful view counts even when the current
+    // period has no CSV posts with view data yet.
+    if (totalDailyViews > 0) {
+      if (totalPrevViews > 0) {
+        for (const [cid, w] of prevViewsByColab.entries()) {
+          const share = (w / totalPrevViews) * totalDailyViews;
+          const item = merged.get(cid);
+          if (item) item.views += share;
+        }
+      } else {
+        // Equal split among all collaborators (no previous view data available)
+        const eligibleIds = Array.from(merged.keys()).filter((id) => id !== SEM_COLAB_ID);
+        if (eligibleIds.length > 0) {
+          const share = totalDailyViews / eligibleIds.length;
+          for (const id of eligibleIds) merged.get(id)!.views += share;
         }
       }
     }
@@ -1021,6 +1142,7 @@ function AdminDashboard() {
 
   // Current user's personal collaborator card (if they are linked to a collaborator)
   const myCard = myCollabId ? activeCollabCards.find(c => c.id === myCollabId) ?? null : null;
+  // Respects all active filters (page, date, manual toggle) — same as every other KPI.
   const myReceita = myCard?.receita ?? 0;
 
   const { totalMonth: correctedTotalMonth, totalMonthCsv, totalViews: csvTotalViews, avgRpm: csvAvgRpm, avgScore } = kpis;
@@ -1223,46 +1345,66 @@ function AdminDashboard() {
     return map;
   }, [dailyEntries, filterPage]);
 
-  // Projection chart data — STRAIGHT-LINE cumulative projection:
-  //   proj(day N of month) = baseDaily × N
-  // This produces a straight growing line from day 1 to day 30, the same
-  // approach used in standard revenue-tracking charts.
-  // The real line (CSV cumulative) overlays the projection so you can see
-  // whether actual performance is above or below the expected pace.
+  // Projection chart data — same formula as the Projeções (Forecast) tab:
+  //   realized = cumulative daily manual entries up to today (null for future)
+  //   proj / optimistic / conservative = branch from today's actual total forward
+  //   rate = thisMonthRev / elapsed  (current-month daily pace)
   const projectionChartData = useMemo(() => {
-    type Row = { dia: string; real: number | null; proj: number | null; optimistic: number | null; conservative: number | null };
+    type Row = {
+      dia: string;
+      real: number | null;
+      proj: number | null;
+      optimistic: number | null;
+      conservative: number | null;
+      isToday: boolean;
+    };
 
-    const baseDaily = allTimeAvgDaily > 0 ? allTimeAvgDaily : projections.today;
-    const projAt = (n: number) => +(baseDaily * n).toFixed(6);
-    const optAt  = (n: number) => +(baseDaily * 1.72 * n).toFixed(6);
-    const consAt = (n: number) => +(baseDaily * 0.65 * n).toFixed(6);
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const elapsed = now.getDate();
+    const totalDays = new Date(year, now.getMonth() + 1, 0).getDate();
+    const curMonthKey = `${year}-${month}`;
 
-    const today = new Date();
-    const todayStr = today.toISOString().slice(0, 10);
-    const periodIncludesToday = !filterTo || filterTo >= todayStr;
-    const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    const daysLeftInMonth = periodIncludesToday ? lastDayOfMonth - today.getDate() : 0;
-
-    // CSV history: cumulative real + straight-line projection for every past day
-    let cumReal = 0;
-    const hist: Row[] = chartDataCsv.map((d) => {
-      cumReal += d.receita;
-      const [dd] = d.dia.split("/").map(Number);
-      return { dia: d.dia, real: cumReal, proj: projAt(dd), optimistic: optAt(dd), conservative: consAt(dd) };
-    });
-
-    // Future rows: straight line continues to end of month
-    const futuro: Row[] = [];
-    for (let i = 1; i <= daysLeftInMonth; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      const [, mo, dy] = d.toISOString().slice(0, 10).split("-");
-      const n = Number(dy);
-      futuro.push({ dia: `${dy}/${mo}`, real: null, proj: projAt(n), optimistic: optAt(n), conservative: consAt(n) });
+    // Daily revenue map from manual entries filtered by page
+    const dailyRevByDay = new Map<string, number>();
+    for (const e of dailyEntries) {
+      if (e.actual_revenue_usd == null) continue;
+      if (filterPage !== "all" && e.page_id !== filterPage) continue;
+      dailyRevByDay.set(e.entry_date, (dailyRevByDay.get(e.entry_date) ?? 0) + Number(e.actual_revenue_usd));
     }
 
-    return [...hist, ...futuro];
-  }, [chartDataCsv, projections, allTimeAvgDaily, filterTo]);
+    // Current month total from manual entries
+    const thisMonthRev = [...dailyRevByDay.entries()]
+      .filter(([date]) => date.startsWith(curMonthKey))
+      .reduce((s, [, v]) => s + v, 0);
+
+    // Daily rate: current month avg; fallback to allTimeAvgDaily or projections.today
+    const actualDailyRate =
+      elapsed > 0 && thisMonthRev > 0
+        ? thisMonthRev / elapsed
+        : allTimeAvgDaily > 0
+          ? allTimeAvgDaily
+          : projections.today;
+
+    let cumRealized = 0;
+    const result: Row[] = [];
+    for (let day = 1; day <= totalDays; day++) {
+      const dateStr = `${year}-${month}-${String(day).padStart(2, "0")}`;
+      const dayRev = dailyRevByDay.get(dateStr) ?? 0;
+      if (day <= elapsed) cumRealized += dayRev;
+      const daysFromToday = day - elapsed;
+      result.push({
+        dia: String(day),
+        real: day <= elapsed ? cumRealized : null,
+        proj: day >= elapsed ? +(thisMonthRev + Math.max(0, daysFromToday) * actualDailyRate).toFixed(6) : null,
+        optimistic: day >= elapsed ? +(thisMonthRev + Math.max(0, daysFromToday) * actualDailyRate * 1.72).toFixed(6) : null,
+        conservative: day >= elapsed ? +(thisMonthRev + Math.max(0, daysFromToday) * actualDailyRate * 0.65).toFixed(6) : null,
+        isToday: day === elapsed,
+      });
+    }
+    return result;
+  }, [dailyEntries, filterPage, allTimeAvgDaily, projections]);
 
   // Map "dd/mm" → actual_views (filtered by selected page, for single-page overlay)
   const dailyActualViewsByDia = useMemo(() => {
@@ -1418,6 +1560,8 @@ function AdminDashboard() {
     const [y, m] = baseMonth.split("-").map(Number);
     const prevD = new Date(y, m - 2, 1);
     const prevRef = `${prevD.getFullYear()}-${String(prevD.getMonth() + 1).padStart(2, "0")}`;
+    const monthNames = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+    const label = `${monthNames[prevD.getMonth()]}/${String(prevD.getFullYear()).slice(2)}`;
     let posts = 0, views = 0;
     for (const p of allPosts) {
       if (!p.published_at) continue;
@@ -1426,7 +1570,7 @@ function AdminDashboard() {
       posts += 1;
       views += Number(p.views ?? 0);
     }
-    return { posts, views };
+    return { posts, views, label };
   }, [allPosts, filterFrom, filterPage]);
 
   // ── Top 5 colaboradores do mês passado (fallback quando período atual vazio) ──
@@ -1699,7 +1843,17 @@ function AdminDashboard() {
                 )}
               </div>
               {/* Bottom: metrics grid — mobile: 4 cols, desktop: 6/7 cols */}
-              <div className={`mt-5 sm:mt-8 pt-4 sm:pt-6 border-t border-white/20 grid gap-2 sm:gap-4 grid-cols-4 ${myCard ? "sm:grid-cols-7" : "sm:grid-cols-6"}`}>
+              <div className={`mt-5 sm:mt-8 pt-4 sm:pt-6 border-t border-white/20 grid gap-2 sm:gap-4 grid-cols-4 ${myCard ? "sm:grid-cols-8" : "sm:grid-cols-7"}`}>
+                {/* 0 Saldo Pendente — only for collaborators, desktop only */}
+                {myCard && (
+                  <div className="hidden sm:block">
+                    <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Saldo Pend.</p>
+                    {loading ? <div className="h-5 sm:h-7 w-16 sm:w-24 rounded bg-white/20 animate-pulse" />
+                      : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{usdBrl ? formatBRL(pendingBalance * usdBrl) : `$${pendingBalance.toFixed(2)}`}</p>}
+                    {usdBrl && pendingBalance > 0 && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums">${pendingBalance.toFixed(2)} USD</p>}
+                    {pendingBalance === 0 && !loading && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5">acumulado</p>}
+                  </div>
+                )}
                 {/* 1 RPM */}
                 <div>
                   <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">RPM</p>
@@ -1749,8 +1903,8 @@ function AdminDashboard() {
                 <div className="hidden sm:block">
                   <p className="text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-0.5 sm:mb-1">Views Ant.</p>
                   {loading ? <div className="h-5 sm:h-7 w-14 sm:w-20 rounded bg-white/20 animate-pulse" />
-                    : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{fmt(totalViews)}</p>}
-                  {!loading && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5 tabular-nums">atual vs {fmt(prevMonthStats.views)}</p>}
+                    : <p className="text-base sm:text-xl font-bold tabular-nums leading-tight">{fmt(prevMonthStats.views)}</p>}
+                  {!loading && <p className="text-[9px] sm:text-xs text-white/50 mt-0.5">{prevMonthStats.label}</p>}
                 </div>
               </div>
             </div>
@@ -1883,7 +2037,7 @@ function AdminDashboard() {
             const u = (v: number) => `$${v.toFixed(0)}`;
             const r = (v: number) => `$${v.toFixed(2)}`;
             const missions: { icon: React.ElementType; label: string; cur: number; best: number; fmt: (v: number) => string }[] = [
-              { icon: DollarSign,      label: "Meta $100",      cur: missionCur.revenue,     best: 100,                     fmt: r },
+              { icon: DollarSign,      label: "Meta $100",      cur: missionCur.revenue + (myCard ? pendingBalance : 0), best: 100, fmt: r },
               { icon: Eye,             label: "Views",          cur: missionCur.views,       best: missionBest.views,       fmt: n },
               { icon: DollarSign,      label: "Receita CSV",    cur: missionCur.usd,         best: missionBest.usd,         fmt: u },
               { icon: Zap,             label: "Ganhos Reais",   cur: missionCur.revenue,     best: missionBest.revenue,     fmt: u },
@@ -1925,122 +2079,185 @@ function AdminDashboard() {
             );
           })()}
 
-          {/* ═══════════════ MAIN GRID ═══════════════ */}
-          <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6">
+          {/* ═══════════════ RANKING CAROUSEL ═══════════════ */}
+          {(() => {
+            const currentCards = activeCollabCards.filter((c) => c.id !== SEM_COLAB_ID && c.receita > 0.001).slice(0, 8);
+            const isFallback = currentCards.length === 0;
+            const displayCards = isFallback ? prevMonthTopColabs : currentCards;
 
-            {/* LEFT: Analytics chart — Receita + 3 cenários de projeção */}
-            {loading ? (
-              <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6 space-y-4" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
-                <div className="space-y-2"><Sk w="w-32 sm:w-40" h="h-4 sm:h-5" /><Sk w="w-40 sm:w-56" h="h-3" /></div>
-                <Sk w="w-full" h="h-[220px] sm:h-[340px]" className="rounded-xl" />
+            // rank accent colours: gold / silver / bronze / neutral
+            const rankAccent = [
+              { bg: "#FFF7E6", border: "#F5C842", label: "#B8860B" },
+              { bg: "#F5F5F5", border: "#B0B0B0", label: "#6B6B6B" },
+              { bg: "#FFF1EB", border: "#E07A50", label: "#C05A30" },
+            ];
+            const defaultAccent = { bg: "#FAFAFA", border: "#E8E8E8", label: "#9B9B9B" };
+
+            return (
+              <div className="bg-white border border-[#F1F1F1] rounded-2xl overflow-hidden" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 sm:px-5 pt-4 sm:pt-5 pb-3">
+                  <div>
+                    <h2 className="text-sm sm:text-base font-bold text-[#1A0A00]">Ranking</h2>
+                    <p className="text-[11px] text-[#9B9B9B] mt-0.5">
+                      {isFallback ? "Top colaboradores · mês passado" : "Colaboradores no período"}
+                    </p>
+                  </div>
+                  <button onClick={() => navigate({ to: "/admin/colaboradores" })} className="text-xs font-semibold text-[#F44708] hover:text-[#D93D07] transition-colors">
+                    Ver todos →
+                  </button>
+                </div>
+
+                {/* Carousel */}
+                <div
+                  className="flex gap-2 px-4 sm:px-5 pb-4 sm:pb-5 overflow-x-auto"
+                  style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
+                >
+                  {loading ? (
+                    [1,2,3,4,5].map(i => (
+                      <div key={i} className="flex-none w-[130px] rounded-2xl border border-[#F1F1F1] p-3 space-y-2">
+                        <Sk w="w-8" h="h-4" className="rounded-full" />
+                        <Sk w="w-10" h="h-10" className="rounded-full" />
+                        <Sk w="w-16" h="h-3" />
+                        <Sk w="w-12" h="h-2.5" />
+                        <Sk w="w-14" h="h-4" />
+                      </div>
+                    ))
+                  ) : displayCards.length === 0 ? (
+                    <p className="text-xs text-[#9B9B9B] py-6 px-2">Nenhum colaborador no período</p>
+                  ) : displayCards.map((card, i) => {
+                    const displayReceita = isFallback ? 0 : card.receita;
+                    const displayViews   = isFallback ? 0 : card.views;
+                    const receitaOn  = collabCards.find(c => c.id === card.id)?.receita ?? card.receita;
+                    const receitaOff = collabCardsCsv.find(c => c.id === card.id)?.receita ?? card.receita;
+                    const delta = !isFallback && showManual && receitaOff > 0.001 ? ((receitaOn - receitaOff) / receitaOff) * 100 : null;
+                    const accent = rankAccent[i] ?? defaultAccent;
+                    const isFirst = i === 0;
+
+                    return (
+                      <button
+                        key={card.id}
+                        onClick={() => setAuditColabId(card.id)}
+                        className="flex-none flex flex-col gap-2 p-3 rounded-2xl transition-all active:scale-95 text-left"
+                        style={{
+                          minWidth: isFirst ? 148 : 132,
+                          background: accent.bg,
+                          border: `1.5px solid ${accent.border}`,
+                        }}
+                      >
+                        {/* Rank label */}
+                        <div className="flex items-center justify-between w-full">
+                          <span
+                            className="text-[10px] font-black uppercase tracking-widest"
+                            style={{ color: accent.label }}
+                          >
+                            {i === 0 ? "1º lugar" : i === 1 ? "2º lugar" : i === 2 ? "3º lugar" : `${i + 1}º`}
+                          </span>
+                          {delta !== null && (
+                            <span className={`text-[9px] font-bold px-1 py-0.5 rounded-full ${delta >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+                              {delta >= 0 ? "▲" : "▼"}{Math.abs(delta).toFixed(0)}%
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Avatar */}
+                        <div
+                          className="relative flex items-center justify-center"
+                          style={{ width: isFirst ? 52 : 44, height: isFirst ? 52 : 44 }}
+                        >
+                          <GoalRing revenueUsd={displayReceita} size={isFirst ? 52 : 44} />
+                          <ColabInitials nome={card.nome} idx={i} size={isFirst ? 42 : 34} avatarUrl={card.avatar_url} />
+                        </div>
+
+                        {/* Name */}
+                        <div>
+                          <p className={`text-xs font-bold leading-tight truncate max-w-[110px] ${isFallback ? "text-[#9B9B9B]" : "text-[#1A0A00]"}`}>
+                            {card.nome.split(" ")[0]}
+                          </p>
+                          <p className="text-[10px] text-[#9B9B9B] tabular-nums mt-0.5">
+                            {isFallback ? "—" : `${fmt(Math.round(displayViews))} views`}
+                          </p>
+                        </div>
+
+                        {/* Revenue — main focus */}
+                        <p className={`text-sm font-black tabular-nums mt-auto ${isFallback ? "text-[#C0C0C0]" : "text-[#1A0A00]"}`}>
+                          {isFallback ? "R$ 0,00" : (usdBrl ? formatBRL(displayReceita * usdBrl) : `$${displayReceita.toFixed(2)}`)}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ═══════════════ CHART ═══════════════ */}
+          {loading ? (
+            <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6 space-y-4" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+              <div className="space-y-2"><Sk w="w-32 sm:w-40" h="h-4 sm:h-5" /><Sk w="w-40 sm:w-56" h="h-3" /></div>
+              <Sk w="w-full" h="h-[260px] sm:h-[320px]" className="rounded-xl" />
+            </div>
+          ) : (
+            <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+              <div className="mb-4 sm:mb-5">
+                <h2 className="text-sm sm:text-base font-bold text-[#1A0A00]">Receita + Projeção</h2>
+                <p className="text-xs text-[#9B9B9B] mt-0.5 hidden sm:block">
+                  Histórico de receita · 3 cenários de projeção
+                </p>
+              </div>
+              {/* Fixed height so chart always renders */}
+              <div className="h-[260px] sm:h-[320px]">
+                <Suspense fallback={<div className="w-full h-full bg-[#FFF8F5] rounded-xl animate-pulse" />}>
+                  <ProjectionChart
+                    projectionChartData={projectionChartData}
+                    usdBrl={usdBrl}
+                  />
+                </Suspense>
+              </div>
+              {/* Scenario legend */}
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-[#F1F1F1]">
+                <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
+                  <span className="h-0.5 w-5 bg-[#F44708] rounded-full inline-block" />Real
+                </span>
+                <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
+                  <span className="h-0.5 w-5 border-t-2 border-dashed border-emerald-500 inline-block" />Otimista
+                </span>
+                <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
+                  <span className="h-0.5 w-5 border-t-2 border-dashed border-[#F44708] inline-block" />Provável
+                </span>
+                <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
+                  <span className="h-0.5 w-5 border-t-2 border-dashed border-slate-400 inline-block" />Conservador
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* ═══════════════ DOLLAR CHART ═══════════════ */}
+          <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <h2 className="text-sm sm:text-base font-bold text-[#1A0A00]">Dólar · USD/BRL</h2>
+                <p className="text-xs text-[#9B9B9B] mt-0.5">Histórico 30 dias · atualizado diariamente</p>
+              </div>
+              <span className="text-[10px] font-medium text-[#9B9B9B] bg-[#F5F5F5] rounded-full px-2 py-0.5 mt-0.5 shrink-0">ao vivo</span>
+            </div>
+            {dollarLoading ? (
+              <div className="space-y-2">
+                <Sk w="w-32" h="h-7" />
+                <Sk w="w-full" h="h-[140px] sm:h-[160px]" className="rounded-xl" />
+              </div>
+            ) : dollarError ? (
+              <div className="flex flex-col items-center justify-center h-[140px] gap-2 text-[#9B9B9B]">
+                <span className="text-2xl">📡</span>
+                <p className="text-xs text-center">Não foi possível carregar os dados.<br/>Verifique a conexão e recarregue.</p>
               </div>
             ) : (
-              <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6 flex flex-col" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
-                <div className="mb-4 sm:mb-5 shrink-0">
-                  <h2 className="text-sm sm:text-base font-bold text-[#1A0A00]">Receita + Projeção</h2>
-                  <p className="text-xs text-[#9B9B9B] mt-0.5 hidden sm:block">
-                    Histórico de receita · 3 cenários de projeção
-                  </p>
-                </div>
-                <div className="flex-1 min-h-[200px]">
-                  <Suspense fallback={<div className="w-full h-full bg-[#FFF8F5] rounded-xl animate-pulse" />}>
-                    <ProjectionChart
-                      projectionChartData={projectionChartData}
-                      showManual={showManual}
-                      dailyActualByDia={dailyActualByDia}
-                      usdBrl={usdBrl}
-                      baseDaily={allTimeAvgDaily > 0 ? allTimeAvgDaily : projections.today}
-                    />
-                  </Suspense>
-                </div>
-                {/* Scenario legend */}
-                <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-[#F1F1F1] shrink-0">
-                  <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
-                    <span className="h-0.5 w-5 bg-[#F44708] rounded-full inline-block" />Real
-                  </span>
-                  <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
-                    <span className="h-0.5 w-5 border-t-2 border-dashed border-emerald-500 inline-block" />Otimista
-                  </span>
-                  <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
-                    <span className="h-0.5 w-5 border-t-2 border-dashed border-[#F44708] inline-block" />Provável
-                  </span>
-                  <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
-                    <span className="h-0.5 w-5 border-t-2 border-dashed border-slate-400 inline-block" />Conservador
-                  </span>
-                </div>
+              <div className="h-[140px] sm:h-[180px]">
+                <Suspense fallback={<div className="w-full h-full bg-[#FFF8F5] rounded-xl animate-pulse" />}>
+                  <DollarChart data={dollarHistory} />
+                </Suspense>
               </div>
             )}
-
-            {/* RIGHT: Collaborator ranking */}
-            <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6 flex flex-col" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
-              <div className="flex items-center justify-between mb-4 sm:mb-5">
-                <div>
-                  <h2 className="text-base font-bold text-[#1A0A00]">Ranking</h2>
-                  <p className="text-xs text-[#9B9B9B] mt-0.5">Colaboradores no período</p>
-                </div>
-                <button onClick={() => navigate({ to: "/admin/colaboradores" })} className="text-xs font-semibold text-[#F44708] hover:text-[#D93D07] transition-colors">Ver todos →</button>
-              </div>
-              {loading ? (
-                <div className="space-y-3">
-                  {[1,2,3,4,5].map(i => (
-                    <div key={i} className="flex items-center gap-3">
-                      <Sk w="w-5" h="h-5" className="rounded shrink-0" />
-                      <Sk w="w-8" h="h-8" className="rounded-full shrink-0" />
-                      <div className="flex-1 space-y-1"><Sk w="w-24" h="h-3" /><Sk w="w-16" h="h-2.5" /></div>
-                      <Sk w="w-14" h="h-4" className="shrink-0" />
-                    </div>
-                  ))}
-                </div>
-              ) : (() => {
-                const currentCards = activeCollabCards.filter((c) => c.id !== SEM_COLAB_ID && c.receita > 0.001).slice(0, 5);
-                const isFallback = currentCards.length === 0;
-                const displayCards = isFallback ? prevMonthTopColabs : currentCards;
-                const rankColors = ["text-amber-500", "text-slate-400", "text-orange-400"];
-                return (
-                  <div className="flex-1 space-y-1 overflow-y-auto">
-                    {isFallback && displayCards.length > 0 && (
-                      <p className="text-[10px] font-medium text-[#C0C0C0] uppercase tracking-wider px-3 pb-1">Top 5 · mês passado</p>
-                    )}
-                    {displayCards.map((card, i) => {
-                      const spark = isFallback ? Array(14).fill(0) : (sparklineByColab.get(card.id) ?? Array(14).fill(0));
-                      const displayReceita = isFallback ? 0 : card.receita;
-                      const displayViews = isFallback ? 0 : card.views;
-                      const receitaOn = collabCards.find(c => c.id === card.id)?.receita ?? card.receita;
-                      const receitaOff = collabCardsCsv.find(c => c.id === card.id)?.receita ?? card.receita;
-                      const delta = !isFallback && showManual && receitaOff > 0.001 ? ((receitaOn - receitaOff) / receitaOff) * 100 : null;
-                      return (
-                        <button key={card.id} onClick={() => setAuditColabId(card.id)}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#FFF8F5] transition-colors text-left">
-                          <span className={`text-xs font-black w-4 text-center shrink-0 ${rankColors[i] ?? "text-[#C0C0C0]"}`}>{i + 1}</span>
-                          <div
-                            className="relative shrink-0 flex items-center justify-center"
-                            style={{ width: 40, height: 40 }}
-                            title={`Meta $100: $${displayReceita.toFixed(2)} — ${Math.min(100, Math.round(displayReceita))}%`}
-                          >
-                            <GoalRing revenueUsd={displayReceita} size={40} />
-                            <ColabInitials nome={card.nome} idx={i} size={32} avatarUrl={card.avatar_url} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-semibold truncate leading-tight ${isFallback ? "text-[#9B9B9B]" : "text-[#1A0A00]"}`}>{card.nome}</p>
-                            <p className="text-[11px] text-[#9B9B9B] tabular-nums">{isFallback ? "—" : `${fmt(displayViews)} views`}</p>
-                          </div>
-                          <RankingSparkline data={spark} />
-                          <div className="text-right shrink-0 min-w-[64px]">
-                            <p className={`text-sm font-bold tabular-nums ${isFallback ? "text-[#C0C0C0]" : "text-[#1A0A00]"}`}>
-                              {isFallback ? "R$ 0,00" : (usdBrl ? formatBRL(displayReceita * usdBrl) : `$${displayReceita.toFixed(2)}`)}
-                            </p>
-                            {delta !== null && (<span className={`text-[10px] font-bold ${delta >= 0 ? "text-emerald-600" : "text-red-500"}`}>{delta >= 0 ? "▲" : "▼"}{Math.abs(delta).toFixed(0)}%</span>)}
-                          </div>
-                        </button>
-                      );
-                    })}
-                    {isFallback && displayCards.length === 0 && (
-                      <p className="text-center text-xs text-[#9B9B9B] py-8">Nenhum colaborador no período</p>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
           </div>
 
 

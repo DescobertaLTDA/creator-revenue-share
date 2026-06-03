@@ -20,6 +20,7 @@ import { Route as AdminMetasRouteImport } from './routes/admin.metas'
 import { Route as AdminLandscapeRouteImport } from './routes/admin.landscape'
 import { Route as AdminImportacoesRouteImport } from './routes/admin.importacoes'
 import { Route as AdminFechamentosRouteImport } from './routes/admin.fechamentos'
+import { Route as AdminEstudioRouteImport } from './routes/admin.estudio'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 import { Route as AdminColaboradoresRouteImport } from './routes/admin.colaboradores'
 import { Route as AdminCentralReceitaRouteImport } from './routes/admin.central-receita'
@@ -28,7 +29,6 @@ import { Route as AdminBonusManualRouteImport } from './routes/admin.bonus-manua
 import { Route as AdminFechamentosIndexRouteImport } from './routes/admin.fechamentos.index'
 import { Route as AdminImportacoesIdRouteImport } from './routes/admin.importacoes.$id'
 import { Route as AdminFechamentosIdRouteImport } from './routes/admin.fechamentos.$id'
-import { Route as AdminEstudioRouteImport } from './routes/admin.estudio'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -85,6 +85,11 @@ const AdminFechamentosRoute = AdminFechamentosRouteImport.update({
   path: '/fechamentos',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminEstudioRoute = AdminEstudioRouteImport.update({
+  id: '/estudio',
+  path: '/estudio',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminDashboardRoute = AdminDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -125,11 +130,6 @@ const AdminFechamentosIdRoute = AdminFechamentosIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AdminFechamentosRoute,
 } as any)
-const AdminEstudioRoute = AdminEstudioRouteImport.update({
-  id: '/estudio',
-  path: '/estudio',
-  getParentRoute: () => AdminRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -141,13 +141,13 @@ export interface FileRoutesByFullPath {
   '/admin/central-receita': typeof AdminCentralReceitaRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/estudio': typeof AdminEstudioRoute
   '/admin/fechamentos': typeof AdminFechamentosRouteWithChildren
   '/admin/importacoes': typeof AdminImportacoesRouteWithChildren
   '/admin/landscape': typeof AdminLandscapeRoute
   '/admin/metas': typeof AdminMetasRoute
   '/admin/posts': typeof AdminPostsRoute
   '/admin/projecoes': typeof AdminProjecoesRoute
-  '/admin/estudio': typeof AdminEstudioRoute
   '/colaborador/dashboard': typeof ColaboradorDashboardRoute
   '/admin/fechamentos/$id': typeof AdminFechamentosIdRoute
   '/admin/importacoes/$id': typeof AdminImportacoesIdRoute
@@ -163,12 +163,12 @@ export interface FileRoutesByTo {
   '/admin/central-receita': typeof AdminCentralReceitaRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/estudio': typeof AdminEstudioRoute
   '/admin/importacoes': typeof AdminImportacoesRouteWithChildren
   '/admin/landscape': typeof AdminLandscapeRoute
   '/admin/metas': typeof AdminMetasRoute
   '/admin/posts': typeof AdminPostsRoute
   '/admin/projecoes': typeof AdminProjecoesRoute
-  '/admin/estudio': typeof AdminEstudioRoute
   '/colaborador/dashboard': typeof ColaboradorDashboardRoute
   '/admin/fechamentos/$id': typeof AdminFechamentosIdRoute
   '/admin/importacoes/$id': typeof AdminImportacoesIdRoute
@@ -185,13 +185,13 @@ export interface FileRoutesById {
   '/admin/central-receita': typeof AdminCentralReceitaRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/estudio': typeof AdminEstudioRoute
   '/admin/fechamentos': typeof AdminFechamentosRouteWithChildren
   '/admin/importacoes': typeof AdminImportacoesRouteWithChildren
   '/admin/landscape': typeof AdminLandscapeRoute
   '/admin/metas': typeof AdminMetasRoute
   '/admin/posts': typeof AdminPostsRoute
   '/admin/projecoes': typeof AdminProjecoesRoute
-  '/admin/estudio': typeof AdminEstudioRoute
   '/colaborador/dashboard': typeof ColaboradorDashboardRoute
   '/admin/fechamentos/$id': typeof AdminFechamentosIdRoute
   '/admin/importacoes/$id': typeof AdminImportacoesIdRoute
@@ -209,13 +209,13 @@ export interface FileRouteTypes {
     | '/admin/central-receita'
     | '/admin/colaboradores'
     | '/admin/dashboard'
+    | '/admin/estudio'
     | '/admin/fechamentos'
     | '/admin/importacoes'
     | '/admin/landscape'
     | '/admin/metas'
     | '/admin/posts'
     | '/admin/projecoes'
-    | '/admin/estudio'
     | '/colaborador/dashboard'
     | '/admin/fechamentos/$id'
     | '/admin/importacoes/$id'
@@ -231,12 +231,12 @@ export interface FileRouteTypes {
     | '/admin/central-receita'
     | '/admin/colaboradores'
     | '/admin/dashboard'
+    | '/admin/estudio'
     | '/admin/importacoes'
     | '/admin/landscape'
     | '/admin/metas'
     | '/admin/posts'
     | '/admin/projecoes'
-    | '/admin/estudio'
     | '/colaborador/dashboard'
     | '/admin/fechamentos/$id'
     | '/admin/importacoes/$id'
@@ -252,13 +252,13 @@ export interface FileRouteTypes {
     | '/admin/central-receita'
     | '/admin/colaboradores'
     | '/admin/dashboard'
+    | '/admin/estudio'
     | '/admin/fechamentos'
     | '/admin/importacoes'
     | '/admin/landscape'
     | '/admin/metas'
     | '/admin/posts'
     | '/admin/projecoes'
-    | '/admin/estudio'
     | '/colaborador/dashboard'
     | '/admin/fechamentos/$id'
     | '/admin/importacoes/$id'
@@ -351,6 +351,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminFechamentosRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/estudio': {
+      id: '/admin/estudio'
+      path: '/estudio'
+      fullPath: '/admin/estudio'
+      preLoaderRoute: typeof AdminEstudioRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/dashboard': {
       id: '/admin/dashboard'
       path: '/dashboard'
@@ -384,13 +391,6 @@ declare module '@tanstack/react-router' {
       path: '/bonus-manual'
       fullPath: '/admin/bonus-manual'
       preLoaderRoute: typeof AdminBonusManualRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/estudio': {
-      id: '/admin/estudio'
-      path: '/estudio'
-      fullPath: '/admin/estudio'
-      preLoaderRoute: typeof AdminEstudioRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/fechamentos/': {
