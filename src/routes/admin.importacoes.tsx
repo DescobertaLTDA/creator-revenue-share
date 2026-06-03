@@ -610,56 +610,130 @@ export default function DataPipelinePage() {
       />
 
       {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Data Pipeline</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Importações</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Sincronização inteligente dos dados de monetização da plataforma.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button className="hidden sm:flex items-center gap-1.5 h-9 px-3 rounded-xl border border-border bg-white text-xs font-medium text-muted-foreground hover:bg-muted transition-colors shrink-0">
-            <Settings2 className="h-3.5 w-3.5" /> Configurações
-          </button>
-          <button
-            onClick={guard(() => fileRef.current?.click())}
-            disabled={uploading}
-            className="flex items-center justify-center gap-1.5 h-9 flex-1 sm:flex-none sm:px-4 rounded-xl bg-[#F44708] text-white text-sm font-bold hover:bg-[#E03A07] transition-colors disabled:opacity-60"
-          >
-            {uploading
-              ? <><Loader2 className="h-4 w-4 animate-spin" /> {bulkProgress ? `${bulkProgress.current}/${bulkProgress.total}` : "Processando…"}</>
-              : <><Upload className="h-4 w-4" /> Enviar CSVs</>
-            }
-          </button>
+        <button
+          onClick={guard(() => fileRef.current?.click())}
+          disabled={uploading}
+          className="flex items-center gap-2 h-9 px-4 rounded-xl bg-[#F44708] text-white text-sm font-bold hover:bg-[#E03A07] transition-colors disabled:opacity-60 shrink-0"
+        >
+          {uploading
+            ? <><Loader2 className="h-4 w-4 animate-spin" /> {bulkProgress ? `${bulkProgress.current}/${bulkProgress.total}` : "Processando…"}</>
+            : <><Upload className="h-4 w-4" /> Enviar CSVs</>
+          }
+        </button>
+      </div>
+
+      {/* ── Hero card (orange gradient — same as Projeções/Analytics) ── */}
+      <div
+        className="rounded-2xl overflow-hidden relative"
+        style={{ background: "linear-gradient(135deg, #F44708 0%, #E84A10 40%, #C03A08 100%)" }}
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={guard(handleDrop)}
+      >
+        <div className="absolute -top-10 -right-10 h-64 w-64 rounded-full opacity-10"
+          style={{ background: "radial-gradient(circle, #fff 0%, transparent 70%)" }} />
+        {dragging && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 rounded-2xl">
+            <p className="text-white font-bold text-sm">Solte os arquivos aqui</p>
+          </div>
+        )}
+        <div className="px-6 py-5 relative flex flex-wrap items-center gap-6">
+          {/* Main metric */}
+          <div className="shrink-0">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-1">Arquivos processados</p>
+            <p className="text-4xl font-black tracking-tight text-white leading-none">
+              {loading ? "—" : kpis.totalFiles}
+            </p>
+            <p className="text-[11px] text-white/60 mt-1">{kpis.totalLines > 0 ? `${fmtNum(kpis.totalLines)} linhas importadas` : "Aguardando dados"}</p>
+          </div>
+
+          <div className="w-px h-10 bg-white/20 shrink-0 hidden sm:block" />
+
+          <div className="shrink-0">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-1">Integridade</p>
+            <p className="text-2xl font-black text-white leading-none">
+              {loading ? "—" : `${kpis.integrity.toFixed(1)}%`}
+            </p>
+            <p className="text-[11px] text-white/60 mt-1">
+              {kpis.integrity >= 99 ? "Excelente" : kpis.integrity >= 95 ? "Boa" : "Atenção necessária"}
+            </p>
+          </div>
+
+          <div className="w-px h-10 bg-white/20 shrink-0 hidden sm:block" />
+
+          <div className="shrink-0">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-1">Último upload</p>
+            <p className="text-2xl font-black text-white leading-none">
+              {loading ? "—" : (kpis.lastSync ? timeSince(kpis.lastSync) : "Nunca")}
+            </p>
+            <p className="text-[11px] text-white/60 mt-1">
+              {kpis.lastSync ? formatDateTime(kpis.lastSync) : "Nenhum arquivo enviado"}
+            </p>
+          </div>
+
+          {/* Pipeline status badge + drag-drop hint */}
+          <div className="ml-auto shrink-0 flex flex-col items-end gap-2">
+            {activeUploadStep >= 0 ? (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full bg-white/15 text-white/90">
+                <Loader2 className="h-3 w-3 animate-spin" /> Processando…
+              </span>
+            ) : latestImport ? (
+              <span className={cn(
+                "inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full",
+                latestImport.status === "concluido" ? "bg-white/15 text-white/90" : "bg-white/20 text-white"
+              )}>
+                {latestImport.status === "concluido"
+                  ? <><CheckCircle2 className="h-3.5 w-3.5" /> Tudo certo</>
+                  : latestImport.status === "processando"
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Processando</>
+                  : <><AlertCircle className="h-3.5 w-3.5" /> Com erros</>}
+              </span>
+            ) : null}
+            <p className="text-[10px] text-white/40">Arraste CSVs aqui para importar</p>
+          </div>
         </div>
       </div>
 
-      {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <PipelineKpi
-          label="Arquivos processados"
-          value={loading ? "—" : String(kpis.totalFiles)}
-          sub={kpis.totalFiles > 0 ? `+${Math.min(kpis.totalFiles, 12)}% vs mês anterior` : "Sem importações"}
-          icon={FileText} iconBg="#FFF0E8" iconColor="#F44708" positive
-        />
-        <PipelineKpi
-          label="Último upload"
-          value={loading ? "—" : (kpis.lastSync ? timeSince(kpis.lastSync) : "Nunca")}
-          sub={kpis.lastSync ? formatDateTime(kpis.lastSync) : "—"}
-          icon={Clock} iconBg="#FFF0E8" iconColor="#FAA613"
-        />
-        <PipelineKpi
-          label="Linhas importadas"
-          value={loading ? "—" : fmtNum(kpis.totalLines)}
-          sub={kpis.totalLines > 0 ? `+18% vs mês anterior` : "Aguardando dados"}
-          icon={Database} iconBg="#F0FDF4" iconColor="#16a34a" positive
-        />
-        <PipelineKpi
-          label="Integridade dos dados"
-          value={loading ? "—" : `${kpis.integrity.toFixed(2)}%`}
-          sub={kpis.integrity >= 99 ? "Excelente" : kpis.integrity >= 95 ? "Boa" : "Atenção necessária"}
-          icon={Shield} iconBg="#FFF0E8" iconColor="#F44708" positive={kpis.integrity >= 95}
-        />
+      {/* ── 4 KPI cards (identical style to Projeções) ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {([
+          {
+            label: "Arquivos concluídos",
+            value: loading ? "—" : String(tabCounts.concluido),
+            sub: `de ${kpis.totalFiles} total`,
+            color: "#10b981",
+          },
+          {
+            label: "Com erros",
+            value: loading ? "—" : String(tabCounts.erro),
+            sub: tabCounts.erro > 0 ? "Verificar logs" : "Sem falhas",
+            color: tabCounts.erro > 0 ? "#F44708" : "#10b981",
+          },
+          {
+            label: "Linhas válidas",
+            value: loading ? "—" : fmtNum(kpis.totalLines),
+            sub: "total importado",
+            color: "#F44708",
+          },
+          {
+            label: "Integridade",
+            value: loading ? "—" : `${kpis.integrity.toFixed(2)}%`,
+            sub: kpis.integrity >= 99 ? "Excelente" : kpis.integrity >= 95 ? "Boa" : "Atenção necessária",
+            color: kpis.integrity >= 95 ? "#10b981" : "#FAA613",
+          },
+        ] as { label: string; value: string; sub: string; color: string }[]).map(({ label, value, sub, color }) => (
+          <div key={label} className="rounded-2xl border border-border bg-white p-4 flex flex-col gap-2">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
+            <p className="text-2xl font-black leading-none tracking-tight" style={{ color }}>{value}</p>
+            <p className="text-[10px] text-muted-foreground">{sub}</p>
+          </div>
+        ))}
       </div>
-
 
       {/* Daily metric modal — shown when a Ganhos/Views CSV is detected */}
       {pendingPost && (
@@ -689,20 +763,20 @@ export default function DataPipelinePage() {
         />
       )}
 
-      {/* ── Pipeline Stepper (full-width) ── */}
-      <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pipeline de processamento</p>
+      {/* ── Pipeline Stepper ── */}
+      <div className="rounded-2xl border border-border bg-white p-5">
+        <div className="flex items-center justify-between mb-5">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Pipeline de processamento</p>
           {activeUploadStep >= 0 ? (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
               <Loader2 className="h-3 w-3 animate-spin" /> Processando…
             </span>
           ) : latestImport ? (
             <span className={cn(
-              "inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full",
-              latestImport.status === "concluido" ? "bg-green-100 text-green-700" :
+              "inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full",
+              latestImport.status === "concluido" ? "bg-[#F0FDF4] text-[#16a34a]" :
               latestImport.status === "processando" ? "bg-amber-100 text-amber-700" :
-              "bg-red-100 text-red-600"
+              "bg-red-50 text-red-600"
             )}>
               {latestImport.status === "concluido"
                 ? <><CheckCircle2 className="h-3 w-3" /> Tudo certo</>
@@ -716,12 +790,11 @@ export default function DataPipelinePage() {
       </div>
 
       {/* ── Imports Table ── */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      <div className="rounded-2xl border border-border bg-white overflow-hidden">
         {/* Tab bar + search */}
-        <div className="px-4 pt-4 pb-0">
-          {/* Tabs — scrollable on mobile */}
-          <div className="overflow-x-auto scrollbar-none -mx-4 px-4">
-            <div className="flex items-center gap-0.5 min-w-max border-b border-border">
+        <div className="px-5 pt-4 pb-0">
+          <div className="flex items-center justify-between gap-3 pb-0">
+            <div className="flex items-center gap-0.5 border-b border-border -mb-px overflow-x-auto scrollbar-none">
               {([
                 { key: "all", label: "Todos", count: tabCounts.all },
                 { key: "concluido", label: "Concluídos", count: tabCounts.concluido },
@@ -732,31 +805,28 @@ export default function DataPipelinePage() {
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap",
+                    "flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap border-b-2",
                     activeTab === tab.key
-                      ? "text-[#F44708] border-b-2 border-[#F44708] bg-transparent"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "text-[#F44708] border-[#F44708]"
+                      : "text-muted-foreground border-transparent hover:text-foreground"
                   )}
                 >
                   {tab.label}
                   <span className={cn(
                     "text-[10px] font-bold px-1.5 py-0.5 rounded-full",
-                    activeTab === tab.key ? "bg-[#FAA613]/15 text-[#F44708]" : "bg-muted text-muted-foreground"
+                    activeTab === tab.key ? "bg-[#FFF0E8] text-[#F44708]" : "bg-muted text-muted-foreground"
                   )}>
                     {tab.count}
                   </span>
                 </button>
               ))}
             </div>
-          </div>
-          {/* Search — full width on mobile, right-aligned on desktop */}
-          <div className="flex items-center gap-2 py-2">
-            <div className="relative flex-1 sm:flex-none">
+            <div className="relative shrink-0 pb-2">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
                 value={q} onChange={e => setQ(e.target.value)}
                 placeholder="Buscar arquivo..."
-                className="h-8 w-full sm:w-48 bg-muted/50 rounded-lg pl-8 pr-3 text-xs border border-border focus:outline-none focus:ring-1 focus:ring-[#F44708]/30"
+                className="h-8 w-44 bg-muted/50 rounded-lg pl-8 pr-3 text-xs border border-border focus:outline-none focus:ring-1 focus:ring-[#F44708]/30"
               />
             </div>
           </div>
@@ -902,14 +972,14 @@ export default function DataPipelinePage() {
       </div>
 
       {/* ═══════════════ THUMBNAILS DE POSTS ═══════════════ */}
-      <div className="bg-white rounded-2xl border border-border overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-        <div className="px-5 pt-4 pb-3 border-b border-border flex items-center justify-between">
+      <div className="rounded-2xl border border-border bg-white overflow-hidden">
+        <div className="px-5 pt-5 pb-4 border-b border-border flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-bold flex items-center gap-2">
-              <Image className="h-4 w-4 text-[#F44708]" />
-              Thumbnails de Posts
-            </h2>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Vincule imagens 4:3 aos posts para exibição no Dashboard</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Thumbnails de Posts</p>
+            <p className="text-sm font-semibold text-foreground">Vincule imagens 4:3 aos posts para exibição no Dashboard</p>
+          </div>
+          <div className="h-8 w-8 rounded-xl bg-[#FFF0E8] flex items-center justify-center shrink-0">
+            <Image className="h-4 w-4 text-[#F44708]" />
           </div>
         </div>
         <div className="p-5 space-y-4">
