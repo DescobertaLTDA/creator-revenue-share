@@ -359,6 +359,7 @@ function BonusManualPage() {
 
   const isIG = platform === "instagram";
   const [igPageIds, setIgPageIds] = useState<Set<string>>(new Set());
+  const [igPostCounts, setIgPostCounts] = useState<Map<string, number>>(new Map());
 
   // Load pages list once
   useEffect(() => {
@@ -386,8 +387,14 @@ function BonusManualPage() {
         revCounts.set(p.page_id, (revCounts.get(p.page_id) ?? 0) + 1);
       }
 
-      const igIds = new Set<string>((igPosts ?? []).map((p: any) => p.page_id));
+      const igIds = new Set<string>();
+      const igCounts = new Map<string, number>();
+      for (const p of (igPosts ?? []) as any[]) {
+        igIds.add(p.page_id);
+        igCounts.set(p.page_id, (igCounts.get(p.page_id) ?? 0) + 1);
+      }
       setIgPageIds(igIds);
+      setIgPostCounts(igCounts);
 
       const list: PageOption[] = (pagesData as any[]).map((p) => ({
         id: p.id,
@@ -769,7 +776,9 @@ function BonusManualPage() {
             setRows([]);
             // Auto-select first page with IG posts when switching to Instagram
             if (p === "instagram" && !igPageIds.has(selectedPageId)) {
-              const firstIg = pages.find((pg) => igPageIds.has(pg.id));
+              const firstIg = [...pages]
+                .filter((pg) => igPageIds.has(pg.id))
+                .sort((a, b) => (igPostCounts.get(b.id) ?? 0) - (igPostCounts.get(a.id) ?? 0))[0];
               if (firstIg) setSelectedPageId(firstIg.id);
             }
           }}
