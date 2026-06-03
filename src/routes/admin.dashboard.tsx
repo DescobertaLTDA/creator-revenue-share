@@ -2088,7 +2088,7 @@ function AdminDashboard() {
           </div>
 
           {/* ═══════════════ PLATFORM TABLE + INSIGHTS ═══════════════ */}
-          <div className="grid grid-cols-1 lg:grid-cols-7 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 items-start">
             {/* Comparison table */}
             <div className="lg:col-span-4 bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
               <div className="px-5 pt-5 pb-3 border-b border-[#F7F7F7]">
