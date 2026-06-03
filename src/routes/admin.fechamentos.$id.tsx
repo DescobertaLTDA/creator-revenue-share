@@ -446,11 +446,7 @@ function ClosingDetail() {
     if (error) { toast.error("Erro", { description: error.message }); return; }
     toast.success(isRevert ? "Pagamento desfeito" : "Pagamento confirmado!");
     await load();
-    // update selectedItem inline
-    setSelectedItem((prev) => prev?.id === itemId
-      ? { ...prev, payment_status: isRevert ? "a_pagar" : "pago_fora", paid_at: isRevert ? null : new Date().toISOString(), payment_note: isRevert ? null : JSON.stringify(note) }
-      : prev
-    );
+    setSelectedItem(null); // close the panel after confirming or reverting
   };
 
   // ── Derived values ──────────────────────────────────────────────────────────
