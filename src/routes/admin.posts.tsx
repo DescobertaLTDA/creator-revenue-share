@@ -658,7 +658,7 @@ function ContentFormatPanel({ vidCount, photoCount, vidViews, photoViews, vidRev
 // ─── Top posts table ──────────────────────────────────────────────────────────
 
 function TopPostsPanel({ posts, isIG }: {
-  posts: { id: string; title: string | null; external_post_id: string; pageName: string; date: string; views: number; revenue: number; reactions: number; isVideo: boolean; watchAvg: number }[];
+  posts: { id: string; title: string | null; pageName: string; date: string; views: number; revenue: number; reactions: number; isVideo: boolean; watchAvg: number }[];
   isIG: boolean;
 }) {
   return (
@@ -693,7 +693,7 @@ function TopPostsPanel({ posts, isIG }: {
                   </td>
                   <td className="px-4 py-3">
                     <p className="font-semibold text-foreground truncate max-w-[220px]">
-                      {p.title ?? `Post ${p.external_post_id.slice(-8)}`}
+                      {p.title ?? `Post ${p.id.slice(-8)}`}
                     </p>
                     <p className="text-muted-foreground mt-0.5">{p.pageName} · {p.date}</p>
                   </td>
@@ -862,7 +862,6 @@ function AnalyticsPage() {
       .map((p) => ({
         id: p.id,
         title: p.title,
-        external_post_id: p.external_post_id,
         pageName: p.pages?.nome ?? "—",
         date: p.published_at?.slice(0, 10) ?? "—",
         views: p._views,
