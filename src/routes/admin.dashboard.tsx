@@ -3217,6 +3217,47 @@ function AdminDashboard() {
             </div>
           </div>
 
+          {/* ═══════════════ CHART ═══════════════ */}
+          {loading ? (
+            <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6 space-y-4" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+              <div className="space-y-2"><Sk w="w-32 sm:w-40" h="h-4 sm:h-5" /><Sk w="w-40 sm:w-56" h="h-3" /></div>
+              <Sk w="w-full" h="h-[260px] sm:h-[320px]" className="rounded-xl" />
+            </div>
+          ) : (
+            <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+              <div className="mb-4 sm:mb-5">
+                <h2 className="text-sm sm:text-base font-bold text-[#1A0A00]">Receita + Projeção</h2>
+                <p className="text-xs text-[#9B9B9B] mt-0.5 hidden sm:block">
+                  Histórico de receita · 3 cenários de projeção
+                </p>
+              </div>
+              {/* Fixed height so chart always renders */}
+              <div className="h-[260px] sm:h-[320px]">
+                <Suspense fallback={<div className="w-full h-full bg-[#FFF8F5] rounded-xl animate-pulse" />}>
+                  <ProjectionChart
+                    projectionChartData={projectionChartData}
+                    usdBrl={usdBrl}
+                  />
+                </Suspense>
+              </div>
+              {/* Scenario legend */}
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-[#F1F1F1]">
+                <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
+                  <span className="h-0.5 w-5 bg-[#F44708] rounded-full inline-block" />Real
+                </span>
+                <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
+                  <span className="h-0.5 w-5 border-t-2 border-dashed border-emerald-500 inline-block" />Otimista
+                </span>
+                <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
+                  <span className="h-0.5 w-5 border-t-2 border-dashed border-[#F44708] inline-block" />Provável
+                </span>
+                <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
+                  <span className="h-0.5 w-5 border-t-2 border-dashed border-slate-400 inline-block" />Conservador
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* ═══════════════ POSTS CAROUSEL ═══════════════ */}
           {!loading && top5Posts.length > 0 && (
             <PostsCarousel
@@ -3424,47 +3465,6 @@ function AdminDashboard() {
               </div>
             );
           })()}
-
-          {/* ═══════════════ CHART ═══════════════ */}
-          {loading ? (
-            <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6 space-y-4" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
-              <div className="space-y-2"><Sk w="w-32 sm:w-40" h="h-4 sm:h-5" /><Sk w="w-40 sm:w-56" h="h-3" /></div>
-              <Sk w="w-full" h="h-[260px] sm:h-[320px]" className="rounded-xl" />
-            </div>
-          ) : (
-            <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
-              <div className="mb-4 sm:mb-5">
-                <h2 className="text-sm sm:text-base font-bold text-[#1A0A00]">Receita + Projeção</h2>
-                <p className="text-xs text-[#9B9B9B] mt-0.5 hidden sm:block">
-                  Histórico de receita · 3 cenários de projeção
-                </p>
-              </div>
-              {/* Fixed height so chart always renders */}
-              <div className="h-[260px] sm:h-[320px]">
-                <Suspense fallback={<div className="w-full h-full bg-[#FFF8F5] rounded-xl animate-pulse" />}>
-                  <ProjectionChart
-                    projectionChartData={projectionChartData}
-                    usdBrl={usdBrl}
-                  />
-                </Suspense>
-              </div>
-              {/* Scenario legend */}
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-[#F1F1F1]">
-                <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
-                  <span className="h-0.5 w-5 bg-[#F44708] rounded-full inline-block" />Real
-                </span>
-                <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
-                  <span className="h-0.5 w-5 border-t-2 border-dashed border-emerald-500 inline-block" />Otimista
-                </span>
-                <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
-                  <span className="h-0.5 w-5 border-t-2 border-dashed border-[#F44708] inline-block" />Provável
-                </span>
-                <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
-                  <span className="h-0.5 w-5 border-t-2 border-dashed border-slate-400 inline-block" />Conservador
-                </span>
-              </div>
-            </div>
-          )}
 
           {/* ═══════════════ DOLLAR CHART ═══════════════ */}
           <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
