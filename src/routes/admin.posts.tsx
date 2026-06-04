@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   ComposedChart, Area, Line, Bar, XAxis, YAxis, Tooltip,
@@ -10,6 +10,7 @@ import {
   Loader2, Play, ImageIcon, ChevronDown, ChevronRight,
   BarChart2, Zap, Target, Info, DollarSign, Users, Share2,
   MessageSquare, Bookmark, UserPlus,
+  X, Trash2, Link2, CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ interface PostRow {
   page_id: string;
   published_at: string | null;
   title: string | null;
+  description: string | null;
   post_type: string | null;
   source: string | null;
   views: number | null;
@@ -40,6 +42,7 @@ interface PostRow {
   estimated_usd: number | null;
   watch_seconds_avg: number | null;
   video_duration_s: number | null;
+  thumbnail_url: string | null;
   pages: { nome: string; id: string } | null;
 }
 
@@ -94,6 +97,13 @@ const fmtV = (n: number): string =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M`
   : n >= 1_000 ? `${(n / 1_000).toFixed(1)}k`
   : n.toFixed(0);
+
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
 
 const fmtBRL = (usd: number, compact = true): string => {
   const brl = usd * USD_TO_BRL;
@@ -655,17 +665,261 @@ function ContentFormatPanel({ vidCount, photoCount, vidViews, photoViews, vidRev
   );
 }
 
+// ─── Platform badge ───────────────────────────────────────────────────────────
+
+function PlatformBadge({ source }: { source: string | null }) {
+  if (source === "instagram") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-600 uppercase tracking-wide shrink-0">
+        Instagram
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-600 uppercase tracking-wide shrink-0">
+      Facebook
+    </span>
+  );
+}
+
+// ─── Post edit modal ──────────────────────────────────────────────────────────
+
+function PostEditModal({
+  post: initialPost,
+  postIndex,
+  onClose,
+  onSaved,
+}: {
+  post: PostRow;
+  postIndex: number;
+  onClose: () => void;
+  onSaved: (updated: PostRow) => void;
+}) {
+  const [post, setPost] = useState<PostRow>(initialPost);
+  const [description, setDescription] = useState(initialPost.description ?? "");
+  const [saving, setSaving] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const [imageUrlInput, setImageUrlInput] = useState("");
+
+  const revenue = postUsd(post);
+  const brl = revenue * USD_TO_BRL;
+
+  // Close on Escape
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  const handleApplyUrl = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    if (!imageUrlInput.trim()) return;
+    setPost((p) => ({ ...p, thumbnail_url: imageUrlInput.trim() }));
+    setImgError(false);
+    setImageUrlInput("");
+  }, [imageUrlInput]);
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("posts")
+        .update({ description: description || null, thumbnail_url: post.thumbnail_url } as any)
+        .eq("id", post.id);
+      if (!error) onSaved({ ...post, description: description || null });
+    } catch {}
+    setSaving(false);
+  }, [description, post, onSaved]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col">
+
+        {/* ── Header ── */}
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-border shrink-0">
+          <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ background: "#F44708" }}>
+            {postIndex + 1}
+          </div>
+          <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
+            <p className="font-bold text-sm truncate">{post.pages?.nome ?? "Página"}</p>
+            <span className="text-xs text-muted-foreground shrink-0">{fmtDate(post.published_at)}</span>
+            <PlatformBadge source={post.source} />
+          </div>
+          <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors shrink-0">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* ── Body ── */}
+        <div className="p-5 flex flex-col gap-5">
+
+          {/* Thumbnail section */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Thumbnail</p>
+
+            {/* Image + info */}
+            <div className="flex gap-3 mb-3">
+              <div className="relative rounded-xl overflow-hidden bg-gray-100 shrink-0 w-[110px] h-[110px] cursor-pointer" onClick={() => document.getElementById("img-url-input")?.focus()}>
+                {post.thumbnail_url && !imgError ? (
+                  <img src={post.thumbnail_url} alt="Thumbnail" className="w-full h-full object-cover" onError={() => setImgError(true)} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-300">
+                    <ImageIcon className="h-8 w-8" />
+                  </div>
+                )}
+              </div>
+              {post.thumbnail_url && !imgError ? (
+                <div className="flex-1 bg-green-50 border border-green-200 rounded-xl p-3 flex flex-col gap-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                    <span className="text-xs font-bold text-green-700">IMAGEM ATUAL</span>
+                  </div>
+                  <p className="text-xs text-green-700">Thumbnail já vinculada a este post.</p>
+                  <p className="text-[11px] text-green-600">Clique na imagem para trocar.</p>
+                </div>
+              ) : (
+                <div className="flex-1 bg-muted/40 border border-border rounded-xl p-3 flex flex-col items-center justify-center gap-1.5">
+                  <ImageIcon className="h-6 w-6 text-gray-300" />
+                  <p className="text-xs text-muted-foreground text-center">Nenhuma imagem vinculada.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Buttons */}
+            <div className="flex flex-col gap-2 mb-4">
+              <button
+                onClick={() => document.getElementById("img-url-input")?.focus()}
+                className="flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold text-white w-full transition-opacity hover:opacity-90"
+                style={{ background: "#F44708" }}
+              >
+                <ImageIcon className="h-4 w-4" />
+                Trocar imagem
+              </button>
+              {post.thumbnail_url && (
+                <button
+                  onClick={() => { setPost((p) => ({ ...p, thumbnail_url: null })); setImgError(false); }}
+                  className="flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-medium border border-border bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors w-full"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Remover imagem
+                </button>
+              )}
+            </div>
+
+            {/* URL import */}
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide whitespace-nowrap shrink-0">
+                OU IMPORTAR AUTOMATICAMENTE
+              </span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+            <form onSubmit={handleApplyUrl} className="flex gap-2">
+              <div className="flex-1 relative">
+                <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <input
+                  id="img-url-input"
+                  type="text"
+                  value={imageUrlInput}
+                  onChange={(e) => setImageUrlInput(e.target.value)}
+                  placeholder="URL do post ou da imagem (opcional)"
+                  className="w-full h-9 pl-9 pr-3 rounded-xl border border-border bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#F44708]/30"
+                />
+              </div>
+              <button
+                type="submit"
+                className="h-9 px-4 rounded-xl text-xs font-semibold text-white bg-gray-900 hover:bg-gray-700 transition-colors flex items-center gap-1.5 shrink-0"
+              >
+                <Link2 className="h-3.5 w-3.5" />
+                Importar
+              </button>
+            </form>
+            <p className="text-[10px] text-muted-foreground mt-1.5 pl-1">Sem URL: busca automática pelo Google</p>
+          </div>
+
+          {/* Metrics */}
+          <div className="grid grid-cols-4 gap-2">
+            {([
+              { Icon: Eye,          label: "Views",   value: post.views,     color: "text-orange-500" },
+              { Icon: Heart,        label: "Reações", value: post.reactions, color: "text-rose-500" },
+              { Icon: MessageSquare, label: "Coment.", value: post.comments,  color: "text-blue-500" },
+              { Icon: Share2,       label: "Shares",  value: post.shares,    color: "text-green-500" },
+            ] as const).map(({ Icon, label, value, color }) => (
+              <div key={label} className="rounded-xl border border-border bg-muted/20 p-2.5 flex flex-col items-center gap-1.5">
+                <Icon className={cn(`h-4 w-4 ${color}`)} />
+                <p className="text-sm font-bold text-foreground tabular-nums">{fmtV(Number(value ?? 0))}</p>
+                <p className="text-[10px] text-muted-foreground">{label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Revenue */}
+          {revenue > 0 && (
+            <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-green-700 font-bold text-sm">
+                <DollarSign className="h-4 w-4" />
+                {`R$ ${brl.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              </div>
+              <span className="text-xs text-green-600 font-medium">${revenue.toFixed(2)} USD</span>
+            </div>
+          )}
+
+          {/* Description */}
+          <div className="flex flex-col gap-2">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Descrição</p>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={6}
+              maxLength={2200}
+              placeholder="Escreva a descrição do post..."
+              className="w-full px-3 py-2.5 rounded-xl border border-border text-xs leading-relaxed bg-white focus:outline-none focus:ring-2 focus:ring-[#F44708]/30 resize-none"
+            />
+            <p className="text-[11px] text-muted-foreground text-right">{description.length}/2200</p>
+          </div>
+        </div>
+
+        {/* ── Footer ── */}
+        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-border shrink-0">
+          <button onClick={onClose} className="h-10 px-5 rounded-xl border border-border bg-white text-sm font-medium hover:bg-muted transition-colors">
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="h-10 px-5 rounded-xl text-sm font-semibold text-white flex items-center gap-2 transition-opacity disabled:opacity-60"
+            style={{ background: "#F44708" }}
+          >
+            {saving
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando...</>
+              : <>Salvar alterações <span>→</span></>
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Top posts table ──────────────────────────────────────────────────────────
 
-function TopPostsPanel({ posts, isIG }: {
+function TopPostsPanel({ posts, isIG, onEditPost }: {
   posts: { id: string; title: string | null; pageName: string; date: string; views: number; revenue: number; reactions: number; isVideo: boolean; watchAvg: number }[];
   isIG: boolean;
+  onEditPost?: (postId: string) => void;
 }) {
   return (
     <div className="rounded-2xl border border-border bg-white overflow-hidden">
       <div className="px-5 py-4 border-b border-border">
         <p className="text-sm font-semibold">Top Posts</p>
-        <p className="text-xs text-muted-foreground mt-0.5">10 posts com maior volume de visualizações no período</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          10 posts com maior volume de visualizações no período
+          {onEditPost && <span className="ml-1 text-[#F44708]">· Clique para editar</span>}
+        </p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
@@ -684,7 +938,14 @@ function TopPostsPanel({ posts, isIG }: {
               const maxV = posts[0]?.views || 1;
               const barW = Math.round((p.views / maxV) * 100);
               return (
-                <tr key={p.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                <tr
+                  key={p.id}
+                  className={cn(
+                    "border-b border-border/50 transition-colors",
+                    onEditPost ? "cursor-pointer hover:bg-[#FFF8F2]" : "hover:bg-muted/20"
+                  )}
+                  onClick={() => onEditPost?.(p.id)}
+                >
                   <td className="px-4 py-3">
                     <span className={cn("font-black text-[11px]",
                       idx === 0 ? "text-[#F44708]" : idx < 3 ? "text-[#FAA613]" : "text-muted-foreground/50")}>
@@ -738,6 +999,10 @@ function AnalyticsPage() {
   const [platform, setPlatform] = useState<Platform>("all");
   const [filterPage, setFilterPage] = useState("all");
 
+  // Edit modal state
+  const [editPost, setEditPost] = useState<PostRow | null>(null);
+  const [editPostIndex, setEditPostIndex] = useState(0);
+
   // Load all data once
   useEffect(() => {
     (async () => {
@@ -745,9 +1010,10 @@ function AnalyticsPage() {
       const [posts, { data: pagesData }] = await Promise.all([
         fetchAllRows<PostRow>(() =>
           supabase.from("posts").select([
-            "id", "page_id", "published_at", "title", "post_type", "source",
+            "id", "page_id", "published_at", "title", "description", "post_type", "source",
             "views", "reach", "reactions", "comments", "shares", "saves", "follows_gained",
             "monetization_approx", "estimated_usd", "watch_seconds_avg", "video_duration_s",
+            "thumbnail_url",
             "pages(id, nome)",
           ].join(", ")).order("published_at", { ascending: false })
         ),
@@ -901,6 +1167,14 @@ function AnalyticsPage() {
     return first === last ? first : `${first} — ${last}`;
   }, [monthlyData]);
 
+  const handleEditPost = useCallback((postId: string) => {
+    const post = rows.find((r) => r.id === postId);
+    if (!post) return;
+    const idx = topPosts.findIndex((p) => p.id === postId);
+    setEditPost(post);
+    setEditPostIndex(idx >= 0 ? idx : 0);
+  }, [rows, topPosts]);
+
   // Loading
   if (loading) {
     return (
@@ -1053,8 +1327,21 @@ function AnalyticsPage() {
           </div>
 
           {/* ── Top posts ── */}
-          <TopPostsPanel posts={topPosts} isIG={isIG} />
+          <TopPostsPanel posts={topPosts} isIG={isIG} onEditPost={handleEditPost} />
         </>
+      )}
+
+      {/* ── Edit modal ── */}
+      {editPost && (
+        <PostEditModal
+          post={editPost}
+          postIndex={editPostIndex}
+          onClose={() => setEditPost(null)}
+          onSaved={(updated) => {
+            setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+            setEditPost(null);
+          }}
+        />
       )}
     </div>
   );

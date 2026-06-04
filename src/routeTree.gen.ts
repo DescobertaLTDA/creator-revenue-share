@@ -20,7 +20,6 @@ import { Route as AdminMetasRouteImport } from './routes/admin.metas'
 import { Route as AdminLandscapeRouteImport } from './routes/admin.landscape'
 import { Route as AdminImportacoesRouteImport } from './routes/admin.importacoes'
 import { Route as AdminFechamentosRouteImport } from './routes/admin.fechamentos'
-import { Route as AdminCriadorRouteImport } from './routes/admin.criador'
 import { Route as AdminEstudioRouteImport } from './routes/admin.estudio'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 import { Route as AdminColaboradoresRouteImport } from './routes/admin.colaboradores'
@@ -86,11 +85,6 @@ const AdminFechamentosRoute = AdminFechamentosRouteImport.update({
   path: '/fechamentos',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminCriadorRoute = AdminCriadorRouteImport.update({
-  id: '/criador',
-  path: '/criador',
-  getParentRoute: () => AdminRoute,
-} as any)
 const AdminEstudioRoute = AdminEstudioRouteImport.update({
   id: '/estudio',
   path: '/estudio',
@@ -146,7 +140,6 @@ export interface FileRoutesByFullPath {
   '/admin/cadastro': typeof AdminCadastroRoute
   '/admin/central-receita': typeof AdminCentralReceitaRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
-  '/admin/criador': typeof AdminCriadorRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/estudio': typeof AdminEstudioRoute
   '/admin/fechamentos': typeof AdminFechamentosRouteWithChildren
@@ -169,7 +162,6 @@ export interface FileRoutesByTo {
   '/admin/cadastro': typeof AdminCadastroRoute
   '/admin/central-receita': typeof AdminCentralReceitaRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
-  '/admin/criador': typeof AdminCriadorRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/estudio': typeof AdminEstudioRoute
   '/admin/importacoes': typeof AdminImportacoesRouteWithChildren
@@ -192,7 +184,6 @@ export interface FileRoutesById {
   '/admin/cadastro': typeof AdminCadastroRoute
   '/admin/central-receita': typeof AdminCentralReceitaRoute
   '/admin/colaboradores': typeof AdminColaboradoresRoute
-  '/admin/criador': typeof AdminCriadorRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/estudio': typeof AdminEstudioRoute
   '/admin/fechamentos': typeof AdminFechamentosRouteWithChildren
@@ -217,7 +208,6 @@ export interface FileRouteTypes {
     | '/admin/cadastro'
     | '/admin/central-receita'
     | '/admin/colaboradores'
-    | '/admin/criador'
     | '/admin/dashboard'
     | '/admin/estudio'
     | '/admin/fechamentos'
@@ -240,7 +230,6 @@ export interface FileRouteTypes {
     | '/admin/cadastro'
     | '/admin/central-receita'
     | '/admin/colaboradores'
-    | '/admin/criador'
     | '/admin/dashboard'
     | '/admin/estudio'
     | '/admin/importacoes'
@@ -262,7 +251,6 @@ export interface FileRouteTypes {
     | '/admin/cadastro'
     | '/admin/central-receita'
     | '/admin/colaboradores'
-    | '/admin/criador'
     | '/admin/dashboard'
     | '/admin/estudio'
     | '/admin/fechamentos'
@@ -363,13 +351,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminFechamentosRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/criador': {
-      id: '/admin/criador'
-      path: '/criador'
-      fullPath: '/admin/criador'
-      preLoaderRoute: typeof AdminCriadorRouteImport
-      parentRoute: typeof AdminRoute
-    }
     '/admin/estudio': {
       id: '/admin/estudio'
       path: '/estudio'
@@ -465,7 +446,6 @@ interface AdminRouteChildren {
   AdminCadastroRoute: typeof AdminCadastroRoute
   AdminCentralReceitaRoute: typeof AdminCentralReceitaRoute
   AdminColaboradoresRoute: typeof AdminColaboradoresRoute
-  AdminCriadorRoute: typeof AdminCriadorRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminEstudioRoute: typeof AdminEstudioRoute
   AdminFechamentosRoute: typeof AdminFechamentosRouteWithChildren
@@ -481,7 +461,6 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminCadastroRoute: AdminCadastroRoute,
   AdminCentralReceitaRoute: AdminCentralReceitaRoute,
   AdminColaboradoresRoute: AdminColaboradoresRoute,
-  AdminCriadorRoute: AdminCriadorRoute,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminEstudioRoute: AdminEstudioRoute,
   AdminFechamentosRoute: AdminFechamentosRouteWithChildren,
