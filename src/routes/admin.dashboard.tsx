@@ -490,10 +490,12 @@ function CropOverlay({
   onSave: (sx: number, sy: number, sw: number, sh: number) => void;
   onCancel: () => void;
 }) {
-  const RATIO = 3 / 4; // width/height
+  const RATIO = 3 / 4; // width/height target for crop
   const wrapRef = useRef<HTMLDivElement>(null);
   const [imgRect, setImgRect] = useState<CropBox | null>(null);
   const [box, setBox] = useState<CropBox | null>(null);
+  // Container height adapts to image aspect ratio so the full image is visible
+  const [containerH, setContainerH] = useState(300);
   const drag = useRef<{
     handle: CropHandle;
     startBox: CropBox;
@@ -501,20 +503,29 @@ function CropOverlay({
     startY: number;
   } | null>(null);
 
-  // Measure container → compute displayed image rect → init crop box
+  // Measure container width → fit image with NO letterboxing (height adapts)
   useEffect(() => {
     const measure = () => {
       const wrap = wrapRef.current;
       if (!wrap) return;
       const cw = wrap.clientWidth;
-      const ch = wrap.clientHeight;
-      if (!cw || !ch) { requestAnimationFrame(measure); return; }
+      if (!cw) { requestAnimationFrame(measure); return; }
+
+      // Height that shows the full image with no bars (capped to keep modal usable)
+      const imgAspect = naturalW / naturalH;
+      const idealH = cw / imgAspect;       // exact fit — no bars
+      const ch = Math.min(idealH, 420);    // cap for very tall images
+
+      setContainerH(ch);
+
+      // Recompute how the image actually renders inside this container
       const scale = Math.min(cw / naturalW, ch / naturalH);
       const iw = naturalW * scale;
       const ih = naturalH * scale;
       const ir: CropBox = { x: (cw - iw) / 2, y: (ch - ih) / 2, w: iw, h: ih };
       setImgRect(ir);
-      // Initial box: largest 3:4 rect centred on the image
+
+      // Initial crop box: largest 3:4 centred on the image
       let bw = ir.w, bh = bw / RATIO;
       if (bh > ir.h) { bh = ir.h; bw = bh * RATIO; }
       setBox(clampCropBox({ x: ir.x + (ir.w - bw) / 2, y: ir.y + (ir.h - bh) / 2, w: bw, h: bh }, ir, RATIO));
@@ -586,7 +597,7 @@ function CropOverlay({
       <div
         ref={wrapRef}
         className="relative rounded-xl overflow-hidden select-none bg-[#111]"
-        style={{ height: 340 }}
+        style={{ height: containerH }}
         onPointerMove={onMove}
         onPointerUp={onUp}
         onPointerLeave={onUp}
