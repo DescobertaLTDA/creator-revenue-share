@@ -1,5 +1,6 @@
 ﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useMemo, lazy, Suspense, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StatusBadge } from "@/components/app/StatusBadge";
@@ -784,10 +785,10 @@ function PostsCarousel({
         <div className="shrink-0 w-1" />
       </div>
 
-      {/* ── Upload + Detail modal ── */}
-      {modalPost && (
+      {/* ── Upload + Detail modal — rendered in document.body via portal to bypass z-index/transform containment ── */}
+      {modalPost && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,.6)", backdropFilter: "blur(6px)" }}
           onClick={closeModal}
         >
@@ -981,7 +982,8 @@ function PostsCarousel({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
