@@ -2398,12 +2398,9 @@ function AdminDashboard() {
     : (showManual ? correctedTotalMonth : totalMonthCsv);
   const effectiveTotalMonthCsv = selectedColabOff?.receita ?? totalMonthCsv;
 
-  // "Seus Ganhos" for the current calendar month:
-  // Use Lucas's fraction of the company total (from the filter period) × actual month revenue.
-  // This works even when recent posts have no CSV data yet (estimated_usd = 0).
-  const myMonthReceita = myCard && totalMonth > 0
-    ? curMonthRevenue * (myReceita / totalMonth)
-    : 0;
+  // "Seus Ganhos" — use the collaborator card's revenue directly so it always
+  // matches the ranking value (same algorithm: CSV + residual by prev-month views).
+  const myMonthReceita = myCard?.receita ?? 0;
 
   const totalViews = selectedColabOn
     ? (showManual ? selectedColabOn.views : (selectedColabOff?.views ?? 0))
