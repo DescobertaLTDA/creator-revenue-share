@@ -964,11 +964,11 @@ function PostsCarousel({
 
   // Import thumbnail from a social media URL (calls edge function server-side)
   const handleUrlImport = async () => {
-    if (!modalPost || !urlInput.trim()) return;
+    if (!modalPost) return;
     setUrlImporting(true);
     try {
       const { data, error } = await (supabase as any).functions.invoke("import-post-thumbnail", {
-        body: { url: urlInput.trim(), postId: modalPost.id },
+        body: { url: urlInput.trim() || undefined, postId: modalPost.id },
       });
       if (error) throw new Error(error.message ?? "Erro na função");
       if (data?.error) throw new Error(data.error);

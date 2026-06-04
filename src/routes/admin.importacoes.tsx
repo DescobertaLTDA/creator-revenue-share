@@ -309,11 +309,10 @@ export default function DataPipelinePage() {
 
   // Import thumbnail from a social media URL via edge function
   const handleThumbUrlImport = async (postId: string) => {
-    if (!thumbUrlInput.trim()) return;
     setThumbUrlImporting(true);
     try {
       const { data, error } = await (supabase as any).functions.invoke("import-post-thumbnail", {
-        body: { url: thumbUrlInput.trim(), postId },
+        body: { url: thumbUrlInput.trim() || undefined, postId },
       });
       if (error) throw new Error(error.message ?? "Erro na função");
       if (data?.error) throw new Error(data.error);
