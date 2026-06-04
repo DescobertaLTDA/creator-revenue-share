@@ -1409,7 +1409,7 @@ export default function DataPipelinePage() {
                                     <input
                                       autoFocus
                                       type="url"
-                                      placeholder="https://instagram.com/p/…"
+                                      placeholder="URL do post ou da imagem direta"
                                       value={thumbUrlInput}
                                       onChange={(e) => setThumbUrlInput(e.target.value)}
                                       onKeyDown={(e) => {

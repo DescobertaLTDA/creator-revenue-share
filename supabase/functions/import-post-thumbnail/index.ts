@@ -105,6 +105,16 @@ function extractBestImage(html: string): string | null {
   return null;
 }
 
+/** Detect whether the URL points directly to an image file (not a web page). */
+function isDirectImageUrl(url: string): boolean {
+  try {
+    const path = new URL(url).pathname.toLowerCase();
+    return /\.(jpg|jpeg|png|webp|gif|avif)$/.test(path);
+  } catch {
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
@@ -139,24 +149,34 @@ Deno.serve(async (req) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return json({ error: "Não autenticado" }, 401);
 
-    // ── 4. Fetch the post page to extract og:image ───────────────────────────
-    const pageRes = await fetch(url, {
-      headers: {
-        // Googlebot UA is accepted by most social platforms and returns og tags
-        "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-      },
-      redirect: "follow",
-    });
+    // ── 4. Resolve image URL ─────────────────────────────────────────────────
+    let imageUrl: string;
 
-    if (!pageRes.ok) {
-      return json({ error: `Falha ao acessar URL (HTTP ${pageRes.status})` }, 422);
+    if (isDirectImageUrl(url)) {
+      // User pasted a direct image URL (e.g. a CDN URL from browser DevTools)
+      // → use it as-is, no HTML scraping needed
+      imageUrl = url;
+    } else {
+      // User pasted a post/page URL → fetch HTML and extract the best image
+      const pageRes = await fetch(url, {
+        headers: {
+          // Googlebot UA is accepted by most social platforms and returns og tags
+          "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+        },
+        redirect: "follow",
+      });
+
+      if (!pageRes.ok) {
+        return json({ error: `Falha ao acessar URL (HTTP ${pageRes.status})` }, 422);
+      }
+
+      const html = await pageRes.text();
+      const found = extractBestImage(html);
+      if (!found) return json({ error: "Nenhuma imagem encontrada na URL fornecida" }, 422);
+      imageUrl = found;
     }
-
-    const html = await pageRes.text();
-    const imageUrl = extractBestImage(html);
-    if (!imageUrl) return json({ error: "Nenhuma imagem encontrada na URL fornecida" }, 422);
 
     // ── 5. Download the image ────────────────────────────────────────────────
     const imgRes = await fetch(imageUrl, {

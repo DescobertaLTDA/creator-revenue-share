@@ -1303,7 +1303,7 @@ function PostsCarousel({
                             <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-[#CCC] pointer-events-none" />
                             <input
                               type="url"
-                              placeholder="https://instagram.com/p/…"
+                              placeholder="URL do post ou da imagem direta"
                               value={urlInput}
                               onChange={(e) => setUrlInput(e.target.value)}
                               onKeyDown={(e) => { if (e.key === "Enter") handleUrlImport(); }}
