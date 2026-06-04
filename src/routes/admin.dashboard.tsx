@@ -3179,7 +3179,7 @@ function AdminDashboard() {
                 )}
                 <div>
                   <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-0.5">
-                    {myCard ? "Saldo Pend." : "Saldo Pend."}
+                    {myCard ? "Seu Saldo Pendente" : "Saldo Pend."}
                   </p>
                   {loading
                     ? <div className="h-[18px] w-24 rounded bg-white/20 animate-pulse" />
