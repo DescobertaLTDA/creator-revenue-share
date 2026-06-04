@@ -1409,7 +1409,7 @@ export default function DataPipelinePage() {
                                     <input
                                       autoFocus
                                       type="url"
-                                      placeholder="URL do post ou da imagem direta"
+                                      placeholder="URL do post ou imagem (opcional)"
                                       value={thumbUrlInput}
                                       onChange={(e) => setThumbUrlInput(e.target.value)}
                                       onKeyDown={(e) => {
@@ -1422,7 +1422,7 @@ export default function DataPipelinePage() {
                                   </div>
                                   <button
                                     onClick={() => handleThumbUrlImport(p.id)}
-                                    disabled={thumbUrlImporting || !thumbUrlInput.trim()}
+                                    disabled={thumbUrlImporting}
                                     className="h-7 px-2.5 rounded-lg bg-[#111] text-white text-[10px] font-semibold flex items-center gap-1 hover:bg-[#333] disabled:opacity-40 transition-colors"
                                   >
                                     {thumbUrlImporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Link2 className="h-3 w-3" />}

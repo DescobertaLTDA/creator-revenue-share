@@ -1297,13 +1297,13 @@ function PostsCarousel({
                     {/* ── URL import ─────────────────────────────────────── */}
                     {!thumbFile && (
                       <div className="mt-1 space-y-1.5">
-                        <p className="text-[9px] font-bold uppercase tracking-wider text-[#CCC]">ou importar de URL</p>
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-[#CCC]">ou importar automaticamente</p>
                         <div className="flex gap-1.5">
                           <div className="relative flex-1">
                             <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-[#CCC] pointer-events-none" />
                             <input
                               type="url"
-                              placeholder="URL do post ou da imagem direta"
+                              placeholder="URL do post ou da imagem (opcional)"
                               value={urlInput}
                               onChange={(e) => setUrlInput(e.target.value)}
                               onKeyDown={(e) => { if (e.key === "Enter") handleUrlImport(); }}
@@ -1313,16 +1313,19 @@ function PostsCarousel({
                           </div>
                           <button
                             onClick={handleUrlImport}
-                            disabled={urlImporting || !urlInput.trim()}
+                            disabled={urlImporting}
                             className="h-8 px-3 rounded-lg bg-[#111] text-white text-[10px] font-bold hover:bg-[#333] disabled:opacity-40 transition-colors shrink-0 flex items-center gap-1.5"
                           >
                             {urlImporting
                               ? <Loader2 className="h-3 w-3 animate-spin" />
                               : <Link2 className="h-3 w-3" />
                             }
-                            {urlImporting ? "…" : "Importar"}
+                            {urlImporting ? "Buscando…" : "Importar"}
                           </button>
                         </div>
+                        {!urlInput.trim() && (
+                          <p className="text-[9px] text-[#AAA]">Sem URL: busca automática pelo Google</p>
+                        )}
                       </div>
                     )}
                   </div>

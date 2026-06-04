@@ -115,6 +115,51 @@ function isDirectImageUrl(url: string): boolean {
   }
 }
 
+/**
+ * Search Google Custom Search Images for the best image matching the given query.
+ * Returns the first image URL found, or null if nothing found / API not configured.
+ */
+async function searchGoogleImages(query: string): Promise<string | null> {
+  const apiKey = Deno.env.get("GOOGLE_API_KEY");
+  const engineId = Deno.env.get("GOOGLE_SEARCH_ENGINE_ID");
+  if (!apiKey || !engineId) return null;
+
+  try {
+    const params = new URLSearchParams({
+      key: apiKey,
+      cx: engineId,
+      q: query,
+      searchType: "image",
+      num: "5",
+      imgSize: "large",
+    });
+
+    const res = await fetch(`https://www.googleapis.com/customsearch/v1?${params}`, {
+      headers: { "Accept": "application/json" },
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const items: Array<{ link: string; image?: { width: number; height: number } }> = data.items ?? [];
+
+    if (items.length === 0) return null;
+
+    // Prefer larger images (portrait or square, at least 500px wide)
+    const sorted = items
+      .filter((item) => item.link && /\.(jpg|jpeg|png|webp)(\?|$)/i.test(item.link))
+      .sort((a, b) => {
+        const aArea = (a.image?.width ?? 0) * (a.image?.height ?? 0);
+        const bArea = (b.image?.width ?? 0) * (b.image?.height ?? 0);
+        return bArea - aArea;
+      });
+
+    return sorted[0]?.link ?? items[0]?.link ?? null;
+  } catch {
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
@@ -130,7 +175,7 @@ Deno.serve(async (req) => {
     } catch {
       return json({ error: "Body JSON inválido" }, 400);
     }
-    if (!url || !postId) return json({ error: "url e postId são obrigatórios" }, 400);
+    if (!postId) return json({ error: "postId é obrigatório" }, 400);
 
     // ── 3. Supabase clients ──────────────────────────────────────────────────
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -149,40 +194,66 @@ Deno.serve(async (req) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return json({ error: "Não autenticado" }, 401);
 
-    // ── 4. Resolve image URL ─────────────────────────────────────────────────
-    let imageUrl: string;
+    // ── 4. Fetch post metadata for Google search ─────────────────────────────
+    const { data: postData } = await supabaseAdmin
+      .from("posts")
+      .select("id, title, description, platform")
+      .eq("id", postId)
+      .single();
 
-    if (isDirectImageUrl(url)) {
-      // User pasted a direct image URL (e.g. a CDN URL from browser DevTools)
-      // → use it as-is, no HTML scraping needed
+    // ── 5. Resolve image URL ─────────────────────────────────────────────────
+    let imageUrl: string | null = null;
+
+    if (url && isDirectImageUrl(url)) {
+      // User pasted a direct image URL (e.g. CDN URL from browser DevTools)
       imageUrl = url;
-    } else {
-      // User pasted a post/page URL → fetch HTML and extract the best image
-      const pageRes = await fetch(url, {
-        headers: {
-          // Googlebot UA is accepted by most social platforms and returns og tags
-          "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-        },
-        redirect: "follow",
-      });
 
-      if (!pageRes.ok) {
-        return json({ error: `Falha ao acessar URL (HTTP ${pageRes.status})` }, 422);
+    } else {
+      // ── 5a. Try Google Images first (automatic, best quality) ──────────────
+      if (postData) {
+        // Build search query from post content
+        const platform = postData.platform ?? "";
+        const searchText = postData.title?.trim() || postData.description?.trim() || "";
+        if (searchText.length > 5) {
+          const siteHint = platform === "instagram" ? "instagram.com" : "facebook.com";
+          const googleUrl = await searchGoogleImages(`${searchText} site:${siteHint}`);
+          if (googleUrl) imageUrl = googleUrl;
+
+          // If nothing found on specific platform, try both
+          if (!imageUrl) {
+            const fallbackUrl = await searchGoogleImages(searchText);
+            if (fallbackUrl) imageUrl = fallbackUrl;
+          }
+        }
       }
 
-      const html = await pageRes.text();
-      const found = extractBestImage(html);
-      if (!found) return json({ error: "Nenhuma imagem encontrada na URL fornecida" }, 422);
-      imageUrl = found;
+      // ── 5b. If Google found nothing and user gave a post URL, scrape og:image
+      if (!imageUrl && url) {
+        const pageRes = await fetch(url, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+          },
+          redirect: "follow",
+        });
+
+        if (pageRes.ok) {
+          const html = await pageRes.text();
+          imageUrl = extractBestImage(html);
+        }
+      }
+    }
+
+    if (!imageUrl) {
+      return json({ error: "Nenhuma imagem encontrada. Tente colar a URL direta da imagem." }, 422);
     }
 
     // ── 5. Download the image ────────────────────────────────────────────────
     const imgRes = await fetch(imageUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
-        "Referer": url,
+        "Referer": url ?? "https://www.google.com",
       },
     });
     if (!imgRes.ok) {
@@ -210,11 +281,7 @@ Deno.serve(async (req) => {
       .getPublicUrl(fileName);
 
     // ── 7. Find siblings (same title or description on any platform) ──────────
-    const { data: post } = await supabaseAdmin
-      .from("posts")
-      .select("id, title, description")
-      .eq("id", postId)
-      .single();
+    const post = postData;
 
     const siblingIds = new Set<string>();
     const keys = new Set<string>();
