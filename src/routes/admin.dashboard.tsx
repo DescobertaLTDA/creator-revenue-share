@@ -686,6 +686,10 @@ function PostsCarousel({
   const [urlInput, setUrlInput] = useState("");
   const [urlImporting, setUrlImporting] = useState(false);
 
+  // Thumbnail overrides: patched immediately after any import/upload/remove so
+  // carousel cards update without a page reload.
+  const [thumbnailOverrides, setThumbnailOverrides] = useState<Record<string, string | null>>({});
+
   // Crop state
   const [showCrop, setShowCrop] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
@@ -835,12 +839,17 @@ function PostsCarousel({
       if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl);
       setThumbPreviewUrl(null);
 
-      // Patch module-level cache for all matched posts
+      // Patch module-level cache + carousel cards for all matched posts
       if (_dashCache) {
         _dashCache.posts = _dashCache.posts.map((p) =>
           allIds.includes(p.id) ? { ...p, thumbnail_url: publicUrl } : p
         );
       }
+      setThumbnailOverrides((prev) => {
+        const next = { ...prev };
+        for (const id of allIds) next[id] = publicUrl;
+        return next;
+      });
       // Open crop tool so user can adjust framing
       openCrop(publicUrl);
     } catch (e: any) {
@@ -875,6 +884,11 @@ function PostsCarousel({
         allIds.includes(p.id) ? { ...p, thumbnail_url: null } : p
       );
     }
+    setThumbnailOverrides((prev) => {
+      const next = { ...prev };
+      for (const id of allIds) next[id] = null;
+      return next;
+    });
 
     toast.success(
       siblingIds.length > 0
@@ -947,6 +961,11 @@ function PostsCarousel({
           allIds.includes(p.id) ? { ...p, thumbnail_url: publicUrl } : p
         );
       }
+      setThumbnailOverrides((prev) => {
+        const next = { ...prev };
+        for (const id of allIds) next[id] = publicUrl;
+        return next;
+      });
       if (thumbPreviewUrl) { URL.revokeObjectURL(thumbPreviewUrl); setThumbPreviewUrl(null); }
       setThumbFile(null);
       closeCrop();
@@ -976,14 +995,22 @@ function PostsCarousel({
       const publicUrl: string = data.publicUrl;
       const updatedCount: number = data.updatedCount ?? 1;
 
-      // Update modal post & patch local cache
+      // Collect sibling IDs so carousel cards update immediately (same logic as the edge function)
+      const importSiblingIds = await findSameContentIds(modalPost);
+      const importAllIds = [modalPost.id, ...importSiblingIds];
+
+      // Update modal post, cache, and carousel cards
       setModalPost((prev) => prev ? { ...prev, thumbnail_url: publicUrl } : null);
       if (_dashCache) {
-        // We don't know all sibling IDs here, but at least update the current post
         _dashCache.posts = _dashCache.posts.map((p) =>
-          p.id === modalPost.id ? { ...p, thumbnail_url: publicUrl } : p
+          importAllIds.includes(p.id) ? { ...p, thumbnail_url: publicUrl } : p
         );
       }
+      setThumbnailOverrides((prev) => {
+        const next = { ...prev };
+        for (const id of importAllIds) next[id] = publicUrl;
+        return next;
+      });
       setUrlInput("");
       toast.success(
         updatedCount > 1
@@ -1069,6 +1096,10 @@ function PostsCarousel({
         {posts.map((post, idx) => {
           const body = post.title ?? post.description ?? "";
           const preview = body.replace(/\n+/g, " ").replace(/#\w+/g, "").trim();
+          // Use override if available (set immediately after import/upload) to avoid needing a reload
+          const cardThumb = post.id in thumbnailOverrides
+            ? thumbnailOverrides[post.id]
+            : post.thumbnail_url;
           return (
             <div
               key={post.id}
@@ -1078,9 +1109,9 @@ function PostsCarousel({
               onClick={() => { if (!hasDragged.current) openModal(post); }}
             >
               <div className="relative w-full overflow-hidden" style={{ paddingTop: "133%" }}>
-                {post.thumbnail_url ? (
+                {cardThumb ? (
                   <img
-                    src={`${post.thumbnail_url}?t=${Math.floor(Date.now() / 60000)}`}
+                    src={`${cardThumb}?t=${Math.floor(Date.now() / 60000)}`}
                     alt={body.slice(0, 40)}
                     draggable={false}
                     className="absolute inset-0 w-full h-full object-contain"
