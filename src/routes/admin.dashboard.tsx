@@ -15,7 +15,7 @@ import {
   Target, Zap, Users, X, CloudUpload,
   Heart, MessageSquare, Share2, Maximize2, Calendar, Trophy,
   Flame, Hourglass, BarChart2, FileText,
-  Loader2, ImagePlus, Trash2, Link2,
+  Loader2, ImagePlus, Trash2, Link2, Crop,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -488,6 +488,14 @@ function PostsCarousel({
   const [urlInput, setUrlInput] = useState("");
   const [urlImporting, setUrlImporting] = useState(false);
 
+  // Crop state
+  const CROP_RATIO = 3 / 4; // target portrait 3:4
+  const [showCrop, setShowCrop] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [cropNatSize, setCropNatSize] = useState<{ w: number; h: number } | null>(null);
+  const [cropPct, setCropPct] = useState(0.5); // 0–1 along crop axis
+  const [cropSaving, setCropSaving] = useState(false);
+
   const CARD_W = 160;
   const GAP = 12;
 
@@ -524,6 +532,7 @@ function PostsCarousel({
     if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl);
     setThumbPreviewUrl(null);
     setUrlInput("");
+    closeCrop();
   };
 
   const scrollBy = (dir: 1 | -1) => {
@@ -636,6 +645,8 @@ function PostsCarousel({
           allIds.includes(p.id) ? { ...p, thumbnail_url: publicUrl } : p
         );
       }
+      // Offer crop if the uploaded image ratio doesn't match 3:4
+      openCrop(publicUrl);
     } catch (e: any) {
       toast.error("Erro ao fazer upload", { description: e.message });
     } finally {
@@ -676,6 +687,106 @@ function PostsCarousel({
     );
   };
 
+  // ── Crop helpers ────────────────────────────────────────────────────────────
+
+  /** Check if image ratio differs enough from 3:4 to warrant cropping */
+  const needsCrop = (w: number, h: number) => Math.abs(w / h - CROP_RATIO) > 0.06;
+
+  /** CSS object-position value for live preview */
+  const cropObjectPosition = (w: number, h: number, pct: number) =>
+    w / h > CROP_RATIO ? `${pct * 100}% 50%` : `50% ${pct * 100}%`;
+
+  /** Source rect in natural pixels for canvas drawImage */
+  const cropRect = (w: number, h: number, pct: number) => {
+    if (w / h > CROP_RATIO) {
+      const cw = Math.round(h * CROP_RATIO);
+      return { sx: Math.round(pct * (w - cw)), sy: 0, sw: cw, sh: h };
+    }
+    const ch = Math.round(w / CROP_RATIO);
+    return { sx: 0, sy: Math.round(pct * (h - ch)), sw: w, sh: ch };
+  };
+
+  /** Open crop UI for a given image URL */
+  const openCrop = (url: string) => {
+    const img = new Image();
+    img.onload = () => {
+      if (!needsCrop(img.naturalWidth, img.naturalHeight)) return; // already portrait-ish
+      setCropSrc(url);
+      setCropNatSize({ w: img.naturalWidth, h: img.naturalHeight });
+      setCropPct(0.5);
+      setShowCrop(true);
+    };
+    img.src = url;
+  };
+
+  const closeCrop = () => {
+    setShowCrop(false);
+    setCropSrc(null);
+    setCropNatSize(null);
+  };
+
+  /** Crop via Canvas → upload → update DB + cache */
+  const saveCrop = async () => {
+    if (!modalPost || !cropSrc || !cropNatSize) return;
+    setCropSaving(true);
+    try {
+      // Load with crossOrigin so canvas isn't tainted; cache-bust to avoid
+      // a cached response without CORS headers
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image();
+        if (!cropSrc.startsWith("blob:")) el.crossOrigin = "anonymous";
+        el.onload = () => resolve(el);
+        el.onerror = reject;
+        el.src = cropSrc.startsWith("blob:")
+          ? cropSrc
+          : `${cropSrc}${cropSrc.includes("?") ? "&" : "?"}__crop=${Date.now()}`;
+      });
+
+      const { sx, sy, sw, sh } = cropRect(cropNatSize.w, cropNatSize.h, cropPct);
+      const OUT_W = 720, OUT_H = 960; // 3:4 output
+      const canvas = document.createElement("canvas");
+      canvas.width = OUT_W; canvas.height = OUT_H;
+      canvas.getContext("2d")!.drawImage(img, sx, sy, sw, sh, 0, 0, OUT_W, OUT_H);
+
+      const blob = await new Promise<Blob>((res, rej) =>
+        canvas.toBlob((b) => b ? res(b) : rej(new Error("toBlob falhou")), "image/jpeg", 0.92)
+      );
+
+      const path = `post-${modalPost.id}-crop.jpg`;
+      const { error: upErr } = await supabase.storage
+        .from("post-thumbnails")
+        .upload(path, blob, { upsert: true, contentType: "image/jpeg" });
+      if (upErr) throw upErr;
+
+      const { data: { publicUrl } } = supabase.storage.from("post-thumbnails").getPublicUrl(path);
+
+      const siblingIds = await findSameContentIds(modalPost);
+      const allIds = [modalPost.id, ...siblingIds];
+      const { error: dbErr } = await (supabase as any).from("posts")
+        .update({ thumbnail_url: publicUrl }).in("id", allIds);
+      if (dbErr) throw dbErr;
+
+      setModalPost((prev) => prev ? { ...prev, thumbnail_url: publicUrl } : null);
+      if (_dashCache) {
+        _dashCache.posts = _dashCache.posts.map((p) =>
+          allIds.includes(p.id) ? { ...p, thumbnail_url: publicUrl } : p
+        );
+      }
+      if (thumbPreviewUrl) { URL.revokeObjectURL(thumbPreviewUrl); setThumbPreviewUrl(null); }
+      setThumbFile(null);
+      closeCrop();
+      toast.success(
+        siblingIds.length > 0
+          ? `Recorte salvo e propagado para ${allIds.length} posts!`
+          : "Recorte salvo!"
+      );
+    } catch (err: unknown) {
+      toast.error("Erro ao salvar recorte", { description: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setCropSaving(false);
+    }
+  };
+
   // Import thumbnail from a social media URL (calls edge function server-side)
   const handleUrlImport = async () => {
     if (!modalPost || !urlInput.trim()) return;
@@ -704,6 +815,8 @@ function PostsCarousel({
           ? `Imagem importada e aplicada a ${updatedCount} posts!`
           : "Imagem importada com sucesso!"
       );
+      // Offer crop if the image ratio doesn't match 3:4
+      openCrop(publicUrl);
     } catch (err: unknown) {
       toast.error("Erro ao importar", {
         description: err instanceof Error ? err.message : "Verifique a URL e tente novamente",
@@ -869,9 +982,90 @@ function PostsCarousel({
             </div>
 
             <div className="overflow-y-auto flex-1">
+              {/* ── Crop mode ──────────────────────────────────────────────────── */}
+              {showCrop && cropSrc && cropNatSize && (
+                <div className="p-5 border-b border-[#F0F0F0] bg-[#FAFAFA]">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Crop className="h-3.5 w-3.5 text-[#F44708]" />
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#F44708]">Ajustar recorte</p>
+                  </div>
+
+                  <div className="flex gap-4 items-start">
+                    {/* Live 3:4 preview */}
+                    <div className="shrink-0 rounded-xl overflow-hidden border-2 border-[#F44708] shadow-md"
+                      style={{ width: 90, height: 120 }}>
+                      <img
+                        src={cropSrc}
+                        alt=""
+                        className="w-full h-full"
+                        style={{
+                          objectFit: "cover",
+                          objectPosition: cropObjectPosition(cropNatSize.w, cropNatSize.h, cropPct),
+                        }}
+                      />
+                    </div>
+
+                    <div className="flex-1 space-y-3 min-w-0">
+                      <div>
+                        <p className="text-[10px] text-[#666] mb-2 leading-snug">
+                          {cropNatSize.w / cropNatSize.h > CROP_RATIO
+                            ? "Deslize para escolher a área horizontal"
+                            : "Deslize para escolher a área vertical"}
+                        </p>
+                        <input
+                          type="range" min={0} max={100}
+                          value={Math.round(cropPct * 100)}
+                          onChange={(e) => setCropPct(parseInt(e.target.value) / 100)}
+                          className="w-full accent-[#F44708]"
+                        />
+                        <div className="flex justify-between mt-0.5">
+                          <span className="text-[9px] text-[#CCC]">
+                            {cropNatSize.w / cropNatSize.h > CROP_RATIO ? "← Esquerda" : "↑ Topo"}
+                          </span>
+                          <span className="text-[9px] text-[#CCC]">
+                            {cropNatSize.w / cropNatSize.h > CROP_RATIO ? "Direita →" : "Base ↓"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={saveCrop}
+                          disabled={cropSaving}
+                          className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-[#F44708] text-white text-xs font-bold hover:bg-[#D93D07] disabled:opacity-60 transition-colors"
+                        >
+                          {cropSaving
+                            ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Salvando…</>
+                            : <><Crop className="h-3.5 w-3.5" /> Salvar recorte</>
+                          }
+                        </button>
+                        <button
+                          onClick={closeCrop}
+                          disabled={cropSaving}
+                          className="h-9 px-3 rounded-xl border border-[#E8E8E8] text-[#999] text-xs hover:border-[#CCC] hover:text-[#555] transition-colors disabled:opacity-40"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Image upload panel */}
               <div className="p-5 border-b border-[#F0F0F0]">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#AAA] mb-3">Thumbnail</p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#AAA]">Thumbnail</p>
+                  {/* Manual crop trigger — show when thumbnail exists and crop mode is off */}
+                  {!showCrop && (modalPost.thumbnail_url || thumbPreviewUrl) && (
+                    <button
+                      onClick={() => openCrop(thumbPreviewUrl ?? modalPost.thumbnail_url!)}
+                      className="flex items-center gap-1 text-[9px] font-semibold text-[#AAA] hover:text-[#F44708] transition-colors"
+                    >
+                      <Crop className="h-3 w-3" /> Ajustar recorte
+                    </button>
+                  )}
+                </div>
                 <div className="flex gap-4 items-start">
                   {/* Image preview / drop zone */}
                   <div
