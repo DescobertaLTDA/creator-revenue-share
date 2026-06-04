@@ -2183,6 +2183,80 @@ function AdminDashboard() {
         shares: Number(p.shares ?? 0),
       }));
 
+    // ── Ranking: always current calendar month (day 1 → today), ignores date filter ──
+    const _now = new Date();
+    const rankMonthFrom = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-01`;
+    const rankMonthTo   = _now.toISOString().slice(0, 10);
+
+    const rankColabAgg = new Map<string, ColabCard>();
+    const rankByDayCSV = new Map<string, number>();
+
+    for (const p of allPosts) {
+      if (!p.published_at) continue;
+      const pub = p.published_at.slice(0, 10);
+      if (pub < rankMonthFrom || pub > rankMonthTo) continue;
+      if (filterPage !== "all" && p.page_id !== filterPage) continue;
+
+      const val  = getPostUsd(p);
+      const views = Number(p.views ?? 0);
+      const reacoes = Number(p.reactions ?? 0);
+      if (val > 0) rankByDayCSV.set(pub, (rankByDayCSV.get(pub) ?? 0) + val);
+
+      const collaboratorIds = Array.from(postToCollabs.get(p.id) ?? []);
+      const collaboratorPct = getCollaboratorPct(p, rulesByPage);
+      const collaboratorRevenue = val * collaboratorPct;
+
+      if (collaboratorIds.length === 0) {
+        const cur = rankColabAgg.get(SEM_COLAB_ID) ?? { id: SEM_COLAB_ID, nome: "Sem colaborador", hashtag: null, avatar_url: null, posts: 0, views: 0, reacoes: 0, receita: 0 };
+        cur.posts += 1; cur.views += views; cur.reacoes += reacoes; cur.receita += collaboratorRevenue;
+        rankColabAgg.set(SEM_COLAB_ID, cur);
+      } else {
+        const share = collaboratorRevenue / collaboratorIds.length;
+        for (const colabId of collaboratorIds) {
+          const colab = colabMap.get(colabId);
+          const targetId = colab ? colabId : SEM_COLAB_ID;
+          const cur = rankColabAgg.get(targetId) ?? { id: targetId, nome: colab ? colab.nome : "Sem colaborador", hashtag: colab ? colab.hashtag : null, avatar_url: colab ? colab.avatar_url : null, posts: 0, views: 0, reacoes: 0, receita: 0 };
+          cur.posts += 1; cur.views += views; cur.reacoes += reacoes; cur.receita += share;
+          rankColabAgg.set(targetId, cur);
+        }
+      }
+    }
+
+    // Merge all active colabs into ranking map
+    for (const c of colabs) {
+      if (!rankColabAgg.has(c.id)) rankColabAgg.set(c.id, { id: c.id, nome: c.nome, hashtag: c.hashtag, avatar_url: c.avatar_url, posts: 0, views: 0, reacoes: 0, receita: 0 });
+    }
+
+    // Apply daily corrections for current month
+    let rankDailyBonus = 0;
+    const rankActualByDate = new Map<string, number>();
+    for (const e of dailyEntries) {
+      if (e.entry_date < rankMonthFrom || e.entry_date > rankMonthTo) continue;
+      if (filterPage !== "all" && e.page_id !== filterPage) continue;
+      if (e.actual_revenue_usd !== null)
+        rankActualByDate.set(e.entry_date, (rankActualByDate.get(e.entry_date) ?? 0) + Number(e.actual_revenue_usd));
+    }
+    for (const [date, actual] of rankActualByDate) {
+      rankDailyBonus += actual - (rankByDayCSV.get(date) ?? 0);
+    }
+    if (rankDailyBonus > 0) {
+      if (totalPrevViews > 0) {
+        for (const [cid, views] of prevViewsByColab.entries()) {
+          const share = (views / totalPrevViews) * rankDailyBonus;
+          const item = rankColabAgg.get(cid);
+          if (item) item.receita += share;
+        }
+      } else {
+        const eligibleIds = Array.from(rankColabAgg.keys()).filter((id) => id !== SEM_COLAB_ID);
+        if (eligibleIds.length > 0) {
+          const share = rankDailyBonus / eligibleIds.length;
+          for (const id of eligibleIds) { const item = rankColabAgg.get(id); if (item) item.receita += share; }
+        }
+      }
+    }
+
+    const rankingCollabCards = Array.from(rankColabAgg.values()).sort((a, b) => b.receita - a.receita || (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR"));
+
     return {
       kpis: {
         totalMonth: geralUsd,
@@ -2198,6 +2272,7 @@ function AdminDashboard() {
       prevChartData,
       chartDataCsv,
       activeMonthRef: latestMonth,
+      rankingCollabCards,
       collabCards: Array.from(merged.values()).sort((a, b) => b.receita - a.receita || (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR")),
       collabCardsCsv: Array.from(mergedCsvSnapshot.values()).sort((a, b) => b.receita - a.receita || (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR")),
       rulesByPage,
@@ -2217,6 +2292,7 @@ function AdminDashboard() {
 
   const {
     kpis, chartData, prevChartData, chartDataCsv, activeMonthRef, collabCards, collabCardsCsv,
+    rankingCollabCards,
     rulesByPage, postToCollabs, pageStats, projections, sparklineByPage, sparklineByColab,
     top5Posts,
   } = computed;
@@ -3462,10 +3538,12 @@ function AdminDashboard() {
 
           {/* ═══════════════ RANKING ═══════════════ */}
           {(() => {
-            const currentCards = activeCollabCards.filter((c) => c.id !== SEM_COLAB_ID && c.receita > 0.001).slice(0, 8);
+            const currentCards = rankingCollabCards.filter((c) => c.id !== SEM_COLAB_ID && c.receita > 0.001).slice(0, 8);
             const isFallback = currentCards.length === 0;
             const displayCards = isFallback ? prevMonthTopColabs : currentCards;
             const medalColors = ["#F5A623", "#9BA3AF", "#CD7F32"];
+            const _n = new Date();
+            const rankMonthLabel = _n.toLocaleString("pt-BR", { month: "long" });
 
             return (
               <div className="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
@@ -3474,7 +3552,7 @@ function AdminDashboard() {
                   <div>
                     <h2 className="text-sm font-bold text-[#111]">Ranking de Colaboradores</h2>
                     <p className="text-[11px] text-[#999] mt-0.5">
-                      {isFallback ? "Dados do mês anterior" : "Período selecionado"}
+                      {isFallback ? "Dados do mês anterior" : `Mês de ${rankMonthLabel}`}
                     </p>
                   </div>
                   <button
@@ -3501,9 +3579,6 @@ function AdminDashboard() {
                   ) : displayCards.map((card, i) => {
                     const displayReceita = isFallback ? 0 : card.receita;
                     const displayViews   = isFallback ? 0 : card.views;
-                    const receitaOn  = collabCards.find(c => c.id === card.id)?.receita ?? card.receita;
-                    const receitaOff = collabCardsCsv.find(c => c.id === card.id)?.receita ?? card.receita;
-                    const delta = !isFallback && showManual && receitaOff > 0.001 ? ((receitaOn - receitaOff) / receitaOff) * 100 : null;
 
                     return (
                       <button
@@ -3531,13 +3606,6 @@ function AdminDashboard() {
                             {isFallback ? "—" : `${fmt(Math.round(displayViews))} views`}
                           </p>
                         </div>
-
-                        {/* Delta badge */}
-                        {delta !== null && (
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${delta >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"}`}>
-                            {delta >= 0 ? "▲" : "▼"}{Math.abs(delta).toFixed(0)}%
-                          </span>
-                        )}
 
                         {/* Revenue */}
                         <div className="text-right shrink-0">
