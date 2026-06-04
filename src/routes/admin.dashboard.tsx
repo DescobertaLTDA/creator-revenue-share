@@ -3200,62 +3200,62 @@ function AdminDashboard() {
           {/* ═══════════════ MY PERSONAL CARD ═══════════════ */}
           {myCollabId && myCard && (
             <div
-              className="rounded-2xl overflow-hidden px-5 py-4 flex flex-wrap items-center gap-4 sm:gap-6"
-              style={{ background: "linear-gradient(135deg, #C93800 0%, #A32C00 100%)", boxShadow: "0 4px 20px rgba(169,44,0,.30)" }}
+              className="bg-white rounded-2xl border border-[#F0F0F0] px-5 py-4 flex flex-wrap items-center gap-x-6 gap-y-3"
+              style={{ boxShadow: "0 1px 6px rgba(0,0,0,.05)" }}
             >
               {/* Avatar + Name */}
               <div className="flex items-center gap-3 min-w-0">
                 {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt={profile.nome ?? ""} className="h-11 w-11 rounded-full object-cover border-2 border-white/30 shrink-0" />
+                  <img src={profile.avatar_url} alt={profile.nome ?? ""} className="h-10 w-10 rounded-full object-cover ring-2 ring-[#F44708]/20 shrink-0" />
                 ) : (
-                  <div className="h-11 w-11 rounded-full bg-white/20 flex items-center justify-center shrink-0 text-white font-bold text-base">
+                  <div className="h-10 w-10 rounded-full bg-[#FFF0E8] flex items-center justify-center shrink-0 text-[#F44708] font-bold text-base">
                     {(profile?.nome ?? "?").slice(0, 1).toUpperCase()}
                   </div>
                 )}
                 <div className="min-w-0">
-                  <p className="text-white/60 text-[10px] font-semibold uppercase tracking-wider">Olá,</p>
-                  <p className="text-white font-bold text-sm truncate leading-tight">{(myCard.nome ?? profile?.nome ?? "—").split(" ")[0]}</p>
+                  <p className="text-[#999] text-[10px] font-semibold uppercase tracking-wider leading-none mb-0.5">Bem-vindo</p>
+                  <p className="text-[#111] font-bold text-sm truncate">{(myCard.nome ?? profile?.nome ?? "—").split(" ")[0]}</p>
                 </div>
               </div>
 
-              <div className="w-px h-8 bg-white/20 shrink-0 hidden sm:block" />
+              <div className="w-px h-8 bg-[#F0F0F0] shrink-0 hidden sm:block" />
 
               {/* Ganhos */}
               <div className="flex flex-col min-w-0">
-                <p className="text-white/60 text-[10px] font-semibold uppercase tracking-wider">Ganhos no período</p>
-                <p className="text-white font-bold text-base tabular-nums leading-tight">
+                <p className="text-[#999] text-[10px] font-semibold uppercase tracking-wider leading-none mb-0.5">Ganhos no período</p>
+                <p className="text-[#F44708] font-bold text-[15px] tabular-nums leading-tight">
                   {usdBrl ? formatBRL(myCard.receita * usdBrl) : `$${myCard.receita.toFixed(2)}`}
                 </p>
-                <p className="text-white/50 text-[11px] tabular-nums">${myCard.receita.toFixed(2)}</p>
+                <p className="text-[#BBB] text-[11px] tabular-nums">${myCard.receita.toFixed(2)}</p>
               </div>
 
-              <div className="w-px h-8 bg-white/20 shrink-0 hidden sm:block" />
+              <div className="w-px h-8 bg-[#F0F0F0] shrink-0 hidden sm:block" />
 
               {/* Posts */}
               <div className="flex flex-col min-w-0">
-                <p className="text-white/60 text-[10px] font-semibold uppercase tracking-wider">Posts</p>
-                <p className="text-white font-bold text-base tabular-nums leading-tight">{myCard.posts}</p>
-                <p className="text-white/50 text-[11px]">no período</p>
+                <p className="text-[#999] text-[10px] font-semibold uppercase tracking-wider leading-none mb-0.5">Posts</p>
+                <p className="text-[#111] font-bold text-[15px] tabular-nums leading-tight">{myCard.posts}</p>
+                <p className="text-[#BBB] text-[11px]">no período</p>
               </div>
 
-              <div className="w-px h-8 bg-white/20 shrink-0 hidden sm:block" />
+              <div className="w-px h-8 bg-[#F0F0F0] shrink-0 hidden sm:block" />
 
               {/* Views */}
               <div className="flex flex-col min-w-0">
-                <p className="text-white/60 text-[10px] font-semibold uppercase tracking-wider">Views</p>
-                <p className="text-white font-bold text-base tabular-nums leading-tight">{fmt(Math.round(myCard.views))}</p>
-                <p className="text-white/50 text-[11px]">no período</p>
+                <p className="text-[#999] text-[10px] font-semibold uppercase tracking-wider leading-none mb-0.5">Views</p>
+                <p className="text-[#111] font-bold text-[15px] tabular-nums leading-tight">{fmt(Math.round(myCard.views))}</p>
+                <p className="text-[#BBB] text-[11px]">no período</p>
               </div>
 
-              <div className="w-px h-8 bg-white/20 shrink-0 hidden sm:block" />
+              <div className="w-px h-8 bg-[#F0F0F0] shrink-0 hidden sm:block" />
 
               {/* Saldo Pendente */}
               <div className="flex flex-col min-w-0">
-                <p className="text-white/60 text-[10px] font-semibold uppercase tracking-wider">Saldo Pendente</p>
-                <p className={`font-bold text-base tabular-nums leading-tight ${myPendingAmount > 0 ? "text-yellow-300" : "text-white"}`}>
+                <p className="text-[#999] text-[10px] font-semibold uppercase tracking-wider leading-none mb-0.5">Saldo Pendente</p>
+                <p className={`font-bold text-[15px] tabular-nums leading-tight ${myPendingAmount > 0 ? "text-amber-500" : "text-[#111]"}`}>
                   {usdBrl ? formatBRL(myPendingAmount * usdBrl) : `$${myPendingAmount.toFixed(2)}`}
                 </p>
-                <p className="text-white/50 text-[11px]">${myPendingAmount.toFixed(2)} a receber</p>
+                <p className="text-[#BBB] text-[11px] tabular-nums">${myPendingAmount.toFixed(2)} a receber</p>
               </div>
             </div>
           )}
