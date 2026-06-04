@@ -2225,7 +2225,38 @@ function AdminDashboard() {
 
   // Current user's personal collaborator card (if they are linked to a collaborator)
   const myCard = myCollabId ? activeCollabCards.find(c => c.id === myCollabId) ?? null : null;
-  // Respects all active filters (page, date, manual toggle) — same as every other KPI.
+
+  // "Seus Ganhos" — always current calendar month (1st → today), independent of date filter
+  const myMonthReceita = useMemo(() => {
+    if (!myCollabId) return 0;
+    const now = new Date();
+    const monthFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const today = now.toISOString().slice(0, 10);
+    let total = 0;
+    for (const p of allPosts) {
+      if (filterPage !== "all" && p.page_id !== filterPage) continue;
+      if (!p.published_at) continue;
+      const day = p.published_at.slice(0, 10);
+      if (day < monthFrom || day > today) continue;
+      const collaboratorIds = Array.from(postToCollabs.get(p.id) ?? []);
+      if (collaboratorIds.length === 0 || !collaboratorIds.includes(myCollabId)) continue;
+      const val = getPostUsd(p);
+      const collaboratorPct = getCollaboratorPct(p, rulesByPage);
+      total += (val * collaboratorPct) / collaboratorIds.length;
+    }
+    // Include manual bonuses for current month
+    for (const bonus of manualBonuses) {
+      if (!bonus.active) continue;
+      if (bonus.bonus_date < monthFrom || bonus.bonus_date > today) continue;
+      // Distribute bonus proportionally — simplified: equal share among all active collabs
+      const activeCids = colabs.map((c) => c.id);
+      if (activeCids.includes(myCollabId)) {
+        total += Number(bonus.amount_usd ?? 0) / (activeCids.length || 1);
+      }
+    }
+    return total;
+  }, [allPosts, myCollabId, postToCollabs, rulesByPage, manualBonuses, colabs, filterPage]);
+
   const myReceita = myCard?.receita ?? 0;
 
   const { totalMonth: correctedTotalMonth, totalMonthCsv, totalViews: csvTotalViews, avgRpm: csvAvgRpm, avgScore } = kpis;
@@ -3026,9 +3057,9 @@ function AdminDashboard() {
                     <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-0.5">Seus Ganhos</p>
                     {loading
                       ? <div className="h-[18px] w-24 rounded bg-white/20 animate-pulse" />
-                      : <p className="text-sm font-bold tabular-nums">{usdBrl ? formatBRL(myReceita * usdBrl) : `$${myReceita.toFixed(2)}`}</p>}
+                      : <p className="text-sm font-bold tabular-nums">{usdBrl ? formatBRL(myMonthReceita * usdBrl) : `$${myMonthReceita.toFixed(2)}`}</p>}
                     <div className="h-[13px] mt-0.5">
-                      {usdBrl && !loading && <p className="text-[9px] text-white/40">${myReceita.toFixed(2)} USD</p>}
+                      {usdBrl && !loading && <p className="text-[9px] text-white/40">${myMonthReceita.toFixed(2)} USD</p>}
                     </div>
                   </div>
                 )}
