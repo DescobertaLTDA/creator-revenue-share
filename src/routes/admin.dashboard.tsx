@@ -2225,38 +2225,6 @@ function AdminDashboard() {
 
   // Current user's personal collaborator card (if they are linked to a collaborator)
   const myCard = myCollabId ? activeCollabCards.find(c => c.id === myCollabId) ?? null : null;
-
-  // "Seus Ganhos" — always current calendar month (1st → today), independent of date filter
-  const myMonthReceita = useMemo(() => {
-    if (!myCollabId) return 0;
-    const now = new Date();
-    const monthFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-    const today = now.toISOString().slice(0, 10);
-    let total = 0;
-    for (const p of allPosts) {
-      if (filterPage !== "all" && p.page_id !== filterPage) continue;
-      if (!p.published_at) continue;
-      const day = p.published_at.slice(0, 10);
-      if (day < monthFrom || day > today) continue;
-      const collaboratorIds = Array.from(postToCollabs.get(p.id) ?? []);
-      if (collaboratorIds.length === 0 || !collaboratorIds.includes(myCollabId)) continue;
-      const val = getPostUsd(p);
-      const collaboratorPct = getCollaboratorPct(p, rulesByPage);
-      total += (val * collaboratorPct) / collaboratorIds.length;
-    }
-    // Include manual bonuses for current month
-    for (const bonus of manualBonuses) {
-      if (!bonus.active) continue;
-      if (bonus.bonus_date < monthFrom || bonus.bonus_date > today) continue;
-      // Distribute bonus proportionally — simplified: equal share among all active collabs
-      const activeCids = colabs.map((c) => c.id);
-      if (activeCids.includes(myCollabId)) {
-        total += Number(bonus.amount_usd ?? 0) / (activeCids.length || 1);
-      }
-    }
-    return total;
-  }, [allPosts, myCollabId, postToCollabs, rulesByPage, manualBonuses, colabs, filterPage]);
-
   const myReceita = myCard?.receita ?? 0;
 
   const { totalMonth: correctedTotalMonth, totalMonthCsv, totalViews: csvTotalViews, avgRpm: csvAvgRpm, avgScore } = kpis;
@@ -2274,6 +2242,14 @@ function AdminDashboard() {
     ? (showManual ? selectedColabOn.receita : (selectedColabOff?.receita ?? 0))
     : (showManual ? correctedTotalMonth : totalMonthCsv);
   const effectiveTotalMonthCsv = selectedColabOff?.receita ?? totalMonthCsv;
+
+  // "Seus Ganhos" for the current calendar month:
+  // Use Lucas's fraction of the company total (from the filter period) × actual month revenue.
+  // This works even when recent posts have no CSV data yet (estimated_usd = 0).
+  const myMonthReceita = myCard && totalMonth > 0
+    ? curMonthRevenue * (myReceita / totalMonth)
+    : 0;
+
   const totalViews = selectedColabOn
     ? (showManual ? selectedColabOn.views : (selectedColabOff?.views ?? 0))
     : (showManual && manualKpiTotals.views > 0 ? manualKpiTotals.views : csvTotalViews);
