@@ -103,9 +103,11 @@ export default function DataPipelinePage() {
   const [thumbSearch, setThumbSearch] = useState("");
   const [thumbPosts, setThumbPosts] = useState<{ id: string; title: string | null; published_at: string | null; thumbnail_url: string | null; views: number | null }[]>([]);
   const [thumbPostsLoading, setThumbPostsLoading] = useState(false);
-  const [thumbSelectedPost, setThumbSelectedPost] = useState<string | null>(null);
-  const [thumbUploading, setThumbUploading] = useState(false);
+  const [thumbUploading, setThumbUploading] = useState<string | null>(null); // postId being uploaded
+  const [thumbTablePage, setThumbTablePage] = useState(1);
+  const [thumbFilter, setThumbFilter] = useState<"all" | "with" | "without">("all");
   const thumbFileRef = useRef<HTMLInputElement>(null);
+  const thumbUploadTargetRef = useRef<string | null>(null); // postId for the pending file input
 
   // Load pages for Ganhos selector
   useEffect(() => {
@@ -118,27 +120,27 @@ export default function DataPipelinePage() {
   useEffect(() => {
     if (!thumbPageId) { setThumbPosts([]); return; }
     setThumbPostsLoading(true);
-    setThumbSelectedPost(null);
+    setThumbTablePage(1);
     supabase.from("posts")
       .select("id, title, published_at, thumbnail_url, views")
       .eq("page_id", thumbPageId)
       .order("views", { ascending: false, nullsFirst: false })
-      .limit(200)
+      .limit(1000)
       .then(({ data }) => {
-        setThumbPosts((data ?? []) as { id: string; title: string | null; published_at: string | null; thumbnail_url: string | null; views: number | null }[]);
+        setThumbPosts((data ?? []) as unknown as { id: string; title: string | null; published_at: string | null; thumbnail_url: string | null; views: number | null }[]);
         setThumbPostsLoading(false);
       });
   }, [thumbPageId]);
 
-  // Upload thumbnail for selected post
-  const handleThumbUpload = async (file: File) => {
-    if (!thumbSelectedPost || !profile) return;
+  // Upload thumbnail for a given post
+  const handleThumbUpload = async (file: File, postId: string) => {
+    if (!profile) return;
     if (!file.type.startsWith("image/")) { toast.error("Apenas imagens são permitidas"); return; }
     if (file.size > 5 * 1024 * 1024) { toast.error("Imagem muito grande (máx 5 MB)"); return; }
-    setThumbUploading(true);
+    setThumbUploading(postId);
     try {
       const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-      const path = `${thumbSelectedPost}.${ext}`;
+      const path = `${postId}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("post-thumbnails")
         .upload(path, file, { upsert: true, contentType: file.type });
@@ -147,21 +149,23 @@ export default function DataPipelinePage() {
       const publicUrl = urlData.publicUrl;
       const { error: dbErr } = await supabase.from("posts")
         .update({ thumbnail_url: publicUrl } as any)
-        .eq("id", thumbSelectedPost);
+        .eq("id", postId);
       if (dbErr) throw dbErr;
-      setThumbPosts((prev) => prev.map((p) => p.id === thumbSelectedPost ? { ...p, thumbnail_url: publicUrl } : p));
-      toast.success("Thumbnail salva com sucesso!");
+      setThumbPosts((prev) => prev.map((p) => p.id === postId ? { ...p, thumbnail_url: publicUrl } : p));
+      toast.success("Thumbnail salva!");
     } catch (e: any) {
       toast.error("Erro ao fazer upload", { description: e.message });
     } finally {
-      setThumbUploading(false);
+      setThumbUploading(null);
     }
   };
 
   const handleThumbRemove = async (postId: string) => {
+    setThumbUploading(postId);
     const { error } = await supabase.from("posts")
       .update({ thumbnail_url: null } as any)
       .eq("id", postId);
+    setThumbUploading(null);
     if (error) { toast.error("Erro ao remover thumbnail"); return; }
     setThumbPosts((prev) => prev.map((p) => p.id === postId ? { ...p, thumbnail_url: null } : p));
     toast.success("Thumbnail removida");
@@ -972,196 +976,291 @@ export default function DataPipelinePage() {
       </div>
 
       {/* ═══════════════ THUMBNAILS DE POSTS ═══════════════ */}
-      <div className="rounded-2xl border border-border bg-white overflow-hidden">
-        <div className="px-5 pt-5 pb-4 border-b border-border flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Thumbnails de Posts</p>
-            <p className="text-sm font-semibold text-foreground">Vincule imagens 4:3 aos posts para exibição no Dashboard</p>
-          </div>
-          <div className="h-8 w-8 rounded-xl bg-[#FFF0E8] flex items-center justify-center shrink-0">
-            <Image className="h-4 w-4 text-[#F44708]" />
-          </div>
-        </div>
-        <div className="p-5 space-y-4">
-          {/* Page selector */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Página</label>
+      {(() => {
+        const THUMB_PER_PAGE = 20;
+        const fmtV = (v: number | null) =>
+          v == null ? "—"
+          : v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M`
+          : v >= 1_000 ? `${(v / 1_000).toFixed(1)}k`
+          : String(v);
+
+        const filtered = thumbPosts.filter((p) => {
+          if (thumbFilter === "with" && !p.thumbnail_url) return false;
+          if (thumbFilter === "without" && p.thumbnail_url) return false;
+          if (!thumbSearch) return true;
+          const q = thumbSearch.toLowerCase();
+          return (p.title ?? "").toLowerCase().includes(q) || (p.published_at ?? "").includes(thumbSearch);
+        });
+
+        const totalThumbPages = Math.max(1, Math.ceil(filtered.length / THUMB_PER_PAGE));
+        const safePage = Math.min(thumbTablePage, totalThumbPages);
+        const pageRows = filtered.slice((safePage - 1) * THUMB_PER_PAGE, safePage * THUMB_PER_PAGE);
+
+        const withCount = thumbPosts.filter(p => !!p.thumbnail_url).length;
+        const withoutCount = thumbPosts.length - withCount;
+
+        const rankBg = (idx: number) =>
+          idx === 0 ? "#F44708" : idx <= 2 ? "#FAA613" : idx <= 4 ? "#94a3b8" : "#E2E8F0";
+        const rankFg = (idx: number) =>
+          idx <= 4 ? "#fff" : "#94a3b8";
+
+        return (
+          <div className="rounded-2xl border border-border bg-white overflow-hidden">
+            {/* Header */}
+            <div className="px-5 pt-5 pb-4 border-b border-border flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Thumbnails de Posts</p>
+                <p className="text-sm font-semibold text-foreground">Vincule imagens aos posts para exibição no Dashboard</p>
+              </div>
+              <div className="h-8 w-8 rounded-xl bg-[#FFF0E8] flex items-center justify-center shrink-0">
+                <Image className="h-4 w-4 text-[#F44708]" />
+              </div>
+            </div>
+
+            {/* Toolbar */}
+            <div className="px-5 py-3 border-b border-border flex flex-wrap items-center gap-3 bg-[#FAFAFA]">
+              {/* Page selector */}
               <select
                 value={thumbPageId}
-                onChange={(e) => setThumbPageId(e.target.value)}
-                className="h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#F44708]/30"
+                onChange={(e) => { setThumbPageId(e.target.value); setThumbTablePage(1); }}
+                className="h-8 rounded-lg border border-border bg-white px-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#F44708]/30"
               >
                 <option value="">Selecionar página…</option>
                 {pages.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
               </select>
-            </div>
-            {thumbPageId && (
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Buscar post</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Título ou data…"
-                    value={thumbSearch}
-                    onChange={(e) => setThumbSearch(e.target.value)}
-                    className="h-9 pl-9 pr-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[#F44708]/30 min-w-[200px]"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
 
-          {thumbPageId && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Post list */}
-              <div className="rounded-xl border border-border overflow-hidden">
-                {thumbPostsLoading ? (
-                  <div className="p-8 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-                ) : thumbPosts.length === 0 ? (
-                  <div className="p-8 text-center text-sm text-muted-foreground">Nenhum post encontrado para esta página.</div>
-                ) : (
-                  <div className="divide-y divide-border max-h-72 overflow-y-auto">
-                    {(() => {
-                      const fmtViews = (v: number | null) =>
-                        v == null ? "—"
-                        : v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M`
-                        : v >= 1_000 ? `${(v / 1_000).toFixed(1)}k`
-                        : String(v);
-                      return thumbPosts
-                        .filter((p) => {
-                          if (!thumbSearch) return true;
-                          const q = thumbSearch.toLowerCase();
-                          return (p.title ?? "").toLowerCase().includes(q) || (p.published_at ?? "").includes(thumbSearch);
-                        })
-                        .map((p, rankIdx) => {
-                          const isSelected = thumbSelectedPost === p.id;
-                          const dateLabel = p.published_at
-                            ? p.published_at.slice(0, 10).split("-").reverse().join("/")
-                            : "—";
-                          const rankColors = ["#F44708", "#FAA613", "#FAA613", "#94a3b8", "#94a3b8"];
-                          const rankBg = rankIdx < 5 ? rankColors[rankIdx] : "#CBD5E1";
-                          return (
-                            <button
-                              key={p.id}
-                              onClick={() => setThumbSelectedPost(isSelected ? null : p.id)}
-                              className={cn(
-                                "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors",
-                                isSelected ? "bg-[#FFF0E8]" : "hover:bg-muted/40"
-                              )}
-                            >
-                              {/* Rank number */}
+              {thumbPageId && (
+                <>
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Buscar post…"
+                      value={thumbSearch}
+                      onChange={(e) => { setThumbSearch(e.target.value); setThumbTablePage(1); }}
+                      className="h-8 pl-7 pr-3 rounded-lg border border-border bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#F44708]/30 w-44"
+                    />
+                  </div>
+
+                  {/* Status filter pills */}
+                  <div className="flex items-center gap-1 ml-auto">
+                    {(["all", "with", "without"] as const).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => { setThumbFilter(f); setThumbTablePage(1); }}
+                        className={cn(
+                          "h-7 px-3 rounded-full text-[10px] font-semibold transition-colors",
+                          thumbFilter === f
+                            ? "bg-[#F44708] text-white"
+                            : "bg-white border border-border text-muted-foreground hover:border-[#F44708] hover:text-[#F44708]"
+                        )}
+                      >
+                        {f === "all" ? `Todos (${thumbPosts.length})` : f === "with" ? `✓ Com imagem (${withCount})` : `○ Sem imagem (${withoutCount})`}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Hidden file input */}
+            <input
+              ref={thumbFileRef}
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                const pid = thumbUploadTargetRef.current;
+                if (f && pid) handleThumbUpload(f, pid);
+                e.target.value = "";
+              }}
+            />
+
+            {/* Table */}
+            {!thumbPageId ? (
+              <div className="py-16 flex flex-col items-center gap-3 text-center">
+                <div className="h-12 w-12 rounded-2xl bg-[#FFF0E8] flex items-center justify-center">
+                  <Image className="h-6 w-6 text-[#F44708]" />
+                </div>
+                <p className="text-sm font-medium text-foreground">Selecione uma página para gerenciar thumbnails</p>
+                <p className="text-xs text-muted-foreground">As imagens vinculadas aparecem no carrossel do Dashboard</p>
+              </div>
+            ) : thumbPostsLoading ? (
+              <div className="py-16 flex items-center justify-center gap-2 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm">Carregando posts…</span>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="py-12 text-center text-sm text-muted-foreground">Nenhum post encontrado.</div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-[#FAFAFA]">
+                        <th className="text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground w-10">#</th>
+                        <th className="text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground w-16">Img</th>
+                        <th className="text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Post</th>
+                        <th className="text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground w-20">Data</th>
+                        <th className="text-right px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground w-24">Views</th>
+                        <th className="text-center px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground w-24">Status</th>
+                        <th className="text-right px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground w-36">Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {pageRows.map((p, rowIdx) => {
+                        const globalIdx = filtered.indexOf(p); // rank within full sorted list
+                        const dateLabel = p.published_at
+                          ? p.published_at.slice(0, 10).split("-").reverse().join("/")
+                          : "—";
+                        const isUploading = thumbUploading === p.id;
+                        const shortTitle = p.title
+                          ? p.title.replace(/\n/g, " ").slice(0, 90) + (p.title.length > 90 ? "…" : "")
+                          : `Post sem título`;
+
+                        return (
+                          <tr key={p.id} className={cn("group transition-colors", isUploading ? "bg-[#FFF8F5]" : "hover:bg-[#FAFAFA]")}>
+                            {/* Rank */}
+                            <td className="px-4 py-3">
                               <div
-                                className="h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-black text-white shrink-0"
-                                style={{ background: rankBg }}
+                                className="h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-black"
+                                style={{ background: rankBg(globalIdx), color: rankFg(globalIdx) }}
                               >
-                                {rankIdx + 1}
+                                {globalIdx + 1}
                               </div>
-                              {/* Mini thumbnail */}
-                              <div className="h-10 w-14 rounded overflow-hidden shrink-0 bg-muted border border-border">
+                            </td>
+
+                            {/* Thumbnail preview */}
+                            <td className="px-4 py-3">
+                              <div
+                                className="h-10 w-8 rounded-md overflow-hidden border border-border bg-muted shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => {
+                                  thumbUploadTargetRef.current = p.id;
+                                  thumbFileRef.current?.click();
+                                }}
+                                title="Clique para fazer upload"
+                              >
                                 {p.thumbnail_url ? (
-                                  <img src={p.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                                  <img src={p.thumbnail_url} alt="" className="h-full w-full object-contain" style={{ background: "#111" }} />
                                 ) : (
                                   <div className="h-full w-full flex items-center justify-center">
-                                    <ImagePlus className="h-3.5 w-3.5 text-muted-foreground/40" />
+                                    <ImagePlus className="h-3 w-3 text-muted-foreground/40" />
                                   </div>
                                 )}
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <p className={cn("text-xs font-medium truncate", isSelected ? "text-[#F44708]" : "text-foreground")}>
-                                  {p.title ? p.title.slice(0, 60) + (p.title.length > 60 ? "…" : "") : `Post sem título · ${dateLabel}`}
-                                </p>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <Eye className="h-2.5 w-2.5 text-[#F44708]" />
-                                  <span className="text-[10px] font-bold text-[#F44708] tabular-nums">{fmtViews(p.views)}</span>
-                                  <span className="text-[10px] text-muted-foreground">{dateLabel}</span>
-                                </div>
-                              </div>
+                            </td>
+
+                            {/* Title */}
+                            <td className="px-4 py-3 max-w-xs">
+                              <p className="text-xs text-foreground leading-snug line-clamp-2">{shortTitle}</p>
+                            </td>
+
+                            {/* Date */}
+                            <td className="px-4 py-3">
+                              <span className="text-xs text-muted-foreground tabular-nums">{dateLabel}</span>
+                            </td>
+
+                            {/* Views */}
+                            <td className="px-4 py-3 text-right">
+                              <span className="text-xs font-bold text-foreground tabular-nums">{fmtV(p.views)}</span>
+                            </td>
+
+                            {/* Status */}
+                            <td className="px-4 py-3 text-center">
                               {p.thumbnail_url ? (
-                                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-semibold">
+                                  <CheckCircle2 className="h-3 w-3" /> OK
+                                </span>
                               ) : (
-                                <ImagePlus className="h-4 w-4 text-muted-foreground/30 shrink-0" />
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FFF0E8] text-[#F44708] text-[10px] font-semibold">
+                                  <ImagePlus className="h-3 w-3" /> Vazio
+                                </span>
                               )}
-                            </button>
-                          );
-                        });
-                    })()}
+                            </td>
+
+                            {/* Actions */}
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  disabled={isUploading}
+                                  onClick={() => {
+                                    thumbUploadTargetRef.current = p.id;
+                                    thumbFileRef.current?.click();
+                                  }}
+                                  className="h-7 px-2.5 rounded-lg bg-[#F44708] text-white text-[10px] font-semibold flex items-center gap-1.5 hover:bg-[#D93D07] transition-colors disabled:opacity-50"
+                                >
+                                  {isUploading ? (
+                                    <><Loader2 className="h-3 w-3 animate-spin" /> Enviando…</>
+                                  ) : (
+                                    <><CloudUpload className="h-3 w-3" /> {p.thumbnail_url ? "Trocar" : "Upload"}</>
+                                  )}
+                                </button>
+                                {p.thumbnail_url && (
+                                  <button
+                                    disabled={isUploading}
+                                    onClick={() => handleThumbRemove(p.id)}
+                                    className="h-7 w-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:border-red-300 hover:text-red-500 transition-colors disabled:opacity-50"
+                                    title="Remover imagem"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                {totalThumbPages > 1 && (
+                  <div className="px-5 py-3 border-t border-border flex items-center justify-between bg-[#FAFAFA]">
+                    <span className="text-[11px] text-muted-foreground">
+                      {(safePage - 1) * THUMB_PER_PAGE + 1}–{Math.min(safePage * THUMB_PER_PAGE, filtered.length)} de {filtered.length} posts
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setThumbTablePage(p => Math.max(1, p - 1))}
+                        disabled={safePage === 1}
+                        className="h-7 w-7 flex items-center justify-center rounded-lg border border-border text-xs text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >‹</button>
+                      {Array.from({ length: Math.min(totalThumbPages, 7) }, (_, i) => {
+                        let pg = i + 1;
+                        if (totalThumbPages > 7) {
+                          if (safePage <= 4) pg = i + 1;
+                          else if (safePage >= totalThumbPages - 3) pg = totalThumbPages - 6 + i;
+                          else pg = safePage - 3 + i;
+                        }
+                        return (
+                          <button
+                            key={pg}
+                            onClick={() => setThumbTablePage(pg)}
+                            className={cn(
+                              "h-7 w-7 flex items-center justify-center rounded-lg text-xs font-medium transition-colors",
+                              safePage === pg
+                                ? "bg-[#F44708] text-white"
+                                : "border border-border text-muted-foreground hover:bg-muted"
+                            )}
+                          >{pg}</button>
+                        );
+                      })}
+                      <button
+                        onClick={() => setThumbTablePage(p => Math.min(totalThumbPages, p + 1))}
+                        disabled={safePage === totalThumbPages}
+                        className="h-7 w-7 flex items-center justify-center rounded-lg border border-border text-xs text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >›</button>
+                    </div>
                   </div>
                 )}
-              </div>
-
-              {/* Upload area */}
-              <div>
-                {!thumbSelectedPost ? (
-                  <div className="h-full rounded-xl border border-dashed border-border flex flex-col items-center justify-center gap-2 p-8 text-center min-h-[180px]">
-                    <ImagePlus className="h-8 w-8 text-muted-foreground/30" />
-                    <p className="text-sm text-muted-foreground">Selecione um post ao lado para vincular a thumbnail</p>
-                  </div>
-                ) : (() => {
-                  const post = thumbPosts.find((p) => p.id === thumbSelectedPost);
-                  return (
-                    <div className="rounded-xl border border-border p-4 space-y-4">
-                      <p className="text-xs font-semibold text-foreground truncate">
-                        {post?.title ?? "Post selecionado"}
-                      </p>
-
-                      {/* Current thumbnail preview (4:3) */}
-                      <div className="relative w-full rounded-lg overflow-hidden border border-border" style={{ paddingTop: "75%" }}>
-                        {post?.thumbnail_url ? (
-                          <>
-                            <img
-                              src={post.thumbnail_url}
-                              alt="Thumbnail atual"
-                              className="absolute inset-0 w-full h-full object-cover"
-                            />
-                            <button
-                              onClick={() => handleThumbRemove(thumbSelectedPost)}
-                              className="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/90 flex items-center justify-center shadow hover:bg-destructive hover:text-white transition-colors"
-                              title="Remover thumbnail"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </>
-                        ) : (
-                          <div className="absolute inset-0 bg-muted flex flex-col items-center justify-center gap-2">
-                            <Image className="h-10 w-10 text-muted-foreground/30" />
-                            <p className="text-xs text-muted-foreground">Sem thumbnail</p>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Upload button */}
-                      <input
-                        ref={thumbFileRef}
-                        type="file"
-                        accept="image/jpeg,image/jpg,image/png,image/webp"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) handleThumbUpload(f);
-                          e.target.value = "";
-                        }}
-                      />
-                      <button
-                        onClick={() => thumbFileRef.current?.click()}
-                        disabled={thumbUploading}
-                        className="w-full h-10 rounded-xl bg-[#F44708] text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#D93D07] transition-colors disabled:opacity-60"
-                      >
-                        {thumbUploading
-                          ? <><Loader2 className="h-4 w-4 animate-spin" /> Enviando…</>
-                          : <><CloudUpload className="h-4 w-4" /> {post?.thumbnail_url ? "Substituir imagem" : "Fazer upload"}</>
-                        }
-                      </button>
-                      <p className="text-[10px] text-muted-foreground text-center">JPG, PNG ou WebP · máx 5 MB · proporção 4:3 recomendada</p>
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── Drawer ── */}
       <Sheet open={!!selectedId} onOpenChange={open => !open && setSelectedId(null)}>
