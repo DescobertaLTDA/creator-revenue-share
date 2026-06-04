@@ -159,24 +159,27 @@ export default function DataPipelinePage() {
     return () => { cancelled = true; };
   }, [thumbPageId, thumbDateFrom, thumbDateTo]);
 
-  // Helper: find IDs of all posts (across ALL pages in DB) with same title or description
+  // Helper: find IDs of all posts (across ALL pages in DB) with same title or description.
+  // Uses separate .eq() queries instead of .or() to avoid PostgREST breaking on special chars.
   const findSameContentIds = async (
     postId: string,
     title: string | null,
     description: string | null
   ): Promise<string[]> => {
-    const conditions: string[] = [];
-    if (title && title.trim().length > 5) conditions.push(`title.eq.${title}`);
-    if (description && description.trim().length > 10) conditions.push(`description.eq.${description}`);
-    if (conditions.length === 0) return [];
-    // Use a direct query filtering by title or description
-    const orFilter = conditions.join(",");
-    const { data } = await (supabase as any)
-      .from("posts")
-      .select("id")
-      .or(orFilter)
-      .neq("id", postId);
-    return (data ?? []).map((r: { id: string }) => r.id);
+    const ids = new Set<string>();
+    if (title && title.trim().length > 5) {
+      const { data } = await (supabase as any)
+        .from("posts").select("id")
+        .eq("title", title).neq("id", postId);
+      for (const r of data ?? []) ids.add(r.id);
+    }
+    if (description && description.trim().length > 10) {
+      const { data } = await (supabase as any)
+        .from("posts").select("id")
+        .eq("description", description).neq("id", postId);
+      for (const r of data ?? []) ids.add(r.id);
+    }
+    return Array.from(ids);
   };
 
   // Upload thumbnail for a given post (and all posts with same content)

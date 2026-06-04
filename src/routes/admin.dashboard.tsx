@@ -564,16 +564,23 @@ function PostsCarousel({
     setThumbPreviewUrl(URL.createObjectURL(f));
   };
 
-  // Helper: find all posts in the cache that share the same title or description
-  const findSameContentIds = (post: CarouselPost): string[] => {
-    const all = _dashCache?.posts ?? [];
-    const matched = all.filter((p) => {
-      if (p.id === post.id) return false;
-      const titleMatch = post.title && post.title.trim().length > 5 && p.title === post.title;
-      const descMatch = post.description && post.description.trim().length > 10 && p.description === post.description;
-      return titleMatch || descMatch;
-    });
-    return matched.map((p) => p.id);
+  // Helper: query DB for all posts that share the same title or description
+  // Uses separate .eq() queries to avoid PostgREST .or() breaking on special chars (commas, accents, etc.)
+  const findSameContentIds = async (post: CarouselPost): Promise<string[]> => {
+    const ids = new Set<string>();
+    if (post.title && post.title.trim().length > 5) {
+      const { data } = await (supabase as any)
+        .from("posts").select("id")
+        .eq("title", post.title).neq("id", post.id);
+      for (const r of data ?? []) ids.add(r.id);
+    }
+    if (post.description && post.description.trim().length > 10) {
+      const { data } = await (supabase as any)
+        .from("posts").select("id")
+        .eq("description", post.description).neq("id", post.id);
+      for (const r of data ?? []) ids.add(r.id);
+    }
+    return Array.from(ids);
   };
 
   const handleUpload = async () => {
@@ -589,8 +596,8 @@ function PostsCarousel({
       const { data: urlData } = supabase.storage.from("post-thumbnails").getPublicUrl(path);
       const publicUrl = urlData.publicUrl;
 
-      // Find all posts with same title or description
-      const siblingIds = findSameContentIds(modalPost);
+      // Find all posts with same title or description (DB query — reliable across all pages)
+      const siblingIds = await findSameContentIds(modalPost);
       const allIds = [modalPost.id, ...siblingIds];
 
       // Batch update all matching posts
@@ -628,8 +635,8 @@ function PostsCarousel({
     if (!modalPost) return;
     setThumbUploading(true);
 
-    // Find all posts with same title or description
-    const siblingIds = findSameContentIds(modalPost);
+    // Find all posts with same title or description (DB query)
+    const siblingIds = await findSameContentIds(modalPost);
     const allIds = [modalPost.id, ...siblingIds];
 
     const { error } = await (supabase as any).from("posts")
