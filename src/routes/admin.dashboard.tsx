@@ -1453,6 +1453,7 @@ function AdminDashboard() {
   const [usdBrl, setUsdBrl] = useState<number | null>(null);
   const [myCollabId, setMyCollabId] = useState<string | null>(null);
   const [myPendingAmount, setMyPendingAmount] = useState<number>(0);
+  const [myLastPayment, setMyLastPayment] = useState<{ amount: number; monthRef: string } | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "charts">("overview");
   const [chartMetric, setChartMetric] = useState<"receita" | "views" | "curtidas" | "comentarios" | "compartilhamentos" | "seguidores">("receita");
 
@@ -1503,6 +1504,27 @@ function AdminDashboard() {
       .then(({ data }: { data: { final_amount: number }[] | null }) => {
         const total = (data ?? []).reduce((s, r) => s + Number(r.final_amount ?? 0), 0);
         setMyPendingAmount(total);
+      });
+  }, [myCollabId]);
+
+  // Fetch the last paid closing item for the logged-in collaborator
+  useEffect(() => {
+    if (!myCollabId) return;
+    (supabase as any)
+      .from("monthly_closing_items")
+      .select("final_amount, monthly_closings(month_ref)")
+      .eq("collaborator_id", myCollabId)
+      .in("payment_status", ["pago_fora", "ajustado"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }: { data: { final_amount: number; monthly_closings: { month_ref: string } | null } | null }) => {
+        if (data) {
+          setMyLastPayment({
+            amount: Number(data.final_amount ?? 0),
+            monthRef: data.monthly_closings?.month_ref ?? "",
+          });
+        }
       });
   }, [myCollabId]);
 
@@ -3173,12 +3195,30 @@ function AdminDashboard() {
               <div className="mt-4 pt-4 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {/* Each stat always renders label + value + subtitle skeleton so height is fixed */}
                 <div>
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-0.5">Mês Anterior</p>
-                  {loading || prevMonthRevenue === null
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-0.5">
+                    {myCard ? "Seu Último Pagamento" : "Mês Anterior"}
+                  </p>
+                  {loading
                     ? <div className="h-[18px] w-24 rounded bg-white/20 animate-pulse" />
-                    : <p className="text-sm font-bold tabular-nums">{usdBrl ? formatBRL(prevMonthRevenue * usdBrl) : `$${prevMonthRevenue.toFixed(2)}`}</p>}
+                    : myCard
+                      ? <p className="text-sm font-bold tabular-nums">
+                          {myLastPayment
+                            ? (usdBrl ? formatBRL(myLastPayment.amount * usdBrl) : `$${myLastPayment.amount.toFixed(2)}`)
+                            : "—"}
+                        </p>
+                      : prevMonthRevenue === null
+                        ? <div className="h-[18px] w-24 rounded bg-white/20 animate-pulse" />
+                        : <p className="text-sm font-bold tabular-nums">{usdBrl ? formatBRL(prevMonthRevenue * usdBrl) : `$${prevMonthRevenue.toFixed(2)}`}</p>
+                  }
                   <div className="h-[13px] mt-0.5">
-                    {usdBrl && prevMonthRevenue !== null && !loading && <p className="text-[9px] text-white/40">${prevMonthRevenue.toFixed(2)} USD</p>}
+                    {!loading && (myCard
+                      ? myLastPayment && <p className="text-[9px] text-white/40">
+                          {myLastPayment.monthRef
+                            ? (() => { const [y, m] = myLastPayment.monthRef.split("-"); const names = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"]; return `${names[parseInt(m,10)-1]}/${y.slice(2)}`; })()
+                            : `$${myLastPayment.amount.toFixed(2)} USD`}
+                        </p>
+                      : usdBrl && prevMonthRevenue !== null && <p className="text-[9px] text-white/40">${prevMonthRevenue.toFixed(2)} USD</p>
+                    )}
                   </div>
                 </div>
                 {myCard && (
