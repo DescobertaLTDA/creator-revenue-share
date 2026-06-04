@@ -7,7 +7,6 @@ import { formatBRL, formatPct } from "@/lib/format";
 import {
   DollarSign, TrendingUp, Users, Zap, ChevronRight, X,
 } from "lucide-react";
-import { Slider } from "@/components/ui/slider";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 export const Route = createFileRoute("/admin/central-receita")({
@@ -138,7 +137,6 @@ function CentralReceita() {
   const [activeCount, setActiveCount] = useState(0);
   const [usdBrl, setUsdBrl] = useState(5.70);
   const [selected, setSelected] = useState<ColabRevenue | null>(null);
-  const [simValue, setSimValue] = useState(1000);
 
   const thisMonth = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; })();
 
@@ -343,17 +341,6 @@ function CentralReceita() {
 
   const totalResidual = Math.max(0, totalBonus);
 
-  const simRows = useMemo(() => {
-    const totalHistPct = rows.reduce((s, r) => s + r.historicalPct, 0) || 100;
-    return rows.map((r) => {
-      // posts revenue scales proportionally from current
-      const postsShare = totalPostsRevenue > 0
-        ? (r.postsRevenue / totalPostsRevenue) * simValue * 0.6
-        : 0;
-      const residualSim = simValue * 0.4 * (r.historicalPct / totalHistPct);
-      return { ...r, simTotal: postsShare + residualSim };
-    }).sort((a, b) => b.simTotal - a.simTotal);
-  }, [rows, simValue, totalPostsRevenue]);
 
   return (
     <div className="space-y-6">
@@ -469,64 +456,6 @@ function CentralReceita() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Simulator */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <p className="text-sm font-semibold">Simulador de Receita</p>
-          <span className="text-xs text-muted-foreground font-mono">
-            Se a página faturar ${simValue.toLocaleString()}
-          </span>
-        </div>
-        <div className="px-4 pt-4 pb-2">
-          <Slider
-            min={100}
-            max={10000}
-            step={100}
-            value={[simValue]}
-            onValueChange={([v]) => setSimValue(v)}
-            className="mb-4"
-          />
-        </div>
-        {simRows.length > 0 && (
-          <div className="overflow-x-auto pb-2">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-xs text-muted-foreground border-b border-border">
-                  <th className="px-4 py-2 text-left font-medium">Colaborador</th>
-                  <th className="px-3 py-2 text-right font-medium">Estimativa USD</th>
-                  <th className="px-3 py-2 text-right font-medium">Estimativa BRL</th>
-                  <th className="px-3 py-2 font-medium min-w-[120px]">% do total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {simRows.slice(0, 8).map((r) => {
-                  const simTotal = simRows.reduce((s, x) => s + x.simTotal, 0) || 1;
-                  return (
-                    <tr key={r.id} className="border-b border-border/50">
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <Avatar nome={r.nome} url={r.avatar_url} size={24} />
-                          <span className="truncate max-w-[120px]">{r.nome}</span>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-orange-400">
-                        ${r.simTotal.toFixed(2)}
-                      </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums">
-                        {formatBRL(r.simTotal * usdBrl)}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <BarFill pct={(r.simTotal / simTotal) * 100} />
-                      </td>
-                    </tr>
-                  );
-                })}
               </tbody>
             </table>
           </div>
