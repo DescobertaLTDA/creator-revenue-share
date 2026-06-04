@@ -7,12 +7,14 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { KpiCard } from "@/components/app/KpiCard";
 import { formatBRL, formatDateTime, formatMonth } from "@/lib/format";
 import { setPendingImportFile } from "@/lib/pending-import";
+import { toast } from "sonner";
 import {
   DollarSign, Eye, TrendingUp, Upload, ArrowRight,
   FileSpreadsheet, CheckCircle2, Clock, ChevronRight, ChevronLeft,
   Target, Zap, Users, X, CloudUpload,
   Heart, MessageSquare, Share2, Maximize2, Calendar, Trophy,
   Flame, Hourglass, BarChart2, FileText,
+  Loader2, ImagePlus, Trash2,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -465,6 +467,7 @@ function PostsCarousel({
   filterPage: string;
   usdBrl: number | null;
 }) {
+  const { profile } = useAuth();
   const trackRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
@@ -474,7 +477,13 @@ function PostsCarousel({
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [modalPost, setModalPost] = useState<CarouselPost | null>(null);
 
-  const CARD_W = 160; // px — cards visible depend on container width
+  // Upload state
+  const thumbFileRef = useRef<HTMLInputElement>(null);
+  const [thumbUploading, setThumbUploading] = useState(false);
+  const [thumbFile, setThumbFile] = useState<File | null>(null);
+  const [thumbPreviewUrl, setThumbPreviewUrl] = useState<string | null>(null);
+
+  const CARD_W = 160;
   const GAP = 12;
 
   const syncArrows = useCallback(() => {
@@ -491,6 +500,24 @@ function PostsCarousel({
     el.addEventListener("scroll", syncArrows, { passive: true });
     return () => el.removeEventListener("scroll", syncArrows);
   }, [posts, syncArrows]);
+
+  // Revoke object URL on cleanup
+  useEffect(() => {
+    return () => { if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl); };
+  }, [thumbPreviewUrl]);
+
+  const openModal = (post: CarouselPost) => {
+    setModalPost(post);
+    setThumbFile(null);
+    setThumbPreviewUrl(null);
+  };
+
+  const closeModal = () => {
+    setModalPost(null);
+    setThumbFile(null);
+    if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl);
+    setThumbPreviewUrl(null);
+  };
 
   const scrollBy = (dir: 1 | -1) => {
     trackRef.current?.scrollBy({ left: dir * (CARD_W + GAP) * 3, behavior: "smooth" });
@@ -526,8 +553,91 @@ function PostsCarousel({
     : idx <= 4 ? "#94a3b8"
     : "#CBD5E1";
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    if (!f.type.startsWith("image/")) { toast.error("Apenas imagens são permitidas"); return; }
+    if (f.size > 5 * 1024 * 1024) { toast.error("Imagem muito grande (máx 5 MB)"); return; }
+    if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl);
+    setThumbFile(f);
+    setThumbPreviewUrl(URL.createObjectURL(f));
+  };
+
+  const handleUpload = async () => {
+    if (!thumbFile || !modalPost || !profile) return;
+    setThumbUploading(true);
+    try {
+      const ext = thumbFile.name.split(".").pop()?.toLowerCase() ?? "jpg";
+      const path = `${modalPost.id}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("post-thumbnails")
+        .upload(path, thumbFile, { upsert: true, contentType: thumbFile.type });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from("post-thumbnails").getPublicUrl(path);
+      const publicUrl = urlData.publicUrl;
+      const { error: dbErr } = await (supabase as any).from("posts")
+        .update({ thumbnail_url: publicUrl })
+        .eq("id", modalPost.id);
+      if (dbErr) throw dbErr;
+      toast.success("Thumbnail salva!");
+      const updated = { ...modalPost, thumbnail_url: publicUrl };
+      setModalPost(updated);
+      setThumbFile(null);
+      if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl);
+      setThumbPreviewUrl(null);
+      // Patch module-level cache too
+      if (_dashCache) {
+        _dashCache.posts = _dashCache.posts.map((p) =>
+          p.id === updated.id ? { ...p, thumbnail_url: publicUrl } : p
+        );
+      }
+    } catch (e: any) {
+      toast.error("Erro ao fazer upload", { description: e.message });
+    } finally {
+      setThumbUploading(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!modalPost) return;
+    setThumbUploading(true);
+    const { error } = await (supabase as any).from("posts")
+      .update({ thumbnail_url: null })
+      .eq("id", modalPost.id);
+    setThumbUploading(false);
+    if (error) { toast.error("Erro ao remover thumbnail"); return; }
+    const updated = { ...modalPost, thumbnail_url: null };
+    setModalPost(updated);
+    setThumbFile(null);
+    if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl);
+    setThumbPreviewUrl(null);
+    if (_dashCache) {
+      _dashCache.posts = _dashCache.posts.map((p) =>
+        p.id === updated.id ? { ...p, thumbnail_url: null } : p
+      );
+    }
+    toast.success("Thumbnail removida");
+  };
+
+  // What to display in the image panel
+  const displayUrl = thumbPreviewUrl
+    ?? (modalPost?.thumbnail_url ? `${modalPost.thumbnail_url}?t=${Math.floor(Date.now() / 60000)}` : null);
+
+  const fmtBytes = (b: number) =>
+    b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${(b / 1024).toFixed(0)} KB`;
+
   return (
     <div>
+      {/* Hidden file input */}
+      <input
+        ref={thumbFileRef}
+        type="file"
+        accept="image/jpeg,image/jpg,image/png,image/webp"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between mb-3 px-0.5">
         <div>
@@ -541,7 +651,6 @@ function PostsCarousel({
               : `${posts.length} posts de todas as páginas · arraste para navegar`}
           </p>
         </div>
-        {/* Arrow buttons */}
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => scrollBy(-1)}
@@ -584,9 +693,8 @@ function PostsCarousel({
               key={post.id}
               className="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden flex flex-col shrink-0 cursor-pointer hover:shadow-md transition-shadow"
               style={{ width: CARD_W, boxShadow: "0 1px 4px rgba(0,0,0,.05)", scrollSnapAlign: "start" }}
-              onClick={() => !hasDragged.current && setModalPost(post)}
+              onClick={() => !hasDragged.current && openModal(post)}
             >
-              {/* Thumbnail */}
               <div className="relative w-full overflow-hidden" style={{ paddingTop: "133%" }}>
                 {post.thumbnail_url ? (
                   <img
@@ -610,8 +718,6 @@ function PostsCarousel({
                   <span className="text-[9px] font-bold text-white tabular-nums">{fmt(post.views)}</span>
                 </div>
               </div>
-
-              {/* Info */}
               <div className="p-2.5 flex flex-col gap-1 flex-1">
                 <p className="text-[10px] font-semibold text-[#111] line-clamp-2 leading-snug">
                   {preview || `Post de ${dateLabel(post.published_at)}`}
@@ -634,102 +740,200 @@ function PostsCarousel({
         <div className="shrink-0 w-1" />
       </div>
 
-      {/* ── Post detail modal ── */}
+      {/* ── Upload + Detail modal ── */}
       {modalPost && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,.55)", backdropFilter: "blur(4px)" }}
-          onClick={() => setModalPost(null)}
+          style={{ background: "rgba(0,0,0,.6)", backdropFilter: "blur(6px)" }}
+          onClick={closeModal}
         >
           <div
-            className="bg-white rounded-2xl overflow-hidden w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl"
+            className="bg-white rounded-2xl overflow-hidden w-full max-w-xl shadow-2xl flex flex-col"
+            style={{ maxHeight: "90vh" }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal header */}
+            {/* Header */}
             <div className="px-5 pt-4 pb-3 border-b border-[#F0F0F0] flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-black text-white"
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-black text-white shrink-0"
                   style={{ background: rankBg(posts.indexOf(modalPost)) }}>
                   {posts.indexOf(modalPost) + 1}
                 </div>
-                <span className="text-xs font-semibold text-[#111]">{modalPost.pageName}</span>
-                <span className="text-[10px] text-[#AAA]">·</span>
-                <span className="text-[10px] text-[#AAA]">{dateLabel(modalPost.published_at)}</span>
+                <span className="text-xs font-semibold text-[#111] truncate">{modalPost.pageName}</span>
+                <span className="text-[10px] text-[#CCC] shrink-0">·</span>
+                <span className="text-[10px] text-[#AAA] shrink-0">{dateLabel(modalPost.published_at)}</span>
                 {modalPost.source && (
-                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full ${modalPost.source === "instagram" ? "bg-pink-50 text-pink-600" : "bg-blue-50 text-blue-600"}`}>
+                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0 ${modalPost.source === "instagram" ? "bg-pink-50 text-pink-600" : "bg-blue-50 text-blue-600"}`}>
                     {modalPost.source}
                   </span>
                 )}
               </div>
-              <button onClick={() => setModalPost(null)}
-                className="h-7 w-7 rounded-full hover:bg-[#F5F5F5] flex items-center justify-center text-[#999] transition-colors">
+              <button onClick={closeModal}
+                className="h-7 w-7 rounded-full hover:bg-[#F5F5F5] flex items-center justify-center text-[#999] transition-colors shrink-0 ml-2">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             <div className="overflow-y-auto flex-1">
-              <div className="flex flex-col sm:flex-row gap-0">
-                {/* Thumbnail */}
-                {modalPost.thumbnail_url && (
-                  <div className="sm:w-48 shrink-0 bg-[#111]">
-                    <img
-                      src={`${modalPost.thumbnail_url}?t=${Math.floor(Date.now() / 60000)}`}
-                      alt=""
-                      className="w-full h-full object-contain"
-                      style={{ maxHeight: 320 }}
-                    />
+              {/* Image upload panel */}
+              <div className="p-5 border-b border-[#F0F0F0]">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#AAA] mb-3">Thumbnail</p>
+                <div className="flex gap-4 items-start">
+                  {/* Image preview / drop zone */}
+                  <div
+                    className="shrink-0 rounded-xl overflow-hidden border-2 border-dashed cursor-pointer transition-colors group"
+                    style={{
+                      width: 120, height: 160,
+                      borderColor: displayUrl ? "transparent" : "#E8E8E8",
+                      background: displayUrl ? "#111" : "linear-gradient(135deg,#FAF7F5,#F2EDE8)",
+                    }}
+                    onClick={() => !thumbUploading && thumbFileRef.current?.click()}
+                    title="Clique para selecionar imagem"
+                  >
+                    {displayUrl ? (
+                      <div className="relative w-full h-full">
+                        <img src={displayUrl} alt="" className="w-full h-full object-contain" />
+                        {/* hover overlay */}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                          <div className="flex flex-col items-center gap-1">
+                            <ImagePlus className="h-5 w-5 text-white" />
+                            <span className="text-[9px] font-bold text-white">Trocar</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-2 group-hover:bg-[#FFF0E8]/50 transition-colors">
+                        <ImagePlus className="h-7 w-7 text-[#DDD4CB] group-hover:text-[#F44708] transition-colors" />
+                        <span className="text-[8px] font-semibold text-[#C5B9B0] group-hover:text-[#F44708] text-center px-2 leading-tight transition-colors">
+                          Clique para carregar
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right side: file info + actions */}
+                  <div className="flex-1 flex flex-col gap-3">
+                    {/* File selected info */}
+                    {thumbFile ? (
+                      <div className="rounded-xl border border-[#E8E8E8] bg-[#FAFAFA] p-3 space-y-1">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#AAA]">Arquivo selecionado</p>
+                        <p className="text-xs font-semibold text-[#111] truncate" title={thumbFile.name}>{thumbFile.name}</p>
+                        <p className="text-[10px] text-[#999]">{fmtBytes(thumbFile.size)}</p>
+                      </div>
+                    ) : modalPost.thumbnail_url ? (
+                      <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 space-y-1">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Imagem atual</p>
+                        <p className="text-[10px] text-emerald-700">Thumbnail já vinculada a este post.</p>
+                        <p className="text-[10px] text-emerald-600">Clique na imagem para trocar.</p>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-[#F0F0F0] bg-[#FAFAFA] p-3 space-y-1">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#AAA]">Sem imagem</p>
+                        <p className="text-[10px] text-[#BBB]">Clique na área ao lado ou no botão abaixo para selecionar uma imagem.</p>
+                        <p className="text-[10px] text-[#CCC]">JPG, PNG ou WebP · máx 5 MB</p>
+                      </div>
+                    )}
+
+                    {/* Action buttons */}
+                    <div className="flex flex-col gap-2">
+                      {thumbFile ? (
+                        <>
+                          <button
+                            onClick={handleUpload}
+                            disabled={thumbUploading}
+                            className="flex items-center justify-center gap-2 h-9 rounded-xl bg-[#F44708] text-white text-xs font-bold hover:bg-[#D93D07] disabled:opacity-60 transition-colors"
+                          >
+                            {thumbUploading
+                              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Salvando…</>
+                              : <><CloudUpload className="h-3.5 w-3.5" /> Confirmar upload</>
+                            }
+                          </button>
+                          <button
+                            onClick={() => { setThumbFile(null); if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl); setThumbPreviewUrl(null); }}
+                            disabled={thumbUploading}
+                            className="flex items-center justify-center gap-2 h-8 rounded-xl border border-[#E8E8E8] text-[#999] text-xs font-medium hover:border-[#CCC] hover:text-[#555] transition-colors disabled:opacity-40"
+                          >
+                            Cancelar seleção
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => thumbFileRef.current?.click()}
+                            disabled={thumbUploading}
+                            className="flex items-center justify-center gap-2 h-9 rounded-xl bg-[#F44708] text-white text-xs font-bold hover:bg-[#D93D07] disabled:opacity-60 transition-colors"
+                          >
+                            <ImagePlus className="h-3.5 w-3.5" />
+                            {modalPost.thumbnail_url ? "Trocar imagem" : "Carregar imagem"}
+                          </button>
+                          {modalPost.thumbnail_url && (
+                            <button
+                              onClick={handleRemove}
+                              disabled={thumbUploading}
+                              className="flex items-center justify-center gap-2 h-8 rounded-xl border border-red-200 text-red-500 text-xs font-medium hover:bg-red-50 transition-colors disabled:opacity-40"
+                            >
+                              {thumbUploading
+                                ? <><Loader2 className="h-3 w-3 animate-spin" /> Removendo…</>
+                                : <><Trash2 className="h-3 w-3" /> Remover imagem</>
+                              }
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Post details */}
+              <div className="p-5 space-y-4">
+                {/* Stats */}
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { icon: Eye, label: "Views", val: fmt(modalPost.views), color: "#F44708" },
+                    { icon: Heart, label: "Reações", val: fmt(modalPost.reactions), color: "#e11d48" },
+                    { icon: MessageSquare, label: "Coment.", val: fmt(modalPost.comments), color: "#0284c7" },
+                    { icon: Share2, label: "Shares", val: fmt(modalPost.shares), color: "#16a34a" },
+                  ].map(({ icon: Icon, label, val, color }) => (
+                    <div key={label} className="rounded-xl border border-[#F0F0F0] p-2 text-center">
+                      <Icon className="h-3 w-3 mx-auto mb-0.5" style={{ color }} />
+                      <p className="text-[11px] font-bold text-[#111] tabular-nums">{val}</p>
+                      <p className="text-[9px] text-[#AAA]">{label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Revenue */}
+                {modalPost.revenue > 0 && usdBrl && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
+                    <DollarSign className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                    <span className="text-xs font-bold text-emerald-700">{formatBRL(modalPost.revenue * usdBrl)}</span>
+                    <span className="text-[10px] text-emerald-600 ml-auto">${modalPost.revenue.toFixed(2)} USD</span>
                   </div>
                 )}
 
-                <div className="flex-1 p-5 space-y-4">
-                  {/* Stats row */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {[
-                      { icon: Eye, label: "Views", val: fmt(modalPost.views), color: "#F44708" },
-                      { icon: Heart, label: "Reações", val: fmt(modalPost.reactions), color: "#e11d48" },
-                      { icon: MessageSquare, label: "Comentários", val: fmt(modalPost.comments), color: "#0284c7" },
-                      { icon: Share2, label: "Shares", val: fmt(modalPost.shares), color: "#16a34a" },
-                    ].map(({ icon: Icon, label, val, color }) => (
-                      <div key={label} className="rounded-xl border border-[#F0F0F0] p-2.5 text-center">
-                        <Icon className="h-3.5 w-3.5 mx-auto mb-1" style={{ color }} />
-                        <p className="text-xs font-bold text-[#111] tabular-nums">{val}</p>
-                        <p className="text-[9px] text-[#AAA] mt-0.5">{label}</p>
-                      </div>
-                    ))}
+                {/* Description */}
+                {(modalPost.description || modalPost.title) && (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#AAA] mb-2">Descrição</p>
+                    <p className="text-xs text-[#444] leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto">
+                      {modalPost.description ?? modalPost.title}
+                    </p>
                   </div>
+                )}
 
-                  {/* Revenue */}
-                  {modalPost.revenue > 0 && usdBrl && (
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
-                      <DollarSign className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                      <span className="text-xs font-bold text-emerald-700">{formatBRL(modalPost.revenue * usdBrl)}</span>
-                      <span className="text-[10px] text-emerald-600 ml-auto">${modalPost.revenue.toFixed(2)} USD</span>
-                    </div>
-                  )}
-
-                  {/* Full description */}
-                  {(modalPost.description || modalPost.title) && (
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#AAA] mb-2">Descrição</p>
-                      <p className="text-xs text-[#333] leading-relaxed whitespace-pre-wrap">
-                        {modalPost.description ?? modalPost.title}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Permalink */}
-                  {modalPost.permalink && (
-                    <a
-                      href={modalPost.permalink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-[11px] text-[#F44708] font-semibold hover:underline"
-                    >
-                      <ArrowRight className="h-3 w-3" />
-                      Ver post original
-                    </a>
-                  )}
-                </div>
+                {/* Permalink */}
+                {modalPost.permalink && (
+                  <a
+                    href={modalPost.permalink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-[11px] text-[#F44708] font-semibold hover:underline"
+                  >
+                    <ArrowRight className="h-3 w-3" />
+                    Ver post original
+                  </a>
+                )}
               </div>
             </div>
           </div>
