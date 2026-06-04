@@ -101,7 +101,7 @@ export default function DataPipelinePage() {
   // ── Thumbnail upload state ────────────────────────────────────────────────
   const [thumbPageId, setThumbPageId] = useState("");
   const [thumbSearch, setThumbSearch] = useState("");
-  const [thumbPosts, setThumbPosts] = useState<{ id: string; title: string | null; published_at: string | null; thumbnail_url: string | null }[]>([]);
+  const [thumbPosts, setThumbPosts] = useState<{ id: string; title: string | null; published_at: string | null; thumbnail_url: string | null; views: number | null }[]>([]);
   const [thumbPostsLoading, setThumbPostsLoading] = useState(false);
   const [thumbSelectedPost, setThumbSelectedPost] = useState<string | null>(null);
   const [thumbUploading, setThumbUploading] = useState(false);
@@ -120,12 +120,12 @@ export default function DataPipelinePage() {
     setThumbPostsLoading(true);
     setThumbSelectedPost(null);
     supabase.from("posts")
-      .select("id, title, published_at, thumbnail_url")
+      .select("id, title, published_at, thumbnail_url, views")
       .eq("page_id", thumbPageId)
-      .order("published_at", { ascending: false })
+      .order("views", { ascending: false, nullsFirst: false })
       .limit(200)
       .then(({ data }) => {
-        setThumbPosts((data ?? []) as { id: string; title: string | null; published_at: string | null; thumbnail_url: string | null }[]);
+        setThumbPosts((data ?? []) as { id: string; title: string | null; published_at: string | null; thumbnail_url: string | null; views: number | null }[]);
         setThumbPostsLoading(false);
       });
   }, [thumbPageId]);
@@ -1023,48 +1023,70 @@ export default function DataPipelinePage() {
                   <div className="p-8 text-center text-sm text-muted-foreground">Nenhum post encontrado para esta página.</div>
                 ) : (
                   <div className="divide-y divide-border max-h-72 overflow-y-auto">
-                    {thumbPosts
-                      .filter((p) => {
-                        if (!thumbSearch) return true;
-                        const q = thumbSearch.toLowerCase();
-                        return (p.title ?? "").toLowerCase().includes(q) || (p.published_at ?? "").includes(thumbSearch);
-                      })
-                      .map((p) => {
-                        const isSelected = thumbSelectedPost === p.id;
-                        const dateLabel = p.published_at
-                          ? p.published_at.slice(0, 10).split("-").reverse().join("/")
-                          : "—";
-                        return (
-                          <button
-                            key={p.id}
-                            onClick={() => setThumbSelectedPost(isSelected ? null : p.id)}
-                            className={cn(
-                              "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors",
-                              isSelected ? "bg-[#FFF0E8]" : "hover:bg-muted/40"
-                            )}
-                          >
-                            {/* Mini thumbnail */}
-                            <div className="h-10 w-14 rounded overflow-hidden shrink-0 bg-muted border border-border">
-                              {p.thumbnail_url ? (
-                                <img src={p.thumbnail_url} alt="" className="h-full w-full object-cover" />
-                              ) : (
-                                <div className="h-full w-full flex items-center justify-center">
-                                  <ImagePlus className="h-3.5 w-3.5 text-muted-foreground/40" />
-                                </div>
+                    {(() => {
+                      const fmtViews = (v: number | null) =>
+                        v == null ? "—"
+                        : v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M`
+                        : v >= 1_000 ? `${(v / 1_000).toFixed(1)}k`
+                        : String(v);
+                      return thumbPosts
+                        .filter((p) => {
+                          if (!thumbSearch) return true;
+                          const q = thumbSearch.toLowerCase();
+                          return (p.title ?? "").toLowerCase().includes(q) || (p.published_at ?? "").includes(thumbSearch);
+                        })
+                        .map((p, rankIdx) => {
+                          const isSelected = thumbSelectedPost === p.id;
+                          const dateLabel = p.published_at
+                            ? p.published_at.slice(0, 10).split("-").reverse().join("/")
+                            : "—";
+                          const rankColors = ["#F44708", "#FAA613", "#FAA613", "#94a3b8", "#94a3b8"];
+                          const rankBg = rankIdx < 5 ? rankColors[rankIdx] : "#CBD5E1";
+                          return (
+                            <button
+                              key={p.id}
+                              onClick={() => setThumbSelectedPost(isSelected ? null : p.id)}
+                              className={cn(
+                                "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors",
+                                isSelected ? "bg-[#FFF0E8]" : "hover:bg-muted/40"
                               )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={cn("text-xs font-medium truncate", isSelected ? "text-[#F44708]" : "text-foreground")}>
-                                {p.title ?? `Post sem título`}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground mt-0.5">{dateLabel}</p>
-                            </div>
-                            {p.thumbnail_url && (
-                              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                            )}
-                          </button>
-                        );
-                      })}
+                            >
+                              {/* Rank number */}
+                              <div
+                                className="h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-black text-white shrink-0"
+                                style={{ background: rankBg }}
+                              >
+                                {rankIdx + 1}
+                              </div>
+                              {/* Mini thumbnail */}
+                              <div className="h-10 w-14 rounded overflow-hidden shrink-0 bg-muted border border-border">
+                                {p.thumbnail_url ? (
+                                  <img src={p.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="h-full w-full flex items-center justify-center">
+                                    <ImagePlus className="h-3.5 w-3.5 text-muted-foreground/40" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={cn("text-xs font-medium truncate", isSelected ? "text-[#F44708]" : "text-foreground")}>
+                                  {p.title ? p.title.slice(0, 60) + (p.title.length > 60 ? "…" : "") : `Post sem título · ${dateLabel}`}
+                                </p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <Eye className="h-2.5 w-2.5 text-[#F44708]" />
+                                  <span className="text-[10px] font-bold text-[#F44708] tabular-nums">{fmtViews(p.views)}</span>
+                                  <span className="text-[10px] text-muted-foreground">{dateLabel}</span>
+                                </div>
+                              </div>
+                              {p.thumbnail_url ? (
+                                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                              ) : (
+                                <ImagePlus className="h-4 w-4 text-muted-foreground/30 shrink-0" />
+                              )}
+                            </button>
+                          );
+                        });
+                    })()}
                   </div>
                 )}
               </div>
