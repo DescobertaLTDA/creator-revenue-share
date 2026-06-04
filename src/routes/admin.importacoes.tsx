@@ -108,6 +108,7 @@ export default function DataPipelinePage() {
   const [thumbUploading, setThumbUploading] = useState<string | null>(null); // postId being uploaded
   const [thumbTablePage, setThumbTablePage] = useState(1);
   const [thumbFilter, setThumbFilter] = useState<"all" | "with" | "without">("all");
+  const [thumbPropagating, setThumbPropagating] = useState(false);
   const thumbFileRef = useRef<HTMLInputElement>(null);
   const thumbUploadTargetRef = useRef<string | null>(null); // postId for the pending file input
 
@@ -159,27 +160,84 @@ export default function DataPipelinePage() {
     return () => { cancelled = true; };
   }, [thumbPageId, thumbDateFrom, thumbDateTo]);
 
-  // Helper: find IDs of all posts (across ALL pages in DB) with same title or description.
-  // Uses separate .eq() queries instead of .or() to avoid PostgREST breaking on special chars.
+  // Helper: find IDs of ALL posts (any page) with same content.
+  // Searches BOTH title and description for EACH key, so a FB post (title) matches
+  // its Instagram counterpart (description) with the same article text.
   const findSameContentIds = async (
     postId: string,
     title: string | null,
     description: string | null
   ): Promise<string[]> => {
     const ids = new Set<string>();
-    if (title && title.trim().length > 5) {
-      const { data } = await (supabase as any)
-        .from("posts").select("id")
-        .eq("title", title).neq("id", postId);
-      for (const r of data ?? []) ids.add(r.id);
-    }
-    if (description && description.trim().length > 10) {
-      const { data } = await (supabase as any)
-        .from("posts").select("id")
-        .eq("description", description).neq("id", postId);
-      for (const r of data ?? []) ids.add(r.id);
-    }
+    // Collect unique non-trivial content keys
+    const keys = new Set<string>();
+    if (title && title.trim().length > 5) keys.add(title.trim());
+    if (description && description.trim().length > 10) keys.add(description.trim());
+
+    await Promise.all(Array.from(keys).flatMap((key) => [
+      // Same key in title field (Facebook posts)
+      (supabase as any).from("posts").select("id").eq("title", key).neq("id", postId)
+        .then(({ data }: any) => { for (const r of data ?? []) ids.add(r.id); }),
+      // Same key in description field (Instagram posts)
+      (supabase as any).from("posts").select("id").eq("description", key).neq("id", postId)
+        .then(({ data }: any) => { for (const r of data ?? []) ids.add(r.id); }),
+    ]));
+
     return Array.from(ids);
+  };
+
+  // Retroactive: propagate every existing thumbnail to sibling posts (same title/description)
+  const handlePropagateAll = async () => {
+    setThumbPropagating(true);
+    try {
+      // 1. Fetch every post that already has a thumbnail
+      const { data: withThumbs, error } = await (supabase as any)
+        .from("posts")
+        .select("id, title, description, thumbnail_url")
+        .not("thumbnail_url", "is", null);
+      if (error) throw error;
+
+      let totalUpdated = 0;
+
+      for (const post of withThumbs ?? []) {
+        // 2. Find siblings WITHOUT a thumbnail (to avoid overwriting manual choices)
+        const ids = new Set<string>();
+        const keys = new Set<string>();
+        if (post.title?.trim().length > 5)       keys.add(post.title.trim());
+        if (post.description?.trim().length > 10) keys.add(post.description.trim());
+
+        await Promise.all(Array.from(keys).flatMap((key: string) => [
+          (supabase as any).from("posts").select("id")
+            .eq("title", key).is("thumbnail_url", null).neq("id", post.id)
+            .then(({ data }: any) => { for (const r of data ?? []) ids.add(r.id); }),
+          (supabase as any).from("posts").select("id")
+            .eq("description", key).is("thumbnail_url", null).neq("id", post.id)
+            .then(({ data }: any) => { for (const r of data ?? []) ids.add(r.id); }),
+        ]));
+
+        if (ids.size > 0) {
+          await (supabase as any).from("posts")
+            .update({ thumbnail_url: post.thumbnail_url })
+            .in("id", Array.from(ids));
+          totalUpdated += ids.size;
+        }
+      }
+
+      toast.success(
+        totalUpdated > 0
+          ? `Propagação concluída! ${totalUpdated} posts atualizados.`
+          : "Tudo já sincronizado — nenhum post precisava de atualização."
+      );
+
+      // Reload current page's thumbnail list
+      setThumbPosts((prev) => prev); // trigger re-filter
+      // Force refetch by toggling page — simplest approach
+      setThumbPageId((id) => { setTimeout(() => setThumbPageId(id), 50); return ""; });
+    } catch (e: any) {
+      toast.error("Erro na propagação", { description: e.message });
+    } finally {
+      setThumbPropagating(false);
+    }
   };
 
   // Upload thumbnail for a given post (and all posts with same content)
@@ -1088,8 +1146,21 @@ export default function DataPipelinePage() {
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Thumbnails de Posts</p>
                 <p className="text-sm font-semibold text-foreground">Vincule imagens aos posts para exibição no Dashboard</p>
               </div>
-              <div className="h-8 w-8 rounded-xl bg-[#FFF0E8] flex items-center justify-center shrink-0">
-                <Image className="h-4 w-4 text-[#F44708]" />
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={handlePropagateAll}
+                  disabled={thumbPropagating}
+                  className="flex items-center gap-2 h-8 px-3 rounded-xl border border-[#F44708] text-[#F44708] text-xs font-semibold hover:bg-[#FFF0E8] disabled:opacity-60 transition-colors"
+                  title="Copia a thumbnail de cada post para todos os posts com o mesmo título ou descrição"
+                >
+                  {thumbPropagating
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Propagando…</>
+                    : <><RefreshCw className="h-3.5 w-3.5" /> Propagar Thumbnails</>
+                  }
+                </button>
+                <div className="h-8 w-8 rounded-xl bg-[#FFF0E8] flex items-center justify-center">
+                  <Image className="h-4 w-4 text-[#F44708]" />
+                </div>
               </div>
             </div>
 

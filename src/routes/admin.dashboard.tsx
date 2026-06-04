@@ -564,22 +564,22 @@ function PostsCarousel({
     setThumbPreviewUrl(URL.createObjectURL(f));
   };
 
-  // Helper: query DB for all posts that share the same title or description
-  // Uses separate .eq() queries to avoid PostgREST .or() breaking on special chars (commas, accents, etc.)
+  // Helper: query DB for all posts that share the same content.
+  // Searches BOTH title AND description for each key so FB posts (title) match
+  // IG posts (description) that contain the same article text.
   const findSameContentIds = async (post: CarouselPost): Promise<string[]> => {
     const ids = new Set<string>();
-    if (post.title && post.title.trim().length > 5) {
-      const { data } = await (supabase as any)
-        .from("posts").select("id")
-        .eq("title", post.title).neq("id", post.id);
-      for (const r of data ?? []) ids.add(r.id);
-    }
-    if (post.description && post.description.trim().length > 10) {
-      const { data } = await (supabase as any)
-        .from("posts").select("id")
-        .eq("description", post.description).neq("id", post.id);
-      for (const r of data ?? []) ids.add(r.id);
-    }
+    const keys = new Set<string>();
+    if (post.title && post.title.trim().length > 5) keys.add(post.title.trim());
+    if (post.description && post.description.trim().length > 10) keys.add(post.description.trim());
+
+    await Promise.all(Array.from(keys).flatMap((key) => [
+      (supabase as any).from("posts").select("id").eq("title", key).neq("id", post.id)
+        .then(({ data }: any) => { for (const r of data ?? []) ids.add(r.id); }),
+      (supabase as any).from("posts").select("id").eq("description", key).neq("id", post.id)
+        .then(({ data }: any) => { for (const r of data ?? []) ids.add(r.id); }),
+    ]));
+
     return Array.from(ids);
   };
 
