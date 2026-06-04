@@ -103,7 +103,7 @@ export default function DataPipelinePage() {
   const [thumbSearch, setThumbSearch] = useState("");
   const [thumbDateFrom, setThumbDateFrom] = useState("");
   const [thumbDateTo, setThumbDateTo] = useState("");
-  const [thumbPosts, setThumbPosts] = useState<{ id: string; title: string | null; published_at: string | null; thumbnail_url: string | null; views: number | null }[]>([]);
+  const [thumbPosts, setThumbPosts] = useState<{ id: string; title: string | null; description: string | null; source: string | null; published_at: string | null; thumbnail_url: string | null; views: number | null }[]>([]);
   const [thumbPostsLoading, setThumbPostsLoading] = useState(false);
   const [thumbUploading, setThumbUploading] = useState<string | null>(null); // postId being uploaded
   const [thumbTablePage, setThumbTablePage] = useState(1);
@@ -131,12 +131,12 @@ export default function DataPipelinePage() {
     let cancelled = false;
 
     const fetchAll = async () => {
-      const all: { id: string; title: string | null; published_at: string | null; thumbnail_url: string | null; views: number | null }[] = [];
+      const all: { id: string; title: string | null; description: string | null; source: string | null; published_at: string | null; thumbnail_url: string | null; views: number | null }[] = [];
       let from = 0;
       while (true) {
         let q = (supabase as any)
           .from("posts")
-          .select("id, title, published_at, thumbnail_url, views")
+          .select("id, title, description, source, published_at, thumbnail_url, views")
           .eq("page_id", thumbPageId)
           .order("views", { ascending: false, nullsFirst: false })
           .range(from, from + PAGE_SIZE - 1);
@@ -1016,7 +1016,9 @@ export default function DataPipelinePage() {
           if (thumbFilter === "without" && p.thumbnail_url) return false;
           if (!thumbSearch) return true;
           const q = thumbSearch.toLowerCase();
-          return (p.title ?? "").toLowerCase().includes(q) || (p.published_at ?? "").includes(thumbSearch);
+          return (p.title ?? "").toLowerCase().includes(q)
+            || (p.description ?? "").toLowerCase().includes(q)
+            || (p.published_at ?? "").includes(thumbSearch);
         });
 
         const totalThumbPages = Math.max(1, Math.ceil(filtered.length / THUMB_PER_PAGE));
@@ -1171,9 +1173,13 @@ export default function DataPipelinePage() {
                           ? p.published_at.slice(0, 10).split("-").reverse().join("/")
                           : "—";
                         const isUploading = thumbUploading === p.id;
-                        const shortTitle = p.title
-                          ? p.title.replace(/\n/g, " ").slice(0, 90) + (p.title.length > 90 ? "…" : "")
-                          : `Post sem título`;
+                        const isInstagram = p.source === "instagram";
+                        const rawText = isInstagram
+                          ? (p.description ?? p.title ?? "")
+                          : (p.title ?? p.description ?? "");
+                        const shortTitle = rawText
+                          ? rawText.replace(/\n+/g, " ").replace(/#\w+/g, "").trim().slice(0, 100) + (rawText.length > 100 ? "…" : "")
+                          : "Post sem título";
 
                         return (
                           <tr key={p.id} className={cn("group transition-colors", isUploading ? "bg-[#FFF8F5]" : "hover:bg-[#FAFAFA]")}>
