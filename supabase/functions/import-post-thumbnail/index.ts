@@ -193,10 +193,10 @@ Deno.serve(async (req) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return json({ error: "Não autenticado" }, 401);
 
-    // ── 4. Fetch post metadata for Google search ─────────────────────────────
+    // ── 4. Fetch post metadata ───────────────────────────────────────────────
     const { data: postData } = await supabaseAdmin
       .from("posts")
-      .select("id, title, description, platform")
+      .select("id, title, description, platform, link")
       .eq("id", postId)
       .single();
 
@@ -226,9 +226,10 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ── 5b. If Google found nothing and user gave a post URL, scrape og:image
-      if (!imageUrl && url) {
-        const pageRes = await fetch(url, {
+      // ── 5b. Scrape og:image from post URL (user-provided or stored in DB) ───
+      const scrapeUrl = url || postData?.link;
+      if (!imageUrl && scrapeUrl) {
+        const pageRes = await fetch(scrapeUrl, {
           headers: {
             "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -252,7 +253,7 @@ Deno.serve(async (req) => {
     const imgRes = await fetch(imageUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
-        "Referer": url ?? "https://www.google.com",
+        "Referer": url ?? postData?.link ?? "https://www.google.com",
       },
     });
     if (!imgRes.ok) {
