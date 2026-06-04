@@ -2897,90 +2897,116 @@ function AdminDashboard() {
 
           {/* ═══════════════ HERO CARD ═══════════════ */}
           <div className="rounded-2xl overflow-hidden text-white" style={{ background: "linear-gradient(135deg, #FF6B00 0%, #E85500 100%)", boxShadow: "0 8px 32px rgba(255,107,0,.22)" }}>
-            <div className="p-6 sm:p-8">
+            <div className="p-5 sm:p-6">
               {/* Top: revenue + sparkline */}
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-white/60 mb-2">
                     Receita Total das Páginas
                   </p>
-                  {loading ? (
-                    <div className="h-12 w-52 rounded-xl bg-white/20 animate-pulse" />
-                  ) : (
-                    <>
-                      <p className="font-black text-white tabular-nums leading-none" style={{ fontSize: "clamp(36px, 8vw, 60px)" }}>
+
+                  {/* Revenue number — skeleton matches content height */}
+                  {loading
+                    ? <div className="h-9 w-48 rounded-xl bg-white/20 animate-pulse" />
+                    : <p className="text-4xl font-black text-white tabular-nums leading-none">
                         {usdBrl ? formatBRL(totalMonth * usdBrl) : `$${totalMonth.toFixed(2)}`}
                       </p>
-                      <div className="flex items-center gap-3 mt-3 flex-wrap">
-                        {usdBrl && <span className="text-sm font-semibold text-white/70 tabular-nums">${totalMonth.toFixed(2)} USD</span>}
+                  }
+
+                  {/* Badges row — always rendered so height never shifts */}
+                  <div className="flex items-center gap-2 mt-2 flex-wrap min-h-[22px]">
+                    {loading ? (
+                      <div className="h-5 w-36 rounded-full bg-white/20 animate-pulse" />
+                    ) : (
+                      <>
+                        {usdBrl && <span className="text-xs font-semibold text-white/70 tabular-nums">${totalMonth.toFixed(2)} USD</span>}
                         {prevMonthRevenue != null && prevMonthRevenue > 0 && (() => {
                           const growth = ((totalMonth - prevMonthRevenue) / prevMonthRevenue) * 100;
                           return (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-bold text-white">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold text-white">
                               {growth >= 0 ? "▲" : "▼"} {Math.abs(growth).toFixed(0)}% vs mês anterior
                             </span>
                           );
                         })()}
                         {showManual && manualDelta > 0.001 && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-bold text-white">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-bold text-white">
                             ▲ {manualDeltaPct > 0 ? `${manualDeltaPct.toFixed(0)}%` : ""} vs CSV
                           </span>
                         )}
-                      </div>
-                    </>
-                  )}
-                  {/* Meta $100 progress */}
-                  {!loading && (
-                    <div className="mt-5 space-y-1.5 max-w-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-medium text-white/60">Meta $100 · mês atual</span>
-                        <span className="text-[10px] font-bold text-white">{Math.min(100, Math.round((missionCur.revenue / 100) * 100))}%</span>
-                      </div>
-                      <div className="h-1.5 rounded-full bg-white/20 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-white transition-all duration-700"
-                          style={{ width: `${Math.min(100, (missionCur.revenue / 100) * 100)}%` }}
-                        />
-                      </div>
-                      <p className="text-[10px] text-white/50">${missionCur.revenue.toFixed(2)} de $100 · {monthCountdown} restantes</p>
-                    </div>
-                  )}
-                </div>
-                {!loading && heroSparkData.length >= 2 && (
-                  <div className="shrink-0 hidden sm:block">
-                    <HeroSparkline data={heroSparkData} />
+                      </>
+                    )}
                   </div>
-                )}
+
+                  {/* Progress bar — always rendered so height never shifts */}
+                  <div className="mt-3 space-y-1 max-w-xs">
+                    <div className="flex items-center justify-between">
+                      {loading
+                        ? <div className="h-3 w-28 rounded bg-white/20 animate-pulse" />
+                        : <span className="text-[10px] font-medium text-white/60">Meta $100 · mês atual</span>}
+                      {loading
+                        ? <div className="h-3 w-8 rounded bg-white/20 animate-pulse" />
+                        : <span className="text-[10px] font-bold text-white">{Math.min(100, Math.round((missionCur.revenue / 100) * 100))}%</span>}
+                    </div>
+                    <div className="h-1.5 rounded-full bg-white/20 overflow-hidden">
+                      {!loading && (
+                        <div className="h-full rounded-full bg-white transition-all duration-700"
+                          style={{ width: `${Math.min(100, (missionCur.revenue / 100) * 100)}%` }} />
+                      )}
+                    </div>
+                    {loading
+                      ? <div className="h-3 w-44 rounded bg-white/20 animate-pulse" />
+                      : <p className="text-[10px] text-white/50">${missionCur.revenue.toFixed(2)} de $100 · {monthCountdown} restantes</p>}
+                  </div>
+                </div>
+
+                {/* Sparkline — reserve space during loading so layout doesn't shift */}
+                <div className="shrink-0 hidden sm:block">
+                  {!loading && heroSparkData.length >= 2
+                    ? <HeroSparkline data={heroSparkData} />
+                    : <div className="w-[200px] h-16" />}
+                </div>
               </div>
 
               {/* Bottom: 4 quick stats */}
-              <div className="mt-6 pt-5 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="mt-4 pt-4 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {/* Each stat always renders label + value + subtitle skeleton so height is fixed */}
                 <div>
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-1">Mês Anterior</p>
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-0.5">Mês Anterior</p>
                   {loading || prevMonthRevenue === null
-                    ? <div className="h-5 w-24 rounded bg-white/20 animate-pulse" />
-                    : <p className="text-base font-bold tabular-nums">{usdBrl ? formatBRL(prevMonthRevenue * usdBrl) : `$${prevMonthRevenue.toFixed(2)}`}</p>}
-                  {usdBrl && prevMonthRevenue !== null && !loading && <p className="text-[9px] text-white/40 mt-0.5">${prevMonthRevenue.toFixed(2)} USD</p>}
+                    ? <div className="h-[18px] w-24 rounded bg-white/20 animate-pulse" />
+                    : <p className="text-sm font-bold tabular-nums">{usdBrl ? formatBRL(prevMonthRevenue * usdBrl) : `$${prevMonthRevenue.toFixed(2)}`}</p>}
+                  <div className="h-[13px] mt-0.5">
+                    {usdBrl && prevMonthRevenue !== null && !loading && <p className="text-[9px] text-white/40">${prevMonthRevenue.toFixed(2)} USD</p>}
+                  </div>
                 </div>
                 {myCard && (
                   <div>
-                    <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-1">Seus Ganhos</p>
-                    {loading ? <div className="h-5 w-24 rounded bg-white/20 animate-pulse" />
-                      : <p className="text-base font-bold tabular-nums">{usdBrl ? formatBRL(myReceita * usdBrl) : `$${myReceita.toFixed(2)}`}</p>}
-                    {usdBrl && !loading && <p className="text-[9px] text-white/40 mt-0.5">${myReceita.toFixed(2)} USD</p>}
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-0.5">Seus Ganhos</p>
+                    {loading
+                      ? <div className="h-[18px] w-24 rounded bg-white/20 animate-pulse" />
+                      : <p className="text-sm font-bold tabular-nums">{usdBrl ? formatBRL(myReceita * usdBrl) : `$${myReceita.toFixed(2)}`}</p>}
+                    <div className="h-[13px] mt-0.5">
+                      {usdBrl && !loading && <p className="text-[9px] text-white/40">${myReceita.toFixed(2)} USD</p>}
+                    </div>
                   </div>
                 )}
                 <div>
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-1">Saldo Pend.</p>
-                  {loading ? <div className="h-5 w-24 rounded bg-white/20 animate-pulse" />
-                    : <p className="text-base font-bold tabular-nums">{usdBrl ? formatBRL(pendingBalance * usdBrl) : `$${pendingBalance.toFixed(2)}`}</p>}
-                  {!loading && <p className="text-[9px] text-white/40 mt-0.5">{pendingBalance > 0 ? `$${pendingBalance.toFixed(2)} USD` : "acumulado"}</p>}
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-0.5">Saldo Pend.</p>
+                  {loading
+                    ? <div className="h-[18px] w-24 rounded bg-white/20 animate-pulse" />
+                    : <p className="text-sm font-bold tabular-nums">{usdBrl ? formatBRL(pendingBalance * usdBrl) : `$${pendingBalance.toFixed(2)}`}</p>}
+                  <div className="h-[13px] mt-0.5">
+                    {!loading && <p className="text-[9px] text-white/40">{pendingBalance > 0 ? `$${pendingBalance.toFixed(2)} USD` : "acumulado"}</p>}
+                  </div>
                 </div>
                 <div>
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-1">Score Geral</p>
-                  {loading ? <div className="h-5 w-16 rounded bg-white/20 animate-pulse" />
-                    : <p className="text-base font-bold tabular-nums">{avgScoreVal}<span className="text-xs font-normal text-white/50">/100</span></p>}
-                  {!loading && <p className="text-[9px] text-white/40 mt-0.5">{pageStatsWithGlobalScores.length} páginas</p>}
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-0.5">Score Geral</p>
+                  {loading
+                    ? <div className="h-[18px] w-16 rounded bg-white/20 animate-pulse" />
+                    : <p className="text-sm font-bold tabular-nums">{avgScoreVal}<span className="text-xs font-normal text-white/50">/100</span></p>}
+                  <div className="h-[13px] mt-0.5">
+                    {!loading && <p className="text-[9px] text-white/40">{pageStatsWithGlobalScores.length} páginas</p>}
+                  </div>
                 </div>
               </div>
             </div>
