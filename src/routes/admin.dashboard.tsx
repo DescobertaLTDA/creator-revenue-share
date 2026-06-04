@@ -739,6 +739,34 @@ function AdminDashboard() {
     return () => { if (timer) clearTimeout(timer); supabase.removeChannel(channel); };
   }, []);
 
+  // ─── Realtime: patch thumbnail_url in-memory when posts table is updated ──────
+  // This ensures the Top 5 thumbnails refresh instantly after an upload in Importações,
+  // without waiting for the 3-minute cache TTL to expire.
+  useEffect(() => {
+    const channel = supabase.channel("admin-dash-posts-thumb")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "posts" },
+        (payload: any) => {
+          const updated = payload.new as Partial<RawPost> & { id: string };
+          if (!("thumbnail_url" in updated)) return;
+          setAllPosts((prev) =>
+            prev.map((p) =>
+              p.id === updated.id ? { ...p, thumbnail_url: updated.thumbnail_url ?? null } : p
+            )
+          );
+          // Also patch the module-level cache so re-navigation is consistent
+          if (_dashCache) {
+            _dashCache.posts = _dashCache.posts.map((p) =>
+              p.id === updated.id ? { ...p, thumbnail_url: updated.thumbnail_url ?? null } : p
+            );
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   // ─── Manual KPI totals (must be before `computed` destructuring) ────────────
 
   const manualKpiTotals = useMemo(() => {
@@ -2144,13 +2172,14 @@ function AdminDashboard() {
                       className="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden flex flex-col"
                       style={{ boxShadow: "0 1px 4px rgba(0,0,0,.05)" }}
                     >
-                      {/* 4:3 thumbnail */}
-                      <div className="relative w-full" style={{ paddingTop: "75%" }}>
+                      {/* 4:3 thumbnail — paddingTop 75% = 3/4 of width = 4:3 ratio */}
+                      <div className="relative w-full overflow-hidden" style={{ paddingTop: "75%" }}>
                         {post.thumbnail_url ? (
                           <img
-                            src={post.thumbnail_url}
+                            src={`${post.thumbnail_url}?t=${Math.floor(Date.now() / 60000)}`}
                             alt={post.title ?? "Post"}
                             className="absolute inset-0 w-full h-full object-cover"
+                            style={{ borderRadius: 0 }}
                           />
                         ) : (
                           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2"
