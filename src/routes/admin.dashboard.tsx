@@ -1462,8 +1462,7 @@ function AdminDashboard() {
   const [filterColab, setFilterColab] = useState("all");
   const [filterFrom, setFilterFrom] = useState(() => {
     const d = new Date();
-    d.setDate(d.getDate() - 27); // today minus 27 days = 28-day window inclusive
-    return d.toISOString().slice(0, 10);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`; // 1st of current month
   });
   const [filterTo, setFilterTo] = useState(() => new Date().toISOString().slice(0, 10));
 
@@ -2188,6 +2187,25 @@ function AdminDashboard() {
     const rankMonthFrom = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-01`;
     const rankMonthTo   = _now.toISOString().slice(0, 10);
 
+    // Prev month views for ranking — always month before current (e.g. May when current is June)
+    const _prevMonthStart = new Date(_now.getFullYear(), _now.getMonth() - 1, 1);
+    const _prevMonthEnd   = new Date(_now.getFullYear(), _now.getMonth(), 0);
+    const rankPrevFrom = `${_prevMonthStart.getFullYear()}-${String(_prevMonthStart.getMonth() + 1).padStart(2, "0")}-01`;
+    const rankPrevTo   = `${_prevMonthEnd.getFullYear()}-${String(_prevMonthEnd.getMonth() + 1).padStart(2, "0")}-${String(_prevMonthEnd.getDate()).padStart(2, "0")}`;
+
+    const rankPrevViewsByColab = new Map<string, number>();
+    for (const p of allPosts) {
+      if (!p.published_at) continue;
+      const pub = p.published_at.slice(0, 10);
+      if (pub < rankPrevFrom || pub > rankPrevTo) continue;
+      const v = Number(p.views ?? 0);
+      if (v <= 0) continue;
+      for (const cid of Array.from(postToCollabs.get(p.id) ?? [])) {
+        rankPrevViewsByColab.set(cid, (rankPrevViewsByColab.get(cid) ?? 0) + v);
+      }
+    }
+    const rankTotalPrevViews = Array.from(rankPrevViewsByColab.values()).reduce((a, b) => a + b, 0);
+
     const rankColabAgg = new Map<string, ColabCard>();
     const rankByDayCSV = new Map<string, number>();
 
@@ -2240,9 +2258,9 @@ function AdminDashboard() {
       rankDailyBonus += actual - (rankByDayCSV.get(date) ?? 0);
     }
     if (rankDailyBonus > 0) {
-      if (totalPrevViews > 0) {
-        for (const [cid, views] of prevViewsByColab.entries()) {
-          const share = (views / totalPrevViews) * rankDailyBonus;
+      if (rankTotalPrevViews > 0) {
+        for (const [cid, views] of rankPrevViewsByColab.entries()) {
+          const share = (views / rankTotalPrevViews) * rankDailyBonus;
           const item = rankColabAgg.get(cid);
           if (item) item.receita += share;
         }
