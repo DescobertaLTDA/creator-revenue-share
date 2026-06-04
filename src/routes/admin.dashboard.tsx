@@ -1459,8 +1459,9 @@ function AdminDashboard() {
   const [filterPage, setFilterPage] = useState("all");
   const [filterColab, setFilterColab] = useState("all");
   const [filterFrom, setFilterFrom] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const d = new Date();
+    d.setDate(d.getDate() - 27); // today minus 27 days = 28-day window inclusive
+    return d.toISOString().slice(0, 10);
   });
   const [filterTo, setFilterTo] = useState(() => new Date().toISOString().slice(0, 10));
 
