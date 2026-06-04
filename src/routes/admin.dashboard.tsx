@@ -1629,10 +1629,16 @@ function AdminDashboard() {
     const fetchEntries = async () => {
       const from = filterFrom || "2020-01-01";
       const to = filterTo || new Date().toISOString().slice(0, 10);
+      // Also fetch the previous calendar month so prevByDay (dashed line) has real data
+      const prevMonthFrom = (() => {
+        const d = new Date(from + "T00:00:00");
+        d.setMonth(d.getMonth() - 1);
+        return d.toISOString().slice(0, 10);
+      })();
       const { data } = await (supabase as any)
         .from("daily_revenue_entries")
         .select("entry_date, actual_revenue_usd, actual_views, actual_followers, page_id")
-        .gte("entry_date", from)
+        .gte("entry_date", prevMonthFrom)
         .lte("entry_date", to);
       setDailyEntries((data ?? []) as DailyEntry[]);
     };
