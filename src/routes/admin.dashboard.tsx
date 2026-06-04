@@ -2143,6 +2143,26 @@ function AdminDashboard() {
         prevByDay[date].receita = actual; // use actual revenue (same as current period)
       }
     }
+
+    // Ensure prevByDay has an entry for every day-of-month number that exists in the
+    // current period — even if that day had $0. This guarantees the dashed line always
+    // has the same length as the solid line and is drawn correctly.
+    {
+      const [prevRefY, prevRefMStr] = prevMonthRef.split("-");
+      const prevRefM = parseInt(prevRefMStr, 10);
+      const prevMonthMaxDay = new Date(parseInt(prevRefY, 10), prevRefM, 0).getDate();
+      for (const dayNum of Array.from(currentDayNums).sort((a, b) => a - b)) {
+        if (dayNum > prevMonthMaxDay) continue; // prev month doesn't have this day (e.g. Feb 29/30/31)
+        const prevDate = `${prevMonthRef}-${String(dayNum).padStart(2, "0")}`;
+        if (!prevByDay[prevDate]) {
+          prevByDay[prevDate] = {
+            dia: `${String(dayNum).padStart(2, "0")}/${String(prevRefM).padStart(2, "0")}`,
+            receita: 0,
+          };
+        }
+      }
+    }
+
     const prevChartData = Object.entries(prevByDay)
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([, v]) => ({ ...v, receita: parseFloat(v.receita.toFixed(4)) }));
