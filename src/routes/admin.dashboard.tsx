@@ -3166,16 +3166,9 @@ function AdminDashboard() {
                 </div>
                 {myCard && (
                   <div>
-                    {/* Label: mini avatar + first name */}
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      {profile?.avatar_url
-                        ? <img src={profile.avatar_url} alt="" className="h-4 w-4 rounded-full object-cover shrink-0 opacity-80" />
-                        : <div className="h-4 w-4 rounded-full bg-white/30 flex items-center justify-center shrink-0 text-[8px] font-bold text-white">{(profile?.nome ?? "?").slice(0,1).toUpperCase()}</div>
-                      }
-                      <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 truncate">
-                        {(myCard.nome ?? profile?.nome ?? "Você").split(" ")[0]}
-                      </p>
-                    </div>
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-0.5">
+                      {(myCard.nome ?? profile?.nome ?? "Você").split(" ")[0]}
+                    </p>
                     {loading
                       ? <div className="h-[18px] w-24 rounded bg-white/20 animate-pulse" />
                       : <p className="text-sm font-bold tabular-nums">{usdBrl ? formatBRL(myMonthReceita * usdBrl) : `$${myMonthReceita.toFixed(2)}`}</p>}
