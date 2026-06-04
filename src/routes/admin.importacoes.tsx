@@ -101,6 +101,8 @@ export default function DataPipelinePage() {
   // ── Thumbnail upload state ────────────────────────────────────────────────
   const [thumbPageId, setThumbPageId] = useState("");
   const [thumbSearch, setThumbSearch] = useState("");
+  const [thumbDateFrom, setThumbDateFrom] = useState("");
+  const [thumbDateTo, setThumbDateTo] = useState("");
   const [thumbPosts, setThumbPosts] = useState<{ id: string; title: string | null; published_at: string | null; thumbnail_url: string | null; views: number | null }[]>([]);
   const [thumbPostsLoading, setThumbPostsLoading] = useState(false);
   const [thumbUploading, setThumbUploading] = useState<string | null>(null); // postId being uploaded
@@ -119,21 +121,43 @@ export default function DataPipelinePage() {
     });
   }, []);
 
-  // Load posts for thumbnail selector when page changes
+  // Load posts for thumbnail selector — paginated fetch (no limit), with optional date range
   useEffect(() => {
     if (!thumbPageId) { setThumbPosts([]); return; }
     setThumbPostsLoading(true);
     setThumbTablePage(1);
-    supabase.from("posts")
-      .select("id, title, published_at, thumbnail_url, views")
-      .eq("page_id", thumbPageId)
-      .order("views", { ascending: false, nullsFirst: false })
-      .limit(1000)
-      .then(({ data }) => {
-        setThumbPosts((data ?? []) as unknown as { id: string; title: string | null; published_at: string | null; thumbnail_url: string | null; views: number | null }[]);
+
+    const PAGE_SIZE = 1000;
+    let cancelled = false;
+
+    const fetchAll = async () => {
+      const all: { id: string; title: string | null; published_at: string | null; thumbnail_url: string | null; views: number | null }[] = [];
+      let from = 0;
+      while (true) {
+        let q = (supabase as any)
+          .from("posts")
+          .select("id, title, published_at, thumbnail_url, views")
+          .eq("page_id", thumbPageId)
+          .order("views", { ascending: false, nullsFirst: false })
+          .range(from, from + PAGE_SIZE - 1);
+        if (thumbDateFrom) q = q.gte("published_at", thumbDateFrom);
+        if (thumbDateTo)   q = q.lte("published_at", thumbDateTo + "T23:59:59");
+        const { data, error } = await q;
+        if (cancelled) return;
+        if (error || !data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < PAGE_SIZE) break;
+        from += data.length;
+      }
+      if (!cancelled) {
+        setThumbPosts(all);
         setThumbPostsLoading(false);
-      });
-  }, [thumbPageId]);
+      }
+    };
+
+    fetchAll();
+    return () => { cancelled = true; };
+  }, [thumbPageId, thumbDateFrom, thumbDateTo]);
 
   // Upload thumbnail for a given post
   const handleThumbUpload = async (file: File, postId: string) => {
@@ -1042,8 +1066,36 @@ export default function DataPipelinePage() {
                       placeholder="Buscar post…"
                       value={thumbSearch}
                       onChange={(e) => { setThumbSearch(e.target.value); setThumbTablePage(1); }}
-                      className="h-8 pl-7 pr-3 rounded-lg border border-border bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#F44708]/30 w-44"
+                      className="h-8 pl-7 pr-3 rounded-lg border border-border bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#F44708]/30 w-40"
                     />
+                  </div>
+
+                  {/* Date range */}
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="date"
+                      value={thumbDateFrom}
+                      onChange={(e) => { setThumbDateFrom(e.target.value); setThumbTablePage(1); }}
+                      className="h-8 rounded-lg border border-border bg-white px-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#F44708]/30 w-32"
+                      title="Data inicial"
+                    />
+                    <span className="text-[10px] text-muted-foreground font-medium">até</span>
+                    <input
+                      type="date"
+                      value={thumbDateTo}
+                      onChange={(e) => { setThumbDateTo(e.target.value); setThumbTablePage(1); }}
+                      className="h-8 rounded-lg border border-border bg-white px-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#F44708]/30 w-32"
+                      title="Data final"
+                    />
+                    {(thumbDateFrom || thumbDateTo) && (
+                      <button
+                        onClick={() => { setThumbDateFrom(""); setThumbDateTo(""); setThumbTablePage(1); }}
+                        className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-white text-muted-foreground hover:text-red-500 hover:border-red-300 transition-colors"
+                        title="Limpar datas"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
                   </div>
 
                   {/* Status filter pills */}
