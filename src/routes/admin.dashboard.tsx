@@ -459,6 +459,193 @@ interface CarouselPost {
   shares: number;
 }
 
+// ─── Crop overlay component ───────────────────────────────────────────────────
+
+type CropHandle = "move" | "nw" | "ne" | "sw" | "se";
+interface CropBox { x: number; y: number; w: number; h: number; }
+
+function clampCropBox(b: CropBox, img: CropBox, ratio: number): CropBox {
+  let { x, y, w, h } = b;
+  const minSize = 40;
+  w = Math.max(minSize, Math.min(w, img.w));
+  h = w / ratio;
+  if (h > img.h) { h = img.h; w = h * ratio; }
+  x = Math.max(img.x, Math.min(x, img.x + img.w - w));
+  y = Math.max(img.y, Math.min(y, img.y + img.h - h));
+  return { x, y, w, h };
+}
+
+function CropOverlay({
+  src,
+  naturalW,
+  naturalH,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  src: string;
+  naturalW: number;
+  naturalH: number;
+  saving: boolean;
+  onSave: (sx: number, sy: number, sw: number, sh: number) => void;
+  onCancel: () => void;
+}) {
+  const RATIO = 3 / 4; // width/height
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [imgRect, setImgRect] = useState<CropBox | null>(null);
+  const [box, setBox] = useState<CropBox | null>(null);
+  const drag = useRef<{
+    handle: CropHandle;
+    startBox: CropBox;
+    startX: number;
+    startY: number;
+  } | null>(null);
+
+  // Measure container → compute displayed image rect → init crop box
+  useEffect(() => {
+    const measure = () => {
+      const wrap = wrapRef.current;
+      if (!wrap) return;
+      const cw = wrap.clientWidth;
+      const ch = wrap.clientHeight;
+      if (!cw || !ch) { requestAnimationFrame(measure); return; }
+      const scale = Math.min(cw / naturalW, ch / naturalH);
+      const iw = naturalW * scale;
+      const ih = naturalH * scale;
+      const ir: CropBox = { x: (cw - iw) / 2, y: (ch - ih) / 2, w: iw, h: ih };
+      setImgRect(ir);
+      // Initial box: largest 3:4 rect centred on the image
+      let bw = ir.w, bh = bw / RATIO;
+      if (bh > ir.h) { bh = ir.h; bw = bh * RATIO; }
+      setBox(clampCropBox({ x: ir.x + (ir.w - bw) / 2, y: ir.y + (ir.h - bh) / 2, w: bw, h: bh }, ir, RATIO));
+    };
+    measure();
+  }, [naturalW, naturalH, src]);
+
+  const startDrag = (handle: CropHandle) => (e: React.PointerEvent) => {
+    if (!box) return;
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    drag.current = { handle, startBox: { ...box }, startX: e.clientX, startY: e.clientY };
+  };
+
+  const onMove = (e: React.PointerEvent) => {
+    if (!drag.current || !imgRect) return;
+    const { handle, startBox: s, startX, startY } = drag.current;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    let { x, y, w, h } = s;
+    const right = x + w, bottom = y + h;
+
+    if (handle === "move") {
+      x += dx; y += dy;
+    } else {
+      // Use whichever delta gives larger area change, keep 3:4
+      const dByX = handle === "nw" || handle === "sw" ? -dx : dx;
+      const dByY = (handle === "nw" || handle === "ne" ? -dy : dy) * RATIO;
+      const d = Math.max(dByX, dByY); // pick larger movement
+      w = Math.max(40, s.w + d);
+      h = w / RATIO;
+      if (handle === "nw" || handle === "sw") x = right - w;
+      if (handle === "nw" || handle === "ne") y = bottom - h;
+    }
+    setBox(clampCropBox({ x, y, w, h }, imgRect, RATIO));
+  };
+
+  const onUp = () => { drag.current = null; };
+
+  const handleSave = () => {
+    if (!box || !imgRect) return;
+    const scale = imgRect.w / naturalW;
+    onSave(
+      Math.round((box.x - imgRect.x) / scale),
+      Math.round((box.y - imgRect.y) / scale),
+      Math.round(box.w / scale),
+      Math.round(box.h / scale),
+    );
+  };
+
+  const HANDLE_SIZE = 14;
+  const cornerStyle = (h: CropHandle): React.CSSProperties => ({
+    position: "absolute",
+    width: HANDLE_SIZE, height: HANDLE_SIZE,
+    background: "#fff",
+    border: "2px solid rgba(0,0,0,.35)",
+    borderRadius: 3,
+    cursor: `${h}-resize`,
+    top:    h.startsWith("n") ? -HANDLE_SIZE / 2 - 1 : undefined,
+    bottom: h.startsWith("s") ? -HANDLE_SIZE / 2 - 1 : undefined,
+    left:   h.endsWith("w")   ? -HANDLE_SIZE / 2 - 1 : undefined,
+    right:  h.endsWith("e")   ? -HANDLE_SIZE / 2 - 1 : undefined,
+    zIndex: 10,
+  });
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Image area */}
+      <div
+        ref={wrapRef}
+        className="relative rounded-xl overflow-hidden select-none bg-[#111]"
+        style={{ height: 340 }}
+        onPointerMove={onMove}
+        onPointerUp={onUp}
+        onPointerLeave={onUp}
+      >
+        <img src={src} alt="" draggable={false}
+          className="absolute inset-0 w-full h-full"
+          style={{ objectFit: "contain" }} />
+
+        {box && imgRect && (
+          <>
+            {/* Dim strips */}
+            <div className="absolute inset-x-0 top-0 pointer-events-none bg-black/55" style={{ height: box.y }} />
+            <div className="absolute inset-x-0 pointer-events-none bg-black/55" style={{ top: box.y + box.h, bottom: 0 }} />
+            <div className="absolute pointer-events-none bg-black/55" style={{ top: box.y, height: box.h, left: 0, width: box.x }} />
+            <div className="absolute pointer-events-none bg-black/55" style={{ top: box.y, height: box.h, left: box.x + box.w, right: 0 }} />
+
+            {/* Crop rect */}
+            <div
+              className="absolute border-2 border-white cursor-move"
+              style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
+              onPointerDown={startDrag("move")}
+            >
+              {/* Rule-of-thirds grid */}
+              <div className="absolute inset-0 pointer-events-none" style={{
+                backgroundImage: [
+                  "linear-gradient(to right, rgba(255,255,255,.25) 1px, transparent 1px)",
+                  "linear-gradient(to bottom, rgba(255,255,255,.25) 1px, transparent 1px)",
+                ].join(","),
+                backgroundSize: "33.33% 33.33%",
+              }} />
+              {/* Corner handles */}
+              {(["nw","ne","sw","se"] as CropHandle[]).map((c) => (
+                <div key={c} style={cornerStyle(c)} onPointerDown={startDrag(c)} />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <button
+          onClick={handleSave}
+          disabled={saving || !box}
+          className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-[#F44708] text-white text-xs font-bold hover:bg-[#D93D07] disabled:opacity-60 transition-colors"
+        >
+          {saving
+            ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Salvando…</>
+            : <><Crop className="h-3.5 w-3.5" /> Salvar recorte</>}
+        </button>
+        <button onClick={onCancel} disabled={saving}
+          className="h-9 px-4 rounded-xl border border-[#E8E8E8] text-[#999] text-xs hover:border-[#CCC] hover:text-[#555] transition-colors disabled:opacity-40">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PostsCarousel({
   posts,
   filterPage,
@@ -489,11 +676,9 @@ function PostsCarousel({
   const [urlImporting, setUrlImporting] = useState(false);
 
   // Crop state
-  const CROP_RATIO = 3 / 4; // target portrait 3:4
   const [showCrop, setShowCrop] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [cropNatSize, setCropNatSize] = useState<{ w: number; h: number } | null>(null);
-  const [cropPct, setCropPct] = useState(0.5); // 0–1 along crop axis
   const [cropSaving, setCropSaving] = useState(false);
 
   const CARD_W = 160;
@@ -645,7 +830,7 @@ function PostsCarousel({
           allIds.includes(p.id) ? { ...p, thumbnail_url: publicUrl } : p
         );
       }
-      // Offer crop if the uploaded image ratio doesn't match 3:4
+      // Open crop tool so user can adjust framing
       openCrop(publicUrl);
     } catch (e: any) {
       toast.error("Erro ao fazer upload", { description: e.message });
@@ -689,31 +874,12 @@ function PostsCarousel({
 
   // ── Crop helpers ────────────────────────────────────────────────────────────
 
-  /** Check if image ratio differs enough from 3:4 to warrant cropping */
-  const needsCrop = (w: number, h: number) => Math.abs(w / h - CROP_RATIO) > 0.06;
-
-  /** CSS object-position value for live preview */
-  const cropObjectPosition = (w: number, h: number, pct: number) =>
-    w / h > CROP_RATIO ? `${pct * 100}% 50%` : `50% ${pct * 100}%`;
-
-  /** Source rect in natural pixels for canvas drawImage */
-  const cropRect = (w: number, h: number, pct: number) => {
-    if (w / h > CROP_RATIO) {
-      const cw = Math.round(h * CROP_RATIO);
-      return { sx: Math.round(pct * (w - cw)), sy: 0, sw: cw, sh: h };
-    }
-    const ch = Math.round(w / CROP_RATIO);
-    return { sx: 0, sy: Math.round(pct * (h - ch)), sw: w, sh: ch };
-  };
-
-  /** Open crop UI for a given image URL */
+  /** Open crop UI for a given image URL (always opens — let the user decide) */
   const openCrop = (url: string) => {
     const img = new Image();
     img.onload = () => {
-      if (!needsCrop(img.naturalWidth, img.naturalHeight)) return; // already portrait-ish
       setCropSrc(url);
       setCropNatSize({ w: img.naturalWidth, h: img.naturalHeight });
-      setCropPct(0.5);
       setShowCrop(true);
     };
     img.src = url;
@@ -726,23 +892,21 @@ function PostsCarousel({
   };
 
   /** Crop via Canvas → upload → update DB + cache */
-  const saveCrop = async () => {
-    if (!modalPost || !cropSrc || !cropNatSize) return;
+  const saveCrop = async (sx: number, sy: number, sw: number, sh: number) => {
+    if (!modalPost || !cropSrc) return;
     setCropSaving(true);
     try {
-      // Load with crossOrigin so canvas isn't tainted; cache-bust to avoid
-      // a cached response without CORS headers
       const img = await new Promise<HTMLImageElement>((resolve, reject) => {
         const el = new Image();
         if (!cropSrc.startsWith("blob:")) el.crossOrigin = "anonymous";
         el.onload = () => resolve(el);
         el.onerror = reject;
+        // cache-bust to avoid a non-CORS cached response tainting the canvas
         el.src = cropSrc.startsWith("blob:")
           ? cropSrc
           : `${cropSrc}${cropSrc.includes("?") ? "&" : "?"}__crop=${Date.now()}`;
       });
 
-      const { sx, sy, sw, sh } = cropRect(cropNatSize.w, cropNatSize.h, cropPct);
       const OUT_W = 720, OUT_H = 960; // 3:4 output
       const canvas = document.createElement("canvas");
       canvas.width = OUT_W; canvas.height = OUT_H;
@@ -982,73 +1146,22 @@ function PostsCarousel({
             </div>
 
             <div className="overflow-y-auto flex-1">
-              {/* ── Crop mode ──────────────────────────────────────────────────── */}
+              {/* ── Crop overlay ─────────────────────────────────────────────── */}
               {showCrop && cropSrc && cropNatSize && (
-                <div className="p-5 border-b border-[#F0F0F0] bg-[#FAFAFA]">
-                  <div className="flex items-center gap-2 mb-4">
+                <div className="p-4 border-b border-[#F0F0F0] bg-[#FAFAFA]">
+                  <div className="flex items-center gap-2 mb-3">
                     <Crop className="h-3.5 w-3.5 text-[#F44708]" />
                     <p className="text-[10px] font-bold uppercase tracking-wider text-[#F44708]">Ajustar recorte</p>
+                    <span className="text-[9px] text-[#BBB] ml-1">Arraste a caixa ou os cantos</span>
                   </div>
-
-                  <div className="flex gap-4 items-start">
-                    {/* Live 3:4 preview */}
-                    <div className="shrink-0 rounded-xl overflow-hidden border-2 border-[#F44708] shadow-md"
-                      style={{ width: 90, height: 120 }}>
-                      <img
-                        src={cropSrc}
-                        alt=""
-                        className="w-full h-full"
-                        style={{
-                          objectFit: "cover",
-                          objectPosition: cropObjectPosition(cropNatSize.w, cropNatSize.h, cropPct),
-                        }}
-                      />
-                    </div>
-
-                    <div className="flex-1 space-y-3 min-w-0">
-                      <div>
-                        <p className="text-[10px] text-[#666] mb-2 leading-snug">
-                          {cropNatSize.w / cropNatSize.h > CROP_RATIO
-                            ? "Deslize para escolher a área horizontal"
-                            : "Deslize para escolher a área vertical"}
-                        </p>
-                        <input
-                          type="range" min={0} max={100}
-                          value={Math.round(cropPct * 100)}
-                          onChange={(e) => setCropPct(parseInt(e.target.value) / 100)}
-                          className="w-full accent-[#F44708]"
-                        />
-                        <div className="flex justify-between mt-0.5">
-                          <span className="text-[9px] text-[#CCC]">
-                            {cropNatSize.w / cropNatSize.h > CROP_RATIO ? "← Esquerda" : "↑ Topo"}
-                          </span>
-                          <span className="text-[9px] text-[#CCC]">
-                            {cropNatSize.w / cropNatSize.h > CROP_RATIO ? "Direita →" : "Base ↓"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <button
-                          onClick={saveCrop}
-                          disabled={cropSaving}
-                          className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-[#F44708] text-white text-xs font-bold hover:bg-[#D93D07] disabled:opacity-60 transition-colors"
-                        >
-                          {cropSaving
-                            ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Salvando…</>
-                            : <><Crop className="h-3.5 w-3.5" /> Salvar recorte</>
-                          }
-                        </button>
-                        <button
-                          onClick={closeCrop}
-                          disabled={cropSaving}
-                          className="h-9 px-3 rounded-xl border border-[#E8E8E8] text-[#999] text-xs hover:border-[#CCC] hover:text-[#555] transition-colors disabled:opacity-40"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  <CropOverlay
+                    src={cropSrc}
+                    naturalW={cropNatSize.w}
+                    naturalH={cropNatSize.h}
+                    saving={cropSaving}
+                    onSave={saveCrop}
+                    onCancel={closeCrop}
+                  />
                 </div>
               )}
 
