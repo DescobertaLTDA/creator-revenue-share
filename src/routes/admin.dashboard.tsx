@@ -2090,19 +2090,43 @@ function AdminDashboard() {
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([, v]) => ({ ...v, receita: parseFloat(v.receita.toFixed(4)) }));
 
-    // Previous month revenue by day (for chart reference dashed line)
+    // Previous month revenue by day (for chart reference dashed line).
+    // Only include day-of-month numbers that exist in the current period so
+    // the two series have the same length and align correctly on the X axis.
+    const currentDayNums = new Set(Object.keys(byDay).map((d) => parseInt(d.split("-")[2], 10)));
     const prevByDay: Record<string, { dia: string; receita: number }> = {};
     for (const p of allPosts) {
       if (!p.published_at) continue;
       if (filterPage !== "all" && p.page_id !== filterPage) continue;
       const day = p.published_at.slice(0, 10);
       if (day < prevFrom || day > prevTo) continue;
+      const dayNum = parseInt(day.split("-")[2], 10);
+      if (!currentDayNums.has(dayNum)) continue; // skip days beyond current period range
       const val = getPostUsd(p);
       if (!prevByDay[day]) {
         const [, m, d] = day.split("-");
         prevByDay[day] = { dia: `${d}/${m}`, receita: 0 };
       }
       prevByDay[day].receita += val;
+    }
+    // Also add daily_revenue_entries corrections for the previous period (same day range)
+    {
+      const prevActualByDate = new Map<string, number>();
+      for (const e of dailyEntries) {
+        if (e.entry_date < prevFrom || e.entry_date > prevTo) continue;
+        if (filterPage !== "all" && e.page_id !== filterPage) continue;
+        const dayNum = parseInt(e.entry_date.split("-")[2], 10);
+        if (!currentDayNums.has(dayNum)) continue;
+        if (e.actual_revenue_usd !== null)
+          prevActualByDate.set(e.entry_date, (prevActualByDate.get(e.entry_date) ?? 0) + Number(e.actual_revenue_usd));
+      }
+      for (const [date, actual] of prevActualByDate) {
+        if (!prevByDay[date]) {
+          const [, m, d] = date.split("-");
+          prevByDay[date] = { dia: `${d}/${m}`, receita: 0 };
+        }
+        prevByDay[date].receita = actual; // use actual revenue (same as current period)
+      }
     }
     const prevChartData = Object.entries(prevByDay)
       .sort((a, b) => a[0].localeCompare(b[0]))
