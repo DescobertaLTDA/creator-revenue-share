@@ -3345,107 +3345,48 @@ function AdminDashboard() {
             />
           )}
 
-          {/* ═══════════════ PLATFORM TABLE + INSIGHTS ═══════════════ */}
-          <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 items-stretch">
-            {/* Comparison table */}
-            <div className="lg:col-span-4 bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-              <div className="px-5 pt-5 pb-3 border-b border-[#F7F7F7]">
-                <h2 className="text-sm font-bold text-[#111]">Desempenho por Rede</h2>
-                <p className="text-[11px] text-[#999] mt-0.5">Comparativo Facebook vs Instagram no período</p>
+          {/* ═══════════════ PLATFORM TABLE ═══════════════ */}
+          <div className="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+            <div className="px-5 pt-5 pb-3 border-b border-[#F7F7F7]">
+              <h2 className="text-sm font-bold text-[#111]">Desempenho por Rede</h2>
+              <p className="text-[11px] text-[#999] mt-0.5">Comparativo Facebook vs Instagram no período</p>
+            </div>
+            {loading ? (
+              <div className="p-5 space-y-3">
+                {[1,2,3,4,5,6,7,8,9].map(i => <div key={i} className="flex items-center justify-between"><Sk w="w-32" h="h-3" /><Sk w="w-16" h="h-3" /><Sk w="w-16" h="h-3" /></div>)}
               </div>
-              {loading ? (
-                <div className="p-5 space-y-3">
-                  {[1,2,3,4,5,6,7,8,9].map(i => <div key={i} className="flex items-center justify-between"><Sk w="w-32" h="h-3" /><Sk w="w-16" h="h-3" /><Sk w="w-16" h="h-3" /></div>)}
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-[10px] font-semibold uppercase tracking-wider text-[#999] bg-[#FAFAFA]">
-                        <th className="text-left px-5 py-3 font-semibold">Métrica</th>
-                        <th className="text-right px-5 py-3 font-semibold">Facebook</th>
-                        <th className="text-right px-5 py-3 font-semibold">Instagram</th>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-[10px] font-semibold uppercase tracking-wider text-[#999] bg-[#FAFAFA]">
+                      <th className="text-left px-5 py-3 font-semibold">Métrica</th>
+                      <th className="text-right px-5 py-3 font-semibold">Facebook</th>
+                      <th className="text-right px-5 py-3 font-semibold">Instagram</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F7F7F7]">
+                    {([
+                      { label: "Views",             fb: fmt(missionCur.views),        ig: fmt(missionCurIG.views),        primary: true },
+                      { label: "Alcance",           fb: fmt(missionCur.reach),        ig: fmt(missionCurIG.reach),        primary: true },
+                      { label: "RPM",               fb: usdBrl ? formatBRL(missionCur.rpm * usdBrl) : `$${missionCur.rpm.toFixed(3)}`,   ig: usdBrl ? formatBRL(missionCurIG.rpm * usdBrl) : `$${missionCurIG.rpm.toFixed(3)}`, primary: true },
+                      { label: "Receita CSV",       fb: usdBrl ? formatBRL(missionCur.usd * usdBrl) : `$${missionCur.usd.toFixed(2)}`,   ig: usdBrl ? formatBRL(missionCurIG.usd * usdBrl) : `$${missionCurIG.usd.toFixed(2)}`, primary: true },
+                      { label: "Ganhos Reais",      fb: usdBrl ? formatBRL(missionCur.revenue * usdBrl) : `$${missionCur.revenue.toFixed(2)}`, ig: "—", primary: true },
+                      { label: "Monetizados",       fb: `${missionCur.monetized} posts`,   ig: `${missionCurIG.monetized} posts` },
+                      { label: "Reações",           fb: fmt(missionCur.reactions),    ig: fmt(missionCurIG.reactions) },
+                      { label: "Comentários",       fb: fmt(missionCur.comments),     ig: fmt(missionCurIG.comments) },
+                      { label: "Compartilhamentos", fb: fmt(missionCur.shares),       ig: fmt(missionCurIG.shares) },
+                    ] as { label: string; fb: string; ig: string; primary?: boolean }[]).map(({ label, fb, ig, primary }) => (
+                      <tr key={label} className="hover:bg-[#FAFAFA] transition-colors">
+                        <td className={`px-5 py-3 text-sm ${primary ? "font-medium text-[#111]" : "text-[#666]"}`}>{label}</td>
+                        <td className={`px-5 py-3 text-right tabular-nums text-sm ${primary ? "font-semibold text-[#111]" : "text-[#999]"}`}>{fb}</td>
+                        <td className={`px-5 py-3 text-right tabular-nums text-sm ${primary ? "font-semibold text-[#111]" : "text-[#999]"}`}>{ig}</td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#F7F7F7]">
-                      {([
-                        { label: "Views",             fb: fmt(missionCur.views),        ig: fmt(missionCurIG.views),        primary: true },
-                        { label: "Alcance",           fb: fmt(missionCur.reach),        ig: fmt(missionCurIG.reach),        primary: true },
-                        { label: "RPM",               fb: usdBrl ? formatBRL(missionCur.rpm * usdBrl) : `$${missionCur.rpm.toFixed(3)}`,   ig: usdBrl ? formatBRL(missionCurIG.rpm * usdBrl) : `$${missionCurIG.rpm.toFixed(3)}`, primary: true },
-                        { label: "Receita CSV",       fb: usdBrl ? formatBRL(missionCur.usd * usdBrl) : `$${missionCur.usd.toFixed(2)}`,   ig: usdBrl ? formatBRL(missionCurIG.usd * usdBrl) : `$${missionCurIG.usd.toFixed(2)}`, primary: true },
-                        { label: "Ganhos Reais",      fb: usdBrl ? formatBRL(missionCur.revenue * usdBrl) : `$${missionCur.revenue.toFixed(2)}`, ig: "—", primary: true },
-                        { label: "Monetizados",       fb: `${missionCur.monetized} posts`,   ig: `${missionCurIG.monetized} posts` },
-                        { label: "Reações",           fb: fmt(missionCur.reactions),    ig: fmt(missionCurIG.reactions) },
-                        { label: "Comentários",       fb: fmt(missionCur.comments),     ig: fmt(missionCurIG.comments) },
-                        { label: "Compartilhamentos", fb: fmt(missionCur.shares),       ig: fmt(missionCurIG.shares) },
-                      ] as { label: string; fb: string; ig: string; primary?: boolean }[]).map(({ label, fb, ig, primary }) => (
-                        <tr key={label} className="hover:bg-[#FAFAFA] transition-colors">
-                          <td className={`px-5 py-3 text-sm ${primary ? "font-medium text-[#111]" : "text-[#666]"}`}>{label}</td>
-                          <td className={`px-5 py-3 text-right tabular-nums text-sm ${primary ? "font-semibold text-[#111]" : "text-[#999]"}`}>{fb}</td>
-                          <td className={`px-5 py-3 text-right tabular-nums text-sm ${primary ? "font-semibold text-[#111]" : "text-[#999]"}`}>{ig}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            {/* Insights sidebar */}
-            <div className="lg:col-span-3 flex flex-col gap-3 h-full">
-              {/* Best collaborator */}
-              {(() => {
-                const top = activeCollabCards.filter(c => c.id !== SEM_COLAB_ID && c.receita > 0.001)[0];
-                if (!top) return null;
-                return (
-                  <div className="bg-white rounded-2xl border border-[#F0F0F0] p-5" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-[#999] mb-3 flex items-center gap-1.5">
-                      <Flame className="h-3 w-3 text-[#FF6B00]" /> Melhor Colaborador
-                    </p>
-                    <div className="flex items-center gap-3">
-                      <ColabInitials nome={top.nome} idx={0} size={40} avatarUrl={top.avatar_url} />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-bold text-[#111] truncate">{top.nome.split(" ")[0]}</p>
-                        <p className="text-xs text-[#999] tabular-nums">{fmt(Math.round(top.views))} views</p>
-                      </div>
-                      <p className="text-sm font-black tabular-nums text-[#FF6B00] shrink-0">
-                        {usdBrl ? formatBRL(top.receita * usdBrl) : `$${top.receita.toFixed(2)}`}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Pending balance */}
-              {pendingBalance > 0 && (
-                <div className="bg-white rounded-2xl border border-[#F0F0F0] p-5" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#999] mb-2 flex items-center gap-1.5">
-                    <Hourglass className="h-3 w-3 text-[#999]" /> Saldo Pendente
-                  </p>
-                  <p className="text-xl font-black tabular-nums text-[#111]">{usdBrl ? formatBRL(pendingBalance * usdBrl) : `$${pendingBalance.toFixed(2)}`}</p>
-                  <p className="text-[10px] text-[#999] mt-1">fechamentos abertos de meses anteriores</p>
-                  <p className="text-[10px] text-[#999] tabular-nums">${pendingBalance.toFixed(2)} USD</p>
-                </div>
-              )}
-
-              {/* Score */}
-              <div className="bg-white rounded-2xl border border-[#F0F0F0] p-5" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#999] mb-2 flex items-center gap-1.5">
-                  <BarChart2 className="h-3 w-3 text-[#999]" /> Score Geral
-                </p>
-                <p className="text-xl font-black tabular-nums text-[#111]">{loading ? "—" : avgScoreVal}<span className="text-sm font-normal text-[#999]">/100</span></p>
-                <p className="text-[10px] text-[#999] mt-1">{pageStatsWithGlobalScores.length} páginas avaliadas no período</p>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-
-              {/* Posts this period */}
-              <div className="bg-white rounded-2xl border border-[#F0F0F0] p-5 flex-1 flex flex-col justify-center" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#999] mb-2 flex items-center gap-1.5">
-                  <FileText className="h-3 w-3 text-[#999]" /> Posts
-                </p>
-                <p className="text-xl font-black tabular-nums text-[#111]">{loading ? "—" : kpis.totalPosts}</p>
-                <p className="text-[10px] text-[#999] mt-1">vs {prevMonthStats.posts} no mês anterior</p>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* ═══════════════ RANKING ═══════════════ */}
