@@ -1441,6 +1441,8 @@ function AdminDashboard() {
   const [colabs, setColabs] = useState<ColabOption[]>(() => _dashCache?.colabs ?? []);
   const [manualBonuses, setManualBonuses] = useState<ManualBonusRow[]>([]);
   const [dailyEntries, setDailyEntries] = useState<DailyEntry[]>([]);
+  // Current calendar-month revenue (always Jan 1 → today of current month, independent of date filter)
+  const [curMonthRevenue, setCurMonthRevenue] = useState<number>(0);
   const [prevMonthRevenue, setPrevMonthRevenue] = useState<number | null>(null);
   const [dollarHistory, setDollarHistory] = useState<{ date: string; rate: number }[]>([]);
   const [dollarLoading, setDollarLoading] = useState(true);
@@ -1600,6 +1602,26 @@ function AdminDashboard() {
     };
     fetchEntries();
   }, [filterFrom, filterTo]);
+
+  // Fetch current calendar-month revenue (for the $100 goal bar) — independent of date filter
+  useEffect(() => {
+    const fetchCurMonth = async () => {
+      const now = new Date();
+      const monthFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+      const today = now.toISOString().slice(0, 10);
+      let q = (supabase as any)
+        .from("daily_revenue_entries")
+        .select("actual_revenue_usd")
+        .gte("entry_date", monthFrom)
+        .lte("entry_date", today);
+      if (filterPage !== "all") q = q.eq("page_id", filterPage);
+      const { data } = await q;
+      const total = (data ?? []).reduce((s: number, e: { actual_revenue_usd: number | null }) =>
+        s + (e.actual_revenue_usd != null ? Number(e.actual_revenue_usd) : 0), 0);
+      setCurMonthRevenue(total);
+    };
+    fetchCurMonth();
+  }, [filterPage]);
 
   // Fetch previous month total revenue — respects filterPage
   useEffect(() => {
@@ -2965,17 +2987,17 @@ function AdminDashboard() {
                         : <span className="text-[10px] font-medium text-white/60">Meta $100 · mês atual</span>}
                       {loading
                         ? <div className="h-3 w-8 rounded bg-white/20 animate-pulse" />
-                        : <span className="text-[10px] font-bold text-white">{Math.min(100, Math.round((missionCur.revenue / 100) * 100))}%</span>}
+                        : <span className="text-[10px] font-bold text-white">{Math.min(100, Math.round((curMonthRevenue / 100) * 100))}%</span>}
                     </div>
                     <div className="h-1.5 rounded-full bg-white/20 overflow-hidden">
                       {!loading && (
                         <div className="h-full rounded-full bg-white transition-all duration-700"
-                          style={{ width: `${Math.min(100, (missionCur.revenue / 100) * 100)}%` }} />
+                          style={{ width: `${Math.min(100, (curMonthRevenue / 100) * 100)}%` }} />
                       )}
                     </div>
                     {loading
                       ? <div className="h-3 w-44 rounded bg-white/20 animate-pulse" />
-                      : <p className="text-[10px] text-white/50">${missionCur.revenue.toFixed(2)} de $100 · {monthCountdown} restantes</p>}
+                      : <p className="text-[10px] text-white/50">${curMonthRevenue.toFixed(2)} de $100 · {monthCountdown} restantes</p>}
                   </div>
                 </div>
 
