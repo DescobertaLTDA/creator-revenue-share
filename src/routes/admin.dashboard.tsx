@@ -3242,9 +3242,9 @@ function AdminDashboard() {
 
             return (
               <div className="bg-white border border-[#F1F1F1] rounded-2xl overflow-hidden" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
-                <div className="flex flex-col lg:flex-row">
-                  {/* Left: chart */}
-                  <div className="flex-1 min-w-0 p-4 sm:p-6">
+                <div className="flex flex-col lg:flex-row lg:items-stretch">
+                  {/* Left: chart — flex-col so the chart div can flex-1 and fill all remaining height */}
+                  <div className="flex-1 min-w-0 p-4 sm:p-6 flex flex-col">
                     <div className="mb-3">
                       <h2 className="text-sm sm:text-base font-bold text-[#1A0A00]">Evolução da receita</h2>
                       <p className="text-xs text-[#9B9B9B] mt-0.5">Acumulado no mês</p>
@@ -3252,10 +3252,10 @@ function AdminDashboard() {
                     {/* Legend row */}
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3">
                       {[
-                        { label: "Realizado",      color: "#F44708", dashed: false },
-                        { label: "Projeção (provável)", color: "#F44708", dashed: true },
-                        { label: "Cenário otimista",    color: "#10B981", dashed: true },
-                        { label: "Cenário conservador", color: "#94A3B8", dashed: true },
+                        { label: "Realizado",           color: "#F44708", dashed: false },
+                        { label: "Projeção (provável)",  color: "#F44708", dashed: true },
+                        { label: "Cenário otimista",     color: "#10B981", dashed: true },
+                        { label: "Cenário conservador",  color: "#94A3B8", dashed: true },
                       ].map(({ label, color, dashed }) => (
                         <span key={label} className="flex items-center gap-1.5 text-[10px] text-[#6B6B6B]">
                           {dashed
@@ -3266,7 +3266,7 @@ function AdminDashboard() {
                         </span>
                       ))}
                     </div>
-                    <div className="h-[220px] sm:h-[260px]">
+                    <div className="flex-1 min-h-[200px]">
                       {loading
                         ? <Sk w="w-full" h="h-full" className="rounded-xl" />
                         : (
