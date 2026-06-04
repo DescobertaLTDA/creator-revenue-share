@@ -64,6 +64,7 @@ interface RawPost {
   comments: number | null;
   shares: number | null;
   title: string | null;
+  description: string | null;
   post_type: string | null;
   permalink: string | null;
   source: "facebook" | "instagram" | null;
@@ -442,11 +443,17 @@ function DashSpeedometer({ score }: { score: number }) {
 interface CarouselPost {
   id: string;
   title: string | null;
+  description: string | null;
   pageName: string;
   views: number;
   revenue: number;
   thumbnail_url: string | null;
   published_at: string | null;
+  permalink: string | null;
+  source: string | null;
+  reactions: number;
+  comments: number;
+  shares: number;
 }
 
 function PostsCarousel({
@@ -465,6 +472,7 @@ function PostsCarousel({
   const hasDragged = useRef(false);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const [modalPost, setModalPost] = useState<CarouselPost | null>(null);
 
   const CARD_W = 160; // px — cards visible depend on container width
   const GAP = 12;
@@ -568,71 +576,165 @@ function PostsCarousel({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
-        {posts.map((post, idx) => (
-          <div
-            key={post.id}
-            className="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden flex flex-col shrink-0"
-            style={{
-              width: CARD_W,
-              boxShadow: "0 1px 4px rgba(0,0,0,.05)",
-              scrollSnapAlign: "start",
-            }}
-          >
-            {/* Thumbnail */}
-            <div className="relative w-full overflow-hidden" style={{ paddingTop: "133%" }}>
-              {post.thumbnail_url ? (
-                <img
-                  src={`${post.thumbnail_url}?t=${Math.floor(Date.now() / 60000)}`}
-                  alt={post.title ?? "Post"}
-                  draggable={false}
-                  className="absolute inset-0 w-full h-full object-contain"
-                  style={{ background: "#111" }}
-                />
-              ) : (
-                <div
-                  className="absolute inset-0 flex flex-col items-center justify-center gap-2"
-                  style={{ background: "linear-gradient(135deg,#FAF7F5 0%,#F2EDE8 100%)" }}
-                >
-                  <FileText className="h-6 w-6 text-[#DDD4CB]" />
-                  <span className="text-[8px] font-medium text-[#C5B9B0] tracking-wide uppercase">Sem imagem</span>
+        {posts.map((post, idx) => {
+          const body = post.title ?? post.description ?? "";
+          const preview = body.replace(/\n+/g, " ").replace(/#\w+/g, "").trim();
+          return (
+            <div
+              key={post.id}
+              className="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden flex flex-col shrink-0 cursor-pointer hover:shadow-md transition-shadow"
+              style={{ width: CARD_W, boxShadow: "0 1px 4px rgba(0,0,0,.05)", scrollSnapAlign: "start" }}
+              onClick={() => !hasDragged.current && setModalPost(post)}
+            >
+              {/* Thumbnail */}
+              <div className="relative w-full overflow-hidden" style={{ paddingTop: "133%" }}>
+                {post.thumbnail_url ? (
+                  <img
+                    src={`${post.thumbnail_url}?t=${Math.floor(Date.now() / 60000)}`}
+                    alt={body.slice(0, 40)}
+                    draggable={false}
+                    className="absolute inset-0 w-full h-full object-contain"
+                    style={{ background: "#111" }}
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2"
+                    style={{ background: "linear-gradient(135deg,#FAF7F5 0%,#F2EDE8 100%)" }}>
+                    <FileText className="h-6 w-6 text-[#DDD4CB]" />
+                    <span className="text-[8px] font-medium text-[#C5B9B0] tracking-wide uppercase">Sem imagem</span>
+                  </div>
+                )}
+                <div className="absolute top-2 left-2 h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-black text-white shadow"
+                  style={{ background: rankBg(idx) }}>{idx + 1}</div>
+                <div className="absolute bottom-2 right-1.5 flex items-center gap-1 bg-black/55 backdrop-blur-sm rounded-full px-1.5 py-0.5">
+                  <Eye className="h-2 w-2 text-white/80" />
+                  <span className="text-[9px] font-bold text-white tabular-nums">{fmt(post.views)}</span>
                 </div>
-              )}
-              {/* Rank badge */}
-              <div
-                className="absolute top-2 left-2 h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-black text-white shadow"
-                style={{ background: rankBg(idx) }}
-              >
-                {idx + 1}
               </div>
-              {/* Views pill */}
-              <div className="absolute bottom-2 right-1.5 flex items-center gap-1 bg-black/55 backdrop-blur-sm rounded-full px-1.5 py-0.5">
-                <Eye className="h-2 w-2 text-white/80" />
-                <span className="text-[9px] font-bold text-white tabular-nums">{fmt(post.views)}</span>
+
+              {/* Info */}
+              <div className="p-2.5 flex flex-col gap-1 flex-1">
+                <p className="text-[10px] font-semibold text-[#111] line-clamp-2 leading-snug">
+                  {preview || `Post de ${dateLabel(post.published_at)}`}
+                </p>
+                {filterPage === "all" && (
+                  <p className="text-[9px] text-[#AAA] truncate leading-none">{post.pageName}</p>
+                )}
+                <div className="mt-auto pt-1 flex items-center justify-between">
+                  <span className="text-[9px] text-[#C0B8B0] tabular-nums">{dateLabel(post.published_at)}</span>
+                  {post.revenue > 0 && usdBrl && (
+                    <span className="text-[9px] font-bold text-[#10b981] tabular-nums">
+                      {formatBRL(post.revenue * usdBrl)}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
+          );
+        })}
+        <div className="shrink-0 w-1" />
+      </div>
 
-            {/* Info */}
-            <div className="p-2.5 flex flex-col gap-1 flex-1">
-              <p className="text-[10px] font-semibold text-[#111] line-clamp-2 leading-snug">
-                {post.title ?? `Post de ${dateLabel(post.published_at)}`}
-              </p>
-              {filterPage === "all" && (
-                <p className="text-[9px] text-[#AAA] truncate leading-none">{post.pageName}</p>
-              )}
-              <div className="mt-auto pt-1 flex items-center justify-between">
-                <span className="text-[9px] text-[#C0B8B0] tabular-nums">{dateLabel(post.published_at)}</span>
-                {post.revenue > 0 && usdBrl && (
-                  <span className="text-[9px] font-bold text-[#10b981] tabular-nums">
-                    {formatBRL(post.revenue * usdBrl)}
+      {/* ── Post detail modal ── */}
+      {modalPost && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,.55)", backdropFilter: "blur(4px)" }}
+          onClick={() => setModalPost(null)}
+        >
+          <div
+            className="bg-white rounded-2xl overflow-hidden w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div className="px-5 pt-4 pb-3 border-b border-[#F0F0F0] flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-black text-white"
+                  style={{ background: rankBg(posts.indexOf(modalPost)) }}>
+                  {posts.indexOf(modalPost) + 1}
+                </div>
+                <span className="text-xs font-semibold text-[#111]">{modalPost.pageName}</span>
+                <span className="text-[10px] text-[#AAA]">·</span>
+                <span className="text-[10px] text-[#AAA]">{dateLabel(modalPost.published_at)}</span>
+                {modalPost.source && (
+                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full ${modalPost.source === "instagram" ? "bg-pink-50 text-pink-600" : "bg-blue-50 text-blue-600"}`}>
+                    {modalPost.source}
                   </span>
                 )}
               </div>
+              <button onClick={() => setModalPost(null)}
+                className="h-7 w-7 rounded-full hover:bg-[#F5F5F5] flex items-center justify-center text-[#999] transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1">
+              <div className="flex flex-col sm:flex-row gap-0">
+                {/* Thumbnail */}
+                {modalPost.thumbnail_url && (
+                  <div className="sm:w-48 shrink-0 bg-[#111]">
+                    <img
+                      src={`${modalPost.thumbnail_url}?t=${Math.floor(Date.now() / 60000)}`}
+                      alt=""
+                      className="w-full h-full object-contain"
+                      style={{ maxHeight: 320 }}
+                    />
+                  </div>
+                )}
+
+                <div className="flex-1 p-5 space-y-4">
+                  {/* Stats row */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                      { icon: Eye, label: "Views", val: fmt(modalPost.views), color: "#F44708" },
+                      { icon: Heart, label: "Reações", val: fmt(modalPost.reactions), color: "#e11d48" },
+                      { icon: MessageSquare, label: "Comentários", val: fmt(modalPost.comments), color: "#0284c7" },
+                      { icon: Share2, label: "Shares", val: fmt(modalPost.shares), color: "#16a34a" },
+                    ].map(({ icon: Icon, label, val, color }) => (
+                      <div key={label} className="rounded-xl border border-[#F0F0F0] p-2.5 text-center">
+                        <Icon className="h-3.5 w-3.5 mx-auto mb-1" style={{ color }} />
+                        <p className="text-xs font-bold text-[#111] tabular-nums">{val}</p>
+                        <p className="text-[9px] text-[#AAA] mt-0.5">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Revenue */}
+                  {modalPost.revenue > 0 && usdBrl && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
+                      <DollarSign className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                      <span className="text-xs font-bold text-emerald-700">{formatBRL(modalPost.revenue * usdBrl)}</span>
+                      <span className="text-[10px] text-emerald-600 ml-auto">${modalPost.revenue.toFixed(2)} USD</span>
+                    </div>
+                  )}
+
+                  {/* Full description */}
+                  {(modalPost.description || modalPost.title) && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#AAA] mb-2">Descrição</p>
+                      <p className="text-xs text-[#333] leading-relaxed whitespace-pre-wrap">
+                        {modalPost.description ?? modalPost.title}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Permalink */}
+                  {modalPost.permalink && (
+                    <a
+                      href={modalPost.permalink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-[11px] text-[#F44708] font-semibold hover:underline"
+                    >
+                      <ArrowRight className="h-3 w-3" />
+                      Ver post original
+                    </a>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        ))}
-        {/* Trailing spacer */}
-        <div className="shrink-0 w-1" />
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -741,7 +843,7 @@ function AdminDashboard() {
         await Promise.all([
           fetchAllRows<RawPost>(() =>
             supabase.from("posts").select(
-              "id, page_id, published_at, monetization_approx, estimated_usd, views, reach, reactions, comments, shares, title, post_type, permalink, source, thumbnail_url"
+              "id, page_id, published_at, monetization_approx, estimated_usd, views, reach, reactions, comments, shares, title, description, post_type, permalink, source, thumbnail_url"
             ).gte("published_at", dateFrom).lte("published_at", dateTo + "T23:59:59")
           ),
           fetchAllRows<PostAuthorRow>(() =>
@@ -1339,11 +1441,17 @@ function AdminDashboard() {
       .map((p) => ({
         id: p.id,
         title: p.title,
+        description: p.description ?? null,
         pageName: pageMap.get(p.page_id) ?? "—",
         views: Number(p.views ?? 0),
         revenue: getPostUsd(p),
         thumbnail_url: p.thumbnail_url ?? null,
         published_at: p.published_at,
+        permalink: p.permalink ?? null,
+        source: p.source ?? null,
+        reactions: Number(p.reactions ?? 0),
+        comments: Number(p.comments ?? 0),
+        shares: Number(p.shares ?? 0),
       }));
 
     return {
