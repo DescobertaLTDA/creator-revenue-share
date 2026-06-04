@@ -109,10 +109,13 @@ export default function DataPipelinePage() {
   const thumbFileRef = useRef<HTMLInputElement>(null);
   const thumbUploadTargetRef = useRef<string | null>(null); // postId for the pending file input
 
-  // Load pages for Ganhos selector
+  // Load pages for Ganhos selector — auto-select first page for thumbnail table
   useEffect(() => {
     supabase.from("pages").select("id, nome").order("nome").then(({ data }) => {
-      setPages((data ?? []) as { id: string; nome: string }[]);
+      const list = (data ?? []) as { id: string; nome: string }[];
+      setPages(list);
+      // Auto-open the first page so the thumbnail table shows immediately
+      if (list.length > 0) setThumbPageId((prev) => prev || list[0].id);
     });
   }, []);
 
