@@ -2133,62 +2133,43 @@ function AdminDashboard() {
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([, v]) => ({ ...v, receita: parseFloat(v.receita.toFixed(4)) }));
 
-    // Previous month revenue by day (for chart reference dashed line).
-    // Only include day-of-month numbers that exist in the current period so
-    // the two series have the same length and align correctly on the X axis.
-    const currentDayNums = new Set(Object.keys(byDay).map((d) => parseInt(d.split("-")[2], 10)));
-    const prevByDay: Record<string, { dia: string; receita: number }> = {};
+    // Previous month dashed line: for each day in the current period, look up
+    // exactly the same calendar day one month earlier. This ensures "03/06"
+    // always compares against "03/05" regardless of the filter start date.
+    //
+    // Build fast lookups for actual revenue and CSV by date.
+    const actualByDateAll = new Map<string, number>();
+    for (const e of dailyEntries) {
+      if (filterPage !== "all" && e.page_id !== filterPage) continue;
+      if (e.actual_revenue_usd !== null)
+        actualByDateAll.set(e.entry_date, (actualByDateAll.get(e.entry_date) ?? 0) + Number(e.actual_revenue_usd));
+    }
+    const csvByDateAll = new Map<string, number>();
     for (const p of allPosts) {
       if (!p.published_at) continue;
       if (filterPage !== "all" && p.page_id !== filterPage) continue;
       const day = p.published_at.slice(0, 10);
-      if (day < prevFrom || day > prevTo) continue;
-      const dayNum = parseInt(day.split("-")[2], 10);
-      if (!currentDayNums.has(dayNum)) continue; // skip days beyond current period range
       const val = getPostUsd(p);
-      if (!prevByDay[day]) {
-        const [, m, d] = day.split("-");
-        prevByDay[day] = { dia: `${d}/${m}`, receita: 0 };
-      }
-      prevByDay[day].receita += val;
-    }
-    // Also add daily_revenue_entries corrections for the previous period (same day range)
-    {
-      const prevActualByDate = new Map<string, number>();
-      for (const e of dailyEntries) {
-        if (e.entry_date < prevFrom || e.entry_date > prevTo) continue;
-        if (filterPage !== "all" && e.page_id !== filterPage) continue;
-        const dayNum = parseInt(e.entry_date.split("-")[2], 10);
-        if (!currentDayNums.has(dayNum)) continue;
-        if (e.actual_revenue_usd !== null)
-          prevActualByDate.set(e.entry_date, (prevActualByDate.get(e.entry_date) ?? 0) + Number(e.actual_revenue_usd));
-      }
-      for (const [date, actual] of prevActualByDate) {
-        if (!prevByDay[date]) {
-          const [, m, d] = date.split("-");
-          prevByDay[date] = { dia: `${d}/${m}`, receita: 0 };
-        }
-        prevByDay[date].receita = actual; // use actual revenue (same as current period)
-      }
+      if (val > 0) csvByDateAll.set(day, (csvByDateAll.get(day) ?? 0) + val);
     }
 
-    // Ensure prevByDay has an entry for every day-of-month number that exists in the
-    // current period — even if that day had $0. This guarantees the dashed line always
-    // has the same length as the solid line and is drawn correctly.
-    {
-      const [prevRefY, prevRefMStr] = prevMonthRef.split("-");
-      const prevRefM = parseInt(prevRefMStr, 10);
-      const prevMonthMaxDay = new Date(parseInt(prevRefY, 10), prevRefM, 0).getDate();
-      for (const dayNum of Array.from(currentDayNums).sort((a, b) => a - b)) {
-        if (dayNum > prevMonthMaxDay) continue; // prev month doesn't have this day (e.g. Feb 29/30/31)
-        const prevDate = `${prevMonthRef}-${String(dayNum).padStart(2, "0")}`;
-        if (!prevByDay[prevDate]) {
-          prevByDay[prevDate] = {
-            dia: `${String(dayNum).padStart(2, "0")}/${String(prevRefM).padStart(2, "0")}`,
-            receita: 0,
-          };
-        }
-      }
+    // For each current date, map to same day -1 month. Key by current date so
+    // prevChartData aligns point-for-point with chartData.
+    const prevByDay: Record<string, { dia: string; receita: number }> = {};
+    for (const curDate of Object.keys(byDay).sort()) {
+      const [cy, cm, cd] = curDate.split("-").map(Number);
+      const pm = cm - 1;
+      const py = pm === 0 ? cy - 1 : cy;
+      const pmAdj = pm === 0 ? 12 : pm;
+      const prevMaxDay = new Date(py, pmAdj, 0).getDate();
+      if (cd > prevMaxDay) continue; // e.g. Mar 31 → Feb 31 doesn't exist
+      const prevDate = `${py}-${String(pmAdj).padStart(2, "0")}-${String(cd).padStart(2, "0")}`;
+      const [, pdm, pdd] = prevDate.split("-");
+      const actual = actualByDateAll.get(prevDate);
+      prevByDay[curDate] = {
+        dia: `${pdd}/${pdm}`,
+        receita: actual !== undefined ? actual : (csvByDateAll.get(prevDate) ?? 0),
+      };
     }
 
     const prevChartData = Object.entries(prevByDay)
