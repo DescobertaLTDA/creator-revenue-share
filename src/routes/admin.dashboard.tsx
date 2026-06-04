@@ -15,7 +15,7 @@ import {
   Target, Zap, Users, X, CloudUpload,
   Heart, MessageSquare, Share2, Maximize2, Calendar, Trophy,
   Flame, Hourglass, BarChart2, FileText,
-  Loader2, ImagePlus, Trash2,
+  Loader2, ImagePlus, Trash2, Link2,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -474,7 +474,6 @@ function PostsCarousel({
   const dragStartX = useRef(0);
   const dragScrollLeft = useRef(0);
   const hasDragged = useRef(false);
-  const pointerDownPostId = useRef<string | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [modalPost, setModalPost] = useState<CarouselPost | null>(null);
@@ -484,6 +483,10 @@ function PostsCarousel({
   const [thumbUploading, setThumbUploading] = useState(false);
   const [thumbFile, setThumbFile] = useState<File | null>(null);
   const [thumbPreviewUrl, setThumbPreviewUrl] = useState<string | null>(null);
+
+  // URL import state
+  const [urlInput, setUrlInput] = useState("");
+  const [urlImporting, setUrlImporting] = useState(false);
 
   const CARD_W = 160;
   const GAP = 12;
@@ -512,6 +515,7 @@ function PostsCarousel({
     setModalPost(post);
     setThumbFile(null);
     setThumbPreviewUrl(null);
+    setUrlInput("");
   };
 
   const closeModal = () => {
@@ -519,6 +523,7 @@ function PostsCarousel({
     setThumbFile(null);
     if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl);
     setThumbPreviewUrl(null);
+    setUrlInput("");
   };
 
   const scrollBy = (dir: 1 | -1) => {
@@ -527,32 +532,25 @@ function PostsCarousel({
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
+    // NOTE: no setPointerCapture — it redirects ALL pointer events to the track
+    // element and permanently breaks onClick on child card elements.
     isDragging.current = true;
     hasDragged.current = false;
     dragStartX.current = e.clientX;
     dragScrollLeft.current = trackRef.current?.scrollLeft ?? 0;
-    trackRef.current?.setPointerCapture(e.pointerId);
-    // Record which card was pressed (pointer capture prevents click events from firing on cards)
-    const card = (e.target as HTMLElement).closest<HTMLElement>("[data-post-id]");
-    pointerDownPostId.current = card?.dataset.postId ?? null;
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!isDragging.current) return;
+    // If button was released outside the track, stop drag
+    if (!isDragging.current || e.buttons !== 1) { isDragging.current = false; return; }
     const dx = e.clientX - dragStartX.current;
-    if (Math.abs(dx) > 4) hasDragged.current = true;
+    // Only count as drag after 6px — prevents single clicks with tiny mouse tremor
+    if (Math.abs(dx) > 6) hasDragged.current = true;
     if (trackRef.current) trackRef.current.scrollLeft = dragScrollLeft.current - dx;
   };
 
   const onPointerUp = () => {
     isDragging.current = false;
-    // Open modal here instead of onClick — pointer capture redirects pointerup to
-    // the track so card onClick never fires when setPointerCapture is active
-    if (!hasDragged.current && pointerDownPostId.current) {
-      const post = posts.find((p) => p.id === pointerDownPostId.current);
-      if (post) openModal(post);
-    }
-    pointerDownPostId.current = null;
   };
 
   const dateLabel = (published_at: string | null) => {
@@ -678,6 +676,43 @@ function PostsCarousel({
     );
   };
 
+  // Import thumbnail from a social media URL (calls edge function server-side)
+  const handleUrlImport = async () => {
+    if (!modalPost || !urlInput.trim()) return;
+    setUrlImporting(true);
+    try {
+      const { data, error } = await (supabase as any).functions.invoke("import-post-thumbnail", {
+        body: { url: urlInput.trim(), postId: modalPost.id },
+      });
+      if (error) throw new Error(error.message ?? "Erro na função");
+      if (data?.error) throw new Error(data.error);
+
+      const publicUrl: string = data.publicUrl;
+      const updatedCount: number = data.updatedCount ?? 1;
+
+      // Update modal post & patch local cache
+      setModalPost((prev) => prev ? { ...prev, thumbnail_url: publicUrl } : null);
+      if (_dashCache) {
+        // We don't know all sibling IDs here, but at least update the current post
+        _dashCache.posts = _dashCache.posts.map((p) =>
+          p.id === modalPost.id ? { ...p, thumbnail_url: publicUrl } : p
+        );
+      }
+      setUrlInput("");
+      toast.success(
+        updatedCount > 1
+          ? `Imagem importada e aplicada a ${updatedCount} posts!`
+          : "Imagem importada com sucesso!"
+      );
+    } catch (err: unknown) {
+      toast.error("Erro ao importar", {
+        description: err instanceof Error ? err.message : "Verifique a URL e tente novamente",
+      });
+    } finally {
+      setUrlImporting(false);
+    }
+  };
+
   // What to display in the image panel
   const displayUrl = thumbPreviewUrl
     ?? (modalPost?.thumbnail_url ? `${modalPost.thumbnail_url}?t=${Math.floor(Date.now() / 60000)}` : null);
@@ -752,6 +787,7 @@ function PostsCarousel({
               data-post-id={post.id}
               className="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden flex flex-col shrink-0 cursor-pointer hover:shadow-md transition-shadow"
               style={{ width: CARD_W, boxShadow: "0 1px 4px rgba(0,0,0,.05)", scrollSnapAlign: "start" }}
+              onClick={() => { if (!hasDragged.current) openModal(post); }}
             >
               <div className="relative w-full overflow-hidden" style={{ paddingTop: "133%" }}>
                 {post.thumbnail_url ? (
@@ -939,6 +975,38 @@ function PostsCarousel({
                         </>
                       )}
                     </div>
+
+                    {/* ── URL import ─────────────────────────────────────── */}
+                    {!thumbFile && (
+                      <div className="mt-1 space-y-1.5">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-[#CCC]">ou importar de URL</p>
+                        <div className="flex gap-1.5">
+                          <div className="relative flex-1">
+                            <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-[#CCC] pointer-events-none" />
+                            <input
+                              type="url"
+                              placeholder="https://instagram.com/p/…"
+                              value={urlInput}
+                              onChange={(e) => setUrlInput(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === "Enter") handleUrlImport(); }}
+                              disabled={urlImporting}
+                              className="w-full h-8 pl-7 pr-2 rounded-lg border border-[#E8E8E8] text-[10px] text-[#333] placeholder:text-[#CCC] focus:outline-none focus:border-[#F44708] disabled:opacity-50 transition-colors"
+                            />
+                          </div>
+                          <button
+                            onClick={handleUrlImport}
+                            disabled={urlImporting || !urlInput.trim()}
+                            className="h-8 px-3 rounded-lg bg-[#111] text-white text-[10px] font-bold hover:bg-[#333] disabled:opacity-40 transition-colors shrink-0 flex items-center gap-1.5"
+                          >
+                            {urlImporting
+                              ? <Loader2 className="h-3 w-3 animate-spin" />
+                              : <Link2 className="h-3 w-3" />
+                            }
+                            {urlImporting ? "…" : "Importar"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

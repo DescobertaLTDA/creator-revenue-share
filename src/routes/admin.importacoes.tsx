@@ -11,7 +11,7 @@ import {
   Upload, Loader2, Search, Settings2, CheckCircle2,
   AlertCircle, Clock, Database, Shield, Zap, RefreshCw, Activity,
   MoreVertical, CloudUpload, TrendingUp, BarChart2, FileText, DollarSign, X, Eye, Users,
-  Image, ImagePlus, Trash2,
+  Image, ImagePlus, Trash2, Link2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -111,6 +111,10 @@ export default function DataPipelinePage() {
   const [thumbPropagating, setThumbPropagating] = useState(false);
   const thumbFileRef = useRef<HTMLInputElement>(null);
   const thumbUploadTargetRef = useRef<string | null>(null); // postId for the pending file input
+  // URL import state
+  const [thumbUrlTarget, setThumbUrlTarget] = useState<string | null>(null);
+  const [thumbUrlInput, setThumbUrlInput] = useState("");
+  const [thumbUrlImporting, setThumbUrlImporting] = useState(false);
 
   // Load pages for Ganhos selector — auto-select first page for thumbnail table
   useEffect(() => {
@@ -301,6 +305,42 @@ export default function DataPipelinePage() {
         ? `Thumbnail removida de ${allIds.length} posts idênticos`
         : "Thumbnail removida"
     );
+  };
+
+  // Import thumbnail from a social media URL via edge function
+  const handleThumbUrlImport = async (postId: string) => {
+    if (!thumbUrlInput.trim()) return;
+    setThumbUrlImporting(true);
+    try {
+      const { data, error } = await (supabase as any).functions.invoke("import-post-thumbnail", {
+        body: { url: thumbUrlInput.trim(), postId },
+      });
+      if (error) throw new Error(error.message ?? "Erro na função");
+      if (data?.error) throw new Error(data.error);
+
+      const publicUrl: string = data.publicUrl;
+      const updatedCount: number = data.updatedCount ?? 1;
+
+      // Update local state for all potentially updated posts
+      setThumbPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId ? { ...p, thumbnail_url: publicUrl } : p
+        )
+      );
+      setThumbUrlTarget(null);
+      setThumbUrlInput("");
+      toast.success(
+        updatedCount > 1
+          ? `Imagem importada e aplicada a ${updatedCount} posts!`
+          : "Imagem importada com sucesso!"
+      );
+    } catch (err: unknown) {
+      toast.error("Erro ao importar", {
+        description: err instanceof Error ? err.message : "Verifique a URL e tente novamente",
+      });
+    } finally {
+      setThumbUrlImporting(false);
+    }
   };
 
   // Will be set below after onUpload is defined
@@ -1361,32 +1401,79 @@ export default function DataPipelinePage() {
 
                             {/* Actions */}
                             <td className="px-4 py-3 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button
-                                  disabled={isUploading}
-                                  onClick={() => {
-                                    thumbUploadTargetRef.current = p.id;
-                                    thumbFileRef.current?.click();
-                                  }}
-                                  className="h-7 px-2.5 rounded-lg bg-[#F44708] text-white text-[10px] font-semibold flex items-center gap-1.5 hover:bg-[#D93D07] transition-colors disabled:opacity-50"
-                                >
-                                  {isUploading ? (
-                                    <><Loader2 className="h-3 w-3 animate-spin" /> Enviando…</>
-                                  ) : (
-                                    <><CloudUpload className="h-3 w-3" /> {p.thumbnail_url ? "Trocar" : "Upload"}</>
-                                  )}
-                                </button>
-                                {p.thumbnail_url && (
+                              {thumbUrlTarget === p.id ? (
+                                /* ── URL import mode ── */
+                                <div className="flex items-center gap-1.5 justify-end">
+                                  <div className="relative">
+                                    <Link2 className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-[#CCC] pointer-events-none" />
+                                    <input
+                                      autoFocus
+                                      type="url"
+                                      placeholder="https://instagram.com/p/…"
+                                      value={thumbUrlInput}
+                                      onChange={(e) => setThumbUrlInput(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") handleThumbUrlImport(p.id);
+                                        if (e.key === "Escape") { setThumbUrlTarget(null); setThumbUrlInput(""); }
+                                      }}
+                                      disabled={thumbUrlImporting}
+                                      className="h-7 pl-6 pr-2 w-52 rounded-lg border border-border text-[10px] text-[#333] placeholder:text-[#CCC] focus:outline-none focus:border-[#F44708] disabled:opacity-50 transition-colors"
+                                    />
+                                  </div>
+                                  <button
+                                    onClick={() => handleThumbUrlImport(p.id)}
+                                    disabled={thumbUrlImporting || !thumbUrlInput.trim()}
+                                    className="h-7 px-2.5 rounded-lg bg-[#111] text-white text-[10px] font-semibold flex items-center gap-1 hover:bg-[#333] disabled:opacity-40 transition-colors"
+                                  >
+                                    {thumbUrlImporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Link2 className="h-3 w-3" />}
+                                    {thumbUrlImporting ? "…" : "OK"}
+                                  </button>
+                                  <button
+                                    onClick={() => { setThumbUrlTarget(null); setThumbUrlInput(""); }}
+                                    disabled={thumbUrlImporting}
+                                    className="h-7 w-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:border-[#CCC] transition-colors"
+                                    title="Cancelar"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ) : (
+                                /* ── Normal mode ── */
+                                <div className="flex items-center justify-end gap-1.5">
                                   <button
                                     disabled={isUploading}
-                                    onClick={() => handleThumbRemove(p.id)}
-                                    className="h-7 w-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:border-red-300 hover:text-red-500 transition-colors disabled:opacity-50"
-                                    title="Remover imagem"
+                                    onClick={() => {
+                                      thumbUploadTargetRef.current = p.id;
+                                      thumbFileRef.current?.click();
+                                    }}
+                                    className="h-7 px-2.5 rounded-lg bg-[#F44708] text-white text-[10px] font-semibold flex items-center gap-1.5 hover:bg-[#D93D07] transition-colors disabled:opacity-50"
                                   >
-                                    <Trash2 className="h-3 w-3" />
+                                    {isUploading ? (
+                                      <><Loader2 className="h-3 w-3 animate-spin" /> Enviando…</>
+                                    ) : (
+                                      <><CloudUpload className="h-3 w-3" /> {p.thumbnail_url ? "Trocar" : "Upload"}</>
+                                    )}
                                   </button>
-                                )}
-                              </div>
+                                  <button
+                                    disabled={isUploading}
+                                    onClick={() => { setThumbUrlTarget(p.id); setThumbUrlInput(""); }}
+                                    className="h-7 w-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:border-[#F44708] hover:text-[#F44708] transition-colors disabled:opacity-50"
+                                    title="Importar de URL"
+                                  >
+                                    <Link2 className="h-3 w-3" />
+                                  </button>
+                                  {p.thumbnail_url && (
+                                    <button
+                                      disabled={isUploading}
+                                      onClick={() => handleThumbRemove(p.id)}
+                                      className="h-7 w-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:border-red-300 hover:text-red-500 transition-colors disabled:opacity-50"
+                                      title="Remover imagem"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </td>
                           </tr>
                         );
