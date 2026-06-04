@@ -2172,14 +2172,14 @@ function AdminDashboard() {
                       className="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden flex flex-col"
                       style={{ boxShadow: "0 1px 4px rgba(0,0,0,.05)" }}
                     >
-                      {/* 4:3 thumbnail — paddingTop 75% = 3/4 of width = 4:3 ratio */}
-                      <div className="relative w-full overflow-hidden" style={{ paddingTop: "75%" }}>
+                      {/* Thumbnail — altura fixa, imagem contida (sem corte) */}
+                      <div className="relative w-full overflow-hidden" style={{ paddingTop: "133%" }}>
                         {post.thumbnail_url ? (
                           <img
                             src={`${post.thumbnail_url}?t=${Math.floor(Date.now() / 60000)}`}
                             alt={post.title ?? "Post"}
-                            className="absolute inset-0 w-full h-full object-cover"
-                            style={{ borderRadius: 0 }}
+                            className="absolute inset-0 w-full h-full object-contain"
+                            style={{ background: "#111" }}
                           />
                         ) : (
                           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2"
