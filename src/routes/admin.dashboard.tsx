@@ -3162,7 +3162,7 @@ function AdminDashboard() {
             {/* Chart row */}
             <div className="px-5 pt-3 pb-2">
               {loading
-                ? <Sk w="w-full" h="h-[72px]" />
+                ? <Sk w="w-full" h="h-[160px]" />
                 : <KpiAreaChart data={chartData} />
               }
             </div>
@@ -3764,16 +3764,15 @@ function HeroSparkline({ data }: { data: number[] }) {
 
 function KpiAreaChart({ data }: { data: DayData[] }) {
   if (data.length < 2) return null;
-  const W = 1000; const H = 72; const PB = 18; // PB = bottom padding for labels
+  const W = 1000; const H = 160; const PB = 20; // PB = bottom padding for labels
   const iH = H - PB;
   const maxV = Math.max(...data.map((d) => d.views), 1);
 
-  const pt = (i: number) => ({
+  const pts = data.map((_, i) => ({
     x: (i / (data.length - 1)) * W,
-    y: iH - (data[i].views / maxV) * iH,
-  });
+    y: iH - (data[i].views / maxV) * (iH - 8),
+  }));
 
-  const pts = data.map((_, i) => pt(i));
   const polyPts = pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
   const areaD =
     `M0,${iH} ` +
@@ -3786,34 +3785,34 @@ function KpiAreaChart({ data }: { data: DayData[] }) {
     (v, i, a) => a.indexOf(v) === i
   );
 
-  // 3 horizontal grid lines at 25%, 50%, 75%
-  const gridYs = [0.25, 0.5, 0.75].map((f) => (iH * (1 - f)).toFixed(1));
+  // 3 horizontal grid lines
+  const gridYs = [0.25, 0.5, 0.75].map((f) => ((iH - 8) * (1 - f) + 4).toFixed(1));
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 72 }} preserveAspectRatio="none">
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 160 }} preserveAspectRatio="none">
       <defs>
         <linearGradient id="kpiAreaGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#1a73e8" stopOpacity="0.18" />
-          <stop offset="100%" stopColor="#1a73e8" stopOpacity="0" />
+          <stop offset="0%" stopColor="#F44708" stopOpacity="0.15" />
+          <stop offset="100%" stopColor="#F44708" stopOpacity="0" />
         </linearGradient>
       </defs>
       {/* Grid lines */}
       {gridYs.map((y) => (
-        <line key={y} x1="0" y1={y} x2={W} y2={y} stroke="#E8E8E8" strokeWidth="1" />
+        <line key={y} x1="0" y1={y} x2={W} y2={y} stroke="#EBEBEB" strokeWidth="1" />
       ))}
       {/* Area + line */}
       <path d={areaD} fill="url(#kpiAreaGrad)" />
-      <polyline points={polyPts} fill="none" stroke="#1a73e8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points={polyPts} fill="none" stroke="#F44708" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       {/* Last-point dot */}
-      <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r={3} fill="#1a73e8" />
+      <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r={4} fill="#F44708" />
       {/* X-axis date labels */}
       {labelIdxs.map((i, li) => (
         <text
           key={i}
           x={pts[i].x}
-          y={H - 3}
-          fontSize="10"
-          fill="#999"
+          y={H - 4}
+          fontSize="11"
+          fill="#AAA"
           textAnchor={li === 0 ? "start" : li === labelIdxs.length - 1 ? "end" : "middle"}
         >
           {data[i].dia}
