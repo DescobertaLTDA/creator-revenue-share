@@ -3346,48 +3346,142 @@ function AdminDashboard() {
           )}
 
           {/* ═══════════════ PLATFORM TABLE ═══════════════ */}
-          <div className="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-            <div className="px-5 pt-5 pb-3 border-b border-[#F7F7F7]">
-              <h2 className="text-sm font-bold text-[#111]">Desempenho por Rede</h2>
-              <p className="text-[11px] text-[#999] mt-0.5">Comparativo Facebook vs Instagram no período</p>
-            </div>
-            {loading ? (
-              <div className="p-5 space-y-3">
-                {[1,2,3,4,5,6,7,8,9].map(i => <div key={i} className="flex items-center justify-between"><Sk w="w-32" h="h-3" /><Sk w="w-16" h="h-3" /><Sk w="w-16" h="h-3" /></div>)}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-[10px] font-semibold uppercase tracking-wider text-[#999] bg-[#FAFAFA]">
-                      <th className="text-left px-5 py-3 font-semibold">Métrica</th>
-                      <th className="text-right px-5 py-3 font-semibold">Facebook</th>
-                      <th className="text-right px-5 py-3 font-semibold">Instagram</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#F7F7F7]">
-                    {([
-                      { label: "Views",             fb: fmt(missionCur.views),        ig: fmt(missionCurIG.views),        primary: true },
-                      { label: "Alcance",           fb: fmt(missionCur.reach),        ig: fmt(missionCurIG.reach),        primary: true },
-                      { label: "RPM",               fb: usdBrl ? formatBRL(missionCur.rpm * usdBrl) : `$${missionCur.rpm.toFixed(3)}`,   ig: usdBrl ? formatBRL(missionCurIG.rpm * usdBrl) : `$${missionCurIG.rpm.toFixed(3)}`, primary: true },
-                      { label: "Receita CSV",       fb: usdBrl ? formatBRL(missionCur.usd * usdBrl) : `$${missionCur.usd.toFixed(2)}`,   ig: usdBrl ? formatBRL(missionCurIG.usd * usdBrl) : `$${missionCurIG.usd.toFixed(2)}`, primary: true },
-                      { label: "Ganhos Reais",      fb: usdBrl ? formatBRL(missionCur.revenue * usdBrl) : `$${missionCur.revenue.toFixed(2)}`, ig: "—", primary: true },
-                      { label: "Monetizados",       fb: `${missionCur.monetized} posts`,   ig: `${missionCurIG.monetized} posts` },
-                      { label: "Reações",           fb: fmt(missionCur.reactions),    ig: fmt(missionCurIG.reactions) },
-                      { label: "Comentários",       fb: fmt(missionCur.comments),     ig: fmt(missionCurIG.comments) },
-                      { label: "Compartilhamentos", fb: fmt(missionCur.shares),       ig: fmt(missionCurIG.shares) },
-                    ] as { label: string; fb: string; ig: string; primary?: boolean }[]).map(({ label, fb, ig, primary }) => (
-                      <tr key={label} className="hover:bg-[#FAFAFA] transition-colors">
-                        <td className={`px-5 py-3 text-sm ${primary ? "font-medium text-[#111]" : "text-[#666]"}`}>{label}</td>
-                        <td className={`px-5 py-3 text-right tabular-nums text-sm ${primary ? "font-semibold text-[#111]" : "text-[#999]"}`}>{fb}</td>
-                        <td className={`px-5 py-3 text-right tabular-nums text-sm ${primary ? "font-semibold text-[#111]" : "text-[#999]"}`}>{ig}</td>
-                      </tr>
+          {(() => {
+            // Calculated metrics
+            const fbEngRate = missionCur.views > 0
+              ? ((missionCur.reactions + missionCur.comments + missionCur.shares) / missionCur.views) * 100 : 0;
+            const igEngRate = missionCurIG.views > 0
+              ? ((missionCurIG.reactions + missionCurIG.comments + missionCurIG.shares) / missionCurIG.views) * 100 : 0;
+            const fbViewsPerPost = missionCur.posts > 0 ? missionCur.views / missionCur.posts : 0;
+            const igViewsPerPost = missionCurIG.posts > 0 ? missionCurIG.views / missionCurIG.posts : 0;
+            const fbRevPerPost = missionCur.monetized > 0 ? missionCur.usd / missionCur.monetized : 0;
+            const igRevPerPost = missionCurIG.monetized > 0 ? missionCurIG.usd / missionCurIG.monetized : 0;
+            const fbMonetPct = missionCur.posts > 0 ? (missionCur.monetized / missionCur.posts) * 100 : 0;
+            const igMonetPct = missionCurIG.posts > 0 ? (missionCurIG.monetized / missionCurIG.posts) * 100 : 0;
+            const fbEngTotal = missionCur.reactions + missionCur.comments + missionCur.shares;
+            const igEngTotal = missionCurIG.reactions + missionCurIG.comments + missionCurIG.shares;
+
+            // Proportion bar: percentage that goes to FB (0-100)
+            const bar = (fbVal: number, igVal: number) => {
+              const total = fbVal + igVal;
+              if (total === 0) return 50;
+              return Math.round((fbVal / total) * 100);
+            };
+
+            type Row = { label: string; sub?: string; fbVal: number; igVal: number; fbStr: string; igStr: string; section?: string };
+            const sections: { title: string; rows: Row[] }[] = [
+              {
+                title: "Audiência",
+                rows: [
+                  { label: "Views",           fbVal: missionCur.views,      igVal: missionCurIG.views,      fbStr: fmt(missionCur.views),      igStr: fmt(missionCurIG.views) },
+                  { label: "Alcance",         fbVal: missionCur.reach,      igVal: missionCurIG.reach,      fbStr: fmt(missionCur.reach),      igStr: fmt(missionCurIG.reach) },
+                  { label: "Views / post",    sub: "média por publicação",  fbVal: fbViewsPerPost, igVal: igViewsPerPost, fbStr: fmt(fbViewsPerPost), igStr: fmt(igViewsPerPost) },
+                ],
+              },
+              {
+                title: "Receita",
+                rows: [
+                  { label: "RPM",             sub: "por mil visualizações", fbVal: missionCur.rpm,          igVal: missionCurIG.rpm,            fbStr: usdBrl ? formatBRL(missionCur.rpm * usdBrl) : `$${missionCur.rpm.toFixed(3)}`,   igStr: usdBrl ? formatBRL(missionCurIG.rpm * usdBrl) : `$${missionCurIG.rpm.toFixed(3)}` },
+                  { label: "Receita CSV",     fbVal: missionCur.usd,        igVal: missionCurIG.usd,        fbStr: usdBrl ? formatBRL(missionCur.usd * usdBrl) : `$${missionCur.usd.toFixed(2)}`, igStr: usdBrl ? formatBRL(missionCurIG.usd * usdBrl) : `$${missionCurIG.usd.toFixed(2)}` },
+                  { label: "Ganhos Reais",    sub: "entradas manuais",      fbVal: missionCur.revenue,      igVal: 0,                           fbStr: usdBrl ? formatBRL(missionCur.revenue * usdBrl) : `$${missionCur.revenue.toFixed(2)}`, igStr: "—" },
+                  { label: "Receita / post",  sub: "posts monetizados",     fbVal: fbRevPerPost,             igVal: igRevPerPost,                fbStr: usdBrl ? formatBRL(fbRevPerPost * usdBrl) : `$${fbRevPerPost.toFixed(2)}`,      igStr: missionCurIG.monetized > 0 ? (usdBrl ? formatBRL(igRevPerPost * usdBrl) : `$${igRevPerPost.toFixed(2)}`) : "—" },
+                ],
+              },
+              {
+                title: "Posts",
+                rows: [
+                  { label: "Total publicado", fbVal: missionCur.posts,      igVal: missionCurIG.posts,      fbStr: `${missionCur.posts} posts`, igStr: `${missionCurIG.posts} posts` },
+                  { label: "Monetizados",     fbVal: missionCur.monetized,  igVal: missionCurIG.monetized,  fbStr: `${missionCur.monetized} posts`, igStr: `${missionCurIG.monetized} posts` },
+                  { label: "% Monetizado",    sub: "posts com receita",     fbVal: fbMonetPct,              igVal: igMonetPct,                  fbStr: `${fbMonetPct.toFixed(1)}%`,                                                      igStr: `${igMonetPct.toFixed(1)}%` },
+                ],
+              },
+              {
+                title: "Engajamento",
+                rows: [
+                  { label: "Total engaj.",    fbVal: fbEngTotal,            igVal: igEngTotal,              fbStr: fmt(fbEngTotal),             igStr: fmt(igEngTotal) },
+                  { label: "Taxa engaj.",     sub: "engaj. ÷ views",        fbVal: fbEngRate,               igVal: igEngRate,                   fbStr: `${fbEngRate.toFixed(2)}%`,                                                       igStr: `${igEngRate.toFixed(2)}%` },
+                  { label: "Reações",         fbVal: missionCur.reactions,  igVal: missionCurIG.reactions,  fbStr: fmt(missionCur.reactions),   igStr: fmt(missionCurIG.reactions) },
+                  { label: "Comentários",     fbVal: missionCur.comments,   igVal: missionCurIG.comments,   fbStr: fmt(missionCur.comments),    igStr: fmt(missionCurIG.comments) },
+                  { label: "Compartilhamentos", fbVal: missionCur.shares,   igVal: missionCurIG.shares,     fbStr: fmt(missionCur.shares),      igStr: fmt(missionCurIG.shares) },
+                ],
+              },
+            ];
+
+            return (
+              <div className="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+                {/* Header */}
+                <div className="px-5 pt-5 pb-3 border-b border-[#F7F7F7] flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-bold text-[#111]">Desempenho por Rede</h2>
+                    <p className="text-[11px] text-[#999] mt-0.5">Comparativo Facebook vs Instagram no período</p>
+                  </div>
+                  {/* Platform legend */}
+                  <div className="flex items-center gap-4 text-[11px]">
+                    <span className="flex items-center gap-1.5 text-[#444]">
+                      <span className="w-2 h-2 rounded-full bg-[#1877F2]" /> Facebook
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[#444]">
+                      <span className="w-2 h-2 rounded-full bg-[#E1306C]" /> Instagram
+                    </span>
+                  </div>
+                </div>
+
+                {loading ? (
+                  <div className="p-5 space-y-3">
+                    {Array.from({length: 12}).map((_, i) => (
+                      <div key={i} className="flex items-center gap-4">
+                        <Sk w="w-28" h="h-3" /><Sk w="w-full" h="h-2" className="rounded-full" /><Sk w="w-16" h="h-3" /><Sk w="w-16" h="h-3" />
+                      </div>
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+                ) : (
+                  <div>
+                    {sections.map((section) => (
+                      <div key={section.title}>
+                        {/* Section header */}
+                        <div className="px-5 py-2 bg-[#FAFAFA] border-b border-[#F0F0F0]">
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-[#BDBDBD]">{section.title}</span>
+                        </div>
+                        {section.rows.map((row) => {
+                          const fbPct = bar(row.fbVal, row.igVal);
+                          const igPct = 100 - fbPct;
+                          const total = row.fbVal + row.igVal;
+                          return (
+                            <div key={row.label} className="grid grid-cols-[180px_1fr_120px_120px] items-center px-5 py-3 border-b border-[#F7F7F7] hover:bg-[#FAFAFA] transition-colors gap-4">
+                              {/* Label */}
+                              <div>
+                                <p className="text-sm font-medium text-[#111]">{row.label}</p>
+                                {row.sub && <p className="text-[10px] text-[#BDBDBD] mt-0.5">{row.sub}</p>}
+                              </div>
+                              {/* Proportion bar */}
+                              <div className="flex items-center gap-1.5">
+                                {total > 0 ? (
+                                  <>
+                                    <span className="text-[10px] tabular-nums text-[#1877F2] w-8 text-right shrink-0">{fbPct}%</span>
+                                    <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-[#F0F0F0] flex">
+                                      <div className="h-full bg-[#1877F2] rounded-l-full transition-all" style={{ width: `${fbPct}%` }} />
+                                      <div className="h-full bg-[#E1306C] rounded-r-full transition-all" style={{ width: `${igPct}%` }} />
+                                    </div>
+                                    <span className="text-[10px] tabular-nums text-[#E1306C] w-8 shrink-0">{igPct}%</span>
+                                  </>
+                                ) : (
+                                  <div className="flex-1 h-1.5 rounded-full bg-[#F0F0F0]" />
+                                )}
+                              </div>
+                              {/* FB value */}
+                              <p className="text-sm font-semibold tabular-nums text-right text-[#111]">{row.fbStr}</p>
+                              {/* IG value */}
+                              <p className="text-sm font-semibold tabular-nums text-right text-[#999]">{row.igStr}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
 
           {/* ═══════════════ RANKING ═══════════════ */}
           {(() => {
