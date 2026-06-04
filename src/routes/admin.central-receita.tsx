@@ -242,9 +242,13 @@ function CentralReceita() {
       const totalActualUsd = [...actualByDate.values()].reduce((s, v) => s + v, 0);
       setTotalActual(totalActualUsd);
 
-      // ── byDayCSV: raw CSV per publication date (ALL posts, no split, matches Equipe) ──
+      // ── byDayCSV: CSV per publication date — only posts WITH authors.
+      // Posts without authors are excluded so their CSV flows into the residual
+      // and gets distributed proportionally (avoids revenue being silently dropped).
       const byDayCSV = new Map<string, number>();
       for (const post of curPostsArr) {
+        const authors = curPaByPost[post.id] ?? [];
+        if (authors.length === 0) continue; // unattributed → don't deduct from residual
         const mono = Number(post.monetization_approx) || Number((post as any).estimated_usd) || 0;
         if (post.published_at) {
           const date = post.published_at.slice(0, 10);

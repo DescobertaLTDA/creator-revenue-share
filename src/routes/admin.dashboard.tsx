@@ -2218,9 +2218,11 @@ function AdminDashboard() {
       const val  = getPostUsd(p);
       const views = Number(p.views ?? 0);
       const reacoes = Number(p.reactions ?? 0);
-      if (val > 0) rankByDayCSV.set(pub, (rankByDayCSV.get(pub) ?? 0) + val);
 
       const collaboratorIds = Array.from(postToCollabs.get(p.id) ?? []);
+      // Only deduct from residual pool if post has authors (unattributed posts flow to residual)
+      if (val > 0 && collaboratorIds.length > 0) rankByDayCSV.set(pub, (rankByDayCSV.get(pub) ?? 0) + val);
+
       const collaboratorPct = getCollaboratorPct(p, rulesByPage);
       const collaboratorRevenue = val * collaboratorPct;
 

@@ -371,20 +371,23 @@ function Page() {
     }
 
     // Step 1: per-post CSV revenue per collaborator + CSV totals by date
+    // byDayCSV only counts posts WITH at least one author — posts without authors
+    // are excluded so their CSV flows into the residual pool instead of being dropped.
     const revenueByColab = new Map<string, number>();
-    const byDayCSV = new Map<string, number>(); // date → sum of post revenues that day
+    const byDayCSV = new Map<string, number>(); // date → sum of attributed post revenues that day
 
     for (const post of periodPosts) {
+      const colabIds = Array.from(postToCollabs.get(post.id) ?? []);
       // Use || (not ??) so estimated_usd=0.00 falls through to monetization_approx
       const val = Number(post.monetization_approx) || Number(post.estimated_usd) || 0;
       const day = (post.published_at ?? "").slice(0, 10);
-      if (day) byDayCSV.set(day, (byDayCSV.get(day) ?? 0) + val);
+      // Only subtract from residual if this post actually has authors
+      if (day && colabIds.length > 0) byDayCSV.set(day, (byDayCSV.get(day) ?? 0) + val);
       if (val <= 0) continue;
       const rules = (rulesByPage.get(post.page_id) ?? [])
         .filter((r) => !r.effective_from || !post.published_at || r.effective_from <= post.published_at);
       const pct = (rules[0]?.collaborator_pct ?? 100) / 100;
       const collaboratorRevenue = val * pct;
-      const colabIds = Array.from(postToCollabs.get(post.id) ?? []);
       if (colabIds.length > 0) {
         const share = collaboratorRevenue / colabIds.length;
         for (const cid of colabIds) {
