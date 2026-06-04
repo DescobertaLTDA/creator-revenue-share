@@ -3166,7 +3166,16 @@ function AdminDashboard() {
                 </div>
                 {myCard && (
                   <div>
-                    <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-0.5">Seus Ganhos</p>
+                    {/* Label: mini avatar + first name */}
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      {profile?.avatar_url
+                        ? <img src={profile.avatar_url} alt="" className="h-4 w-4 rounded-full object-cover shrink-0 opacity-80" />
+                        : <div className="h-4 w-4 rounded-full bg-white/30 flex items-center justify-center shrink-0 text-[8px] font-bold text-white">{(profile?.nome ?? "?").slice(0,1).toUpperCase()}</div>
+                      }
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 truncate">
+                        {(myCard.nome ?? profile?.nome ?? "Você").split(" ")[0]}
+                      </p>
+                    </div>
                     {loading
                       ? <div className="h-[18px] w-24 rounded bg-white/20 animate-pulse" />
                       : <p className="text-sm font-bold tabular-nums">{usdBrl ? formatBRL(myMonthReceita * usdBrl) : `$${myMonthReceita.toFixed(2)}`}</p>}
@@ -3176,12 +3185,26 @@ function AdminDashboard() {
                   </div>
                 )}
                 <div>
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-0.5">Saldo Pend.</p>
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-0.5">
+                    {myCard ? "Saldo Pend." : "Saldo Pend."}
+                  </p>
                   {loading
                     ? <div className="h-[18px] w-24 rounded bg-white/20 animate-pulse" />
-                    : <p className="text-sm font-bold tabular-nums">{usdBrl ? formatBRL(pendingBalance * usdBrl) : `$${pendingBalance.toFixed(2)}`}</p>}
+                    : <p className="text-sm font-bold tabular-nums">
+                        {myCard
+                          ? (usdBrl ? formatBRL(myPendingAmount * usdBrl) : `$${myPendingAmount.toFixed(2)}`)
+                          : (usdBrl ? formatBRL(pendingBalance * usdBrl) : `$${pendingBalance.toFixed(2)}`)
+                        }
+                      </p>}
                   <div className="h-[13px] mt-0.5">
-                    {!loading && <p className="text-[9px] text-white/40">{pendingBalance > 0 ? `$${pendingBalance.toFixed(2)} USD` : "acumulado"}</p>}
+                    {!loading && (
+                      <p className="text-[9px] text-white/40">
+                        {myCard
+                          ? `$${myPendingAmount.toFixed(2)} a receber`
+                          : (pendingBalance > 0 ? `$${pendingBalance.toFixed(2)} USD` : "acumulado")
+                        }
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div>
@@ -3196,69 +3219,6 @@ function AdminDashboard() {
               </div>
             </div>
           </div>
-
-          {/* ═══════════════ MY PERSONAL CARD ═══════════════ */}
-          {myCollabId && myCard && (
-            <div
-              className="bg-white rounded-2xl border border-[#F0F0F0] px-5 py-4 flex flex-wrap items-center gap-x-6 gap-y-3"
-              style={{ boxShadow: "0 1px 6px rgba(0,0,0,.05)" }}
-            >
-              {/* Avatar + Name */}
-              <div className="flex items-center gap-3 min-w-0">
-                {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt={profile.nome ?? ""} className="h-10 w-10 rounded-full object-cover ring-2 ring-[#F44708]/20 shrink-0" />
-                ) : (
-                  <div className="h-10 w-10 rounded-full bg-[#FFF0E8] flex items-center justify-center shrink-0 text-[#F44708] font-bold text-base">
-                    {(profile?.nome ?? "?").slice(0, 1).toUpperCase()}
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <p className="text-[#999] text-[10px] font-semibold uppercase tracking-wider leading-none mb-0.5">Bem-vindo</p>
-                  <p className="text-[#111] font-bold text-sm truncate">{(myCard.nome ?? profile?.nome ?? "—").split(" ")[0]}</p>
-                </div>
-              </div>
-
-              <div className="w-px h-8 bg-[#F0F0F0] shrink-0 hidden sm:block" />
-
-              {/* Ganhos */}
-              <div className="flex flex-col min-w-0">
-                <p className="text-[#999] text-[10px] font-semibold uppercase tracking-wider leading-none mb-0.5">Ganhos no período</p>
-                <p className="text-[#F44708] font-bold text-[15px] tabular-nums leading-tight">
-                  {usdBrl ? formatBRL(myCard.receita * usdBrl) : `$${myCard.receita.toFixed(2)}`}
-                </p>
-                <p className="text-[#BBB] text-[11px] tabular-nums">${myCard.receita.toFixed(2)}</p>
-              </div>
-
-              <div className="w-px h-8 bg-[#F0F0F0] shrink-0 hidden sm:block" />
-
-              {/* Posts */}
-              <div className="flex flex-col min-w-0">
-                <p className="text-[#999] text-[10px] font-semibold uppercase tracking-wider leading-none mb-0.5">Posts</p>
-                <p className="text-[#111] font-bold text-[15px] tabular-nums leading-tight">{myCard.posts}</p>
-                <p className="text-[#BBB] text-[11px]">no período</p>
-              </div>
-
-              <div className="w-px h-8 bg-[#F0F0F0] shrink-0 hidden sm:block" />
-
-              {/* Views */}
-              <div className="flex flex-col min-w-0">
-                <p className="text-[#999] text-[10px] font-semibold uppercase tracking-wider leading-none mb-0.5">Views</p>
-                <p className="text-[#111] font-bold text-[15px] tabular-nums leading-tight">{fmt(Math.round(myCard.views))}</p>
-                <p className="text-[#BBB] text-[11px]">no período</p>
-              </div>
-
-              <div className="w-px h-8 bg-[#F0F0F0] shrink-0 hidden sm:block" />
-
-              {/* Saldo Pendente */}
-              <div className="flex flex-col min-w-0">
-                <p className="text-[#999] text-[10px] font-semibold uppercase tracking-wider leading-none mb-0.5">Saldo Pendente</p>
-                <p className={`font-bold text-[15px] tabular-nums leading-tight ${myPendingAmount > 0 ? "text-amber-500" : "text-[#111]"}`}>
-                  {usdBrl ? formatBRL(myPendingAmount * usdBrl) : `$${myPendingAmount.toFixed(2)}`}
-                </p>
-                <p className="text-[#BBB] text-[11px] tabular-nums">${myPendingAmount.toFixed(2)} a receber</p>
-              </div>
-            </div>
-          )}
 
           {/* ═══════════════ FILTER BAR ═══════════════ */}
           {/* Helper to render page options */}
