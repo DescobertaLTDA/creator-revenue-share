@@ -437,6 +437,206 @@ function DashSpeedometer({ score }: { score: number }) {
   );
 }
 
+// ─── Posts Carousel ───────────────────────────────────────────────────────────
+
+interface CarouselPost {
+  id: string;
+  title: string | null;
+  pageName: string;
+  views: number;
+  revenue: number;
+  thumbnail_url: string | null;
+  published_at: string | null;
+}
+
+function PostsCarousel({
+  posts,
+  filterPage,
+  usdBrl,
+}: {
+  posts: CarouselPost[];
+  filterPage: string;
+  usdBrl: number | null;
+}) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragScrollLeft = useRef(0);
+  const hasDragged = useRef(false);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  const CARD_W = 160; // px — cards visible depend on container width
+  const GAP = 12;
+
+  const syncArrows = useCallback(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    syncArrows();
+    el.addEventListener("scroll", syncArrows, { passive: true });
+    return () => el.removeEventListener("scroll", syncArrows);
+  }, [posts, syncArrows]);
+
+  const scrollBy = (dir: 1 | -1) => {
+    trackRef.current?.scrollBy({ left: dir * (CARD_W + GAP) * 3, behavior: "smooth" });
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    isDragging.current = true;
+    hasDragged.current = false;
+    dragStartX.current = e.clientX;
+    dragScrollLeft.current = trackRef.current?.scrollLeft ?? 0;
+    trackRef.current?.setPointerCapture(e.pointerId);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    const dx = e.clientX - dragStartX.current;
+    if (Math.abs(dx) > 4) hasDragged.current = true;
+    if (trackRef.current) trackRef.current.scrollLeft = dragScrollLeft.current - dx;
+  };
+
+  const onPointerUp = () => { isDragging.current = false; };
+
+  const dateLabel = (published_at: string | null) => {
+    if (!published_at) return "—";
+    const [, m, d] = published_at.slice(0, 10).split("-");
+    return `${d}/${m}`;
+  };
+
+  const rankBg = (idx: number) =>
+    idx === 0 ? "#F44708"
+    : idx <= 2 ? "#FAA613"
+    : idx <= 4 ? "#94a3b8"
+    : "#CBD5E1";
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3 px-0.5">
+        <div>
+          <h2 className="text-sm font-bold text-[#111] flex items-center gap-2">
+            <Trophy className="h-3.5 w-3.5 text-[#F44708]" />
+            Posts do Período
+          </h2>
+          <p className="text-[11px] text-[#999] mt-0.5 ml-5">
+            {filterPage !== "all"
+              ? `${posts.length} posts · arraste para navegar`
+              : `${posts.length} posts de todas as páginas · arraste para navegar`}
+          </p>
+        </div>
+        {/* Arrow buttons */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => scrollBy(-1)}
+            disabled={!canScrollLeft}
+            className="h-7 w-7 rounded-full border border-[#E8E8E8] bg-white flex items-center justify-center transition-all hover:border-[#F44708] hover:text-[#F44708] disabled:opacity-30 disabled:cursor-default"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => scrollBy(1)}
+            disabled={!canScrollRight}
+            className="h-7 w-7 rounded-full border border-[#E8E8E8] bg-white flex items-center justify-center transition-all hover:border-[#F44708] hover:text-[#F44708] disabled:opacity-30 disabled:cursor-default"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Carousel track */}
+      <div
+        ref={trackRef}
+        className="flex gap-3 overflow-x-auto pb-1 select-none"
+        style={{
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+          cursor: isDragging.current ? "grabbing" : "grab",
+          WebkitOverflowScrolling: "touch",
+          scrollSnapType: "x mandatory",
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+      >
+        {posts.map((post, idx) => (
+          <div
+            key={post.id}
+            className="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden flex flex-col shrink-0"
+            style={{
+              width: CARD_W,
+              boxShadow: "0 1px 4px rgba(0,0,0,.05)",
+              scrollSnapAlign: "start",
+            }}
+          >
+            {/* Thumbnail */}
+            <div className="relative w-full overflow-hidden" style={{ paddingTop: "133%" }}>
+              {post.thumbnail_url ? (
+                <img
+                  src={`${post.thumbnail_url}?t=${Math.floor(Date.now() / 60000)}`}
+                  alt={post.title ?? "Post"}
+                  draggable={false}
+                  className="absolute inset-0 w-full h-full object-contain"
+                  style={{ background: "#111" }}
+                />
+              ) : (
+                <div
+                  className="absolute inset-0 flex flex-col items-center justify-center gap-2"
+                  style={{ background: "linear-gradient(135deg,#FAF7F5 0%,#F2EDE8 100%)" }}
+                >
+                  <FileText className="h-6 w-6 text-[#DDD4CB]" />
+                  <span className="text-[8px] font-medium text-[#C5B9B0] tracking-wide uppercase">Sem imagem</span>
+                </div>
+              )}
+              {/* Rank badge */}
+              <div
+                className="absolute top-2 left-2 h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-black text-white shadow"
+                style={{ background: rankBg(idx) }}
+              >
+                {idx + 1}
+              </div>
+              {/* Views pill */}
+              <div className="absolute bottom-2 right-1.5 flex items-center gap-1 bg-black/55 backdrop-blur-sm rounded-full px-1.5 py-0.5">
+                <Eye className="h-2 w-2 text-white/80" />
+                <span className="text-[9px] font-bold text-white tabular-nums">{fmt(post.views)}</span>
+              </div>
+            </div>
+
+            {/* Info */}
+            <div className="p-2.5 flex flex-col gap-1 flex-1">
+              <p className="text-[10px] font-semibold text-[#111] line-clamp-2 leading-snug">
+                {post.title ?? `Post de ${dateLabel(post.published_at)}`}
+              </p>
+              {filterPage === "all" && (
+                <p className="text-[9px] text-[#AAA] truncate leading-none">{post.pageName}</p>
+              )}
+              <div className="mt-auto pt-1 flex items-center justify-between">
+                <span className="text-[9px] text-[#C0B8B0] tabular-nums">{dateLabel(post.published_at)}</span>
+                {post.revenue > 0 && usdBrl && (
+                  <span className="text-[9px] font-bold text-[#10b981] tabular-nums">
+                    {formatBRL(post.revenue * usdBrl)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+        {/* Trailing spacer */}
+        <div className="shrink-0 w-1" />
+      </div>
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 function AdminDashboard() {
@@ -1133,10 +1333,9 @@ function AdminDashboard() {
       }
     }
 
-    // Top 5 posts by views in the filtered period
+    // All posts by views (carousel — no slice limit)
     const top5Posts = [...filtered]
       .sort((a, b) => Number(b.views ?? 0) - Number(a.views ?? 0))
-      .slice(0, 5)
       .map((p) => ({
         id: p.id,
         title: p.title,
@@ -2133,96 +2332,13 @@ function AdminDashboard() {
             ))}
           </div>
 
-          {/* ═══════════════ TOP 5 POSTS ═══════════════ */}
+          {/* ═══════════════ POSTS CAROUSEL ═══════════════ */}
           {!loading && top5Posts.length > 0 && (
-            <div>
-              {/* Header */}
-              <div className="flex items-center justify-between mb-3 px-0.5">
-                <div>
-                  <h2 className="text-sm font-bold text-[#111] flex items-center gap-2">
-                    <Trophy className="h-3.5 w-3.5 text-[#F44708]" />
-                    Top 5 Posts
-                  </h2>
-                  <p className="text-[11px] text-[#999] mt-0.5 ml-5">
-                    {filterPage !== "all"
-                      ? "Melhores posts da página selecionada no período"
-                      : "Melhores posts de todas as páginas no período"}
-                  </p>
-                </div>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#BBB]">por views</span>
-              </div>
-
-              {/* Cards row */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                {top5Posts.map((post, idx) => {
-                  const rankMeta = [
-                    { color: "#F44708", bg: "bg-[#F44708]", label: "bg-[#FFF1ED] text-[#F44708]" },
-                    { color: "#FAA613", bg: "bg-[#FAA613]", label: "bg-[#FFF8ED] text-[#E0900A]" },
-                    { color: "#FAA613", bg: "bg-[#FAA613]", label: "bg-[#FFF8ED] text-[#E0900A]" },
-                    { color: "#94a3b8", bg: "bg-[#94a3b8]", label: "bg-[#F1F5F9] text-[#64748b]" },
-                    { color: "#94a3b8", bg: "bg-[#94a3b8]", label: "bg-[#F1F5F9] text-[#64748b]" },
-                  ];
-                  const rank = rankMeta[idx] ?? rankMeta[4];
-                  const dateLabel = post.published_at
-                    ? (() => { const [, m, d] = post.published_at!.slice(0,10).split("-"); return `${d}/${m}`; })()
-                    : "—";
-                  return (
-                    <div
-                      key={post.id}
-                      className="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden flex flex-col"
-                      style={{ boxShadow: "0 1px 4px rgba(0,0,0,.05)" }}
-                    >
-                      {/* Thumbnail — altura fixa, imagem contida (sem corte) */}
-                      <div className="relative w-full overflow-hidden" style={{ paddingTop: "133%" }}>
-                        {post.thumbnail_url ? (
-                          <img
-                            src={`${post.thumbnail_url}?t=${Math.floor(Date.now() / 60000)}`}
-                            alt={post.title ?? "Post"}
-                            className="absolute inset-0 w-full h-full object-contain"
-                            style={{ background: "#111" }}
-                          />
-                        ) : (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2"
-                            style={{ background: "linear-gradient(135deg,#FAF7F5 0%,#F2EDE8 100%)" }}>
-                            <FileText className="h-7 w-7 text-[#DDD4CB]" />
-                            <span className="text-[9px] font-medium text-[#C5B9B0] tracking-wide uppercase">Sem imagem</span>
-                          </div>
-                        )}
-                        {/* Rank badge */}
-                        <div
-                          className={`absolute top-2 left-2 h-6 w-6 rounded-full flex items-center justify-center text-[11px] font-black text-white shadow-md ${rank.bg}`}
-                        >
-                          {idx + 1}
-                        </div>
-                        {/* Views pill — overlaid at bottom */}
-                        <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
-                          <Eye className="h-2.5 w-2.5 text-white/80" />
-                          <span className="text-[10px] font-bold text-white tabular-nums">{fmt(post.views)}</span>
-                        </div>
-                      </div>
-
-                      {/* Info */}
-                      <div className="p-3 flex flex-col gap-1.5 flex-1">
-                        <p className="text-[11px] font-semibold text-[#111] line-clamp-2 leading-snug">
-                          {post.title ?? `Post de ${dateLabel}`}
-                        </p>
-                        {filterPage === "all" && (
-                          <p className="text-[10px] text-[#AAA] truncate leading-none">{post.pageName}</p>
-                        )}
-                        <div className="mt-auto pt-1 flex items-center justify-between">
-                          <span className="text-[9px] font-semibold text-[#C0B8B0] tabular-nums uppercase tracking-wide">{dateLabel}</span>
-                          {post.revenue > 0 && usdBrl && (
-                            <span className="text-[10px] font-bold text-[#10b981] tabular-nums">
-                              {formatBRL(post.revenue * usdBrl)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <PostsCarousel
+              posts={top5Posts}
+              filterPage={filterPage}
+              usdBrl={usdBrl}
+            />
           )}
 
           {/* ═══════════════ PLATFORM TABLE + INSIGHTS ═══════════════ */}
