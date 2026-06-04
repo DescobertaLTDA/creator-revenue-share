@@ -3217,46 +3217,124 @@ function AdminDashboard() {
             </div>
           </div>
 
-          {/* ═══════════════ CHART ═══════════════ */}
-          {loading ? (
-            <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6 space-y-4" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
-              <div className="space-y-2"><Sk w="w-32 sm:w-40" h="h-4 sm:h-5" /><Sk w="w-40 sm:w-56" h="h-3" /></div>
-              <Sk w="w-full" h="h-[260px] sm:h-[320px]" className="rounded-xl" />
-            </div>
-          ) : (
-            <div className="bg-white border border-[#F1F1F1] rounded-2xl p-4 sm:p-6" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
-              <div className="mb-4 sm:mb-5">
-                <h2 className="text-sm sm:text-base font-bold text-[#1A0A00]">Receita + Projeção</h2>
-                <p className="text-xs text-[#9B9B9B] mt-0.5 hidden sm:block">
-                  Histórico de receita · 3 cenários de projeção
-                </p>
+          {/* ═══════════════ RECEITA + PROJEÇÃO ═══════════════ */}
+          {(() => {
+            // End-of-month values from last data point
+            const lastRow = projectionChartData[projectionChartData.length - 1];
+            const eomOptimistic   = lastRow?.optimistic   ?? 0;
+            const eomProj         = lastRow?.proj         ?? 0;
+            const eomConservative = lastRow?.conservative ?? 0;
+
+            // User's fraction of company revenue (from filter period)
+            const userFraction = myCard && totalMonth > 0 ? myReceita / totalMonth : 0;
+            const userOptimistic   = eomOptimistic   * userFraction;
+            const userProj         = eomProj         * userFraction;
+            const userConservative = eomConservative * userFraction;
+
+            const fmtUsd = (v: number) => `$${v.toFixed(2)}`;
+            const fmtBrl = (v: number) => usdBrl ? formatBRL(v * usdBrl) : null;
+
+            const scenarios = [
+              { key: "optimistic",   label: "Otimista",    chance: "20% de chance", color: "#10B981", bgColor: "", value: eomOptimistic,   userValue: userOptimistic },
+              { key: "proj",         label: "Provável",    chance: "60% de chance", color: "#F44708", bgColor: "#FFF8F5", value: eomProj,   userValue: userProj,      highlight: true },
+              { key: "conservative", label: "Conservador", chance: "20% de chance", color: "#94A3B8", bgColor: "", value: eomConservative, userValue: userConservative },
+            ];
+
+            return (
+              <div className="bg-white border border-[#F1F1F1] rounded-2xl overflow-hidden" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+                <div className="flex flex-col lg:flex-row">
+                  {/* Left: chart */}
+                  <div className="flex-1 min-w-0 p-4 sm:p-6">
+                    <div className="mb-3">
+                      <h2 className="text-sm sm:text-base font-bold text-[#1A0A00]">Evolução da receita</h2>
+                      <p className="text-xs text-[#9B9B9B] mt-0.5">Acumulado no mês</p>
+                    </div>
+                    {/* Legend row */}
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3">
+                      {[
+                        { label: "Realizado",      color: "#F44708", dashed: false },
+                        { label: "Projeção (provável)", color: "#F44708", dashed: true },
+                        { label: "Cenário otimista",    color: "#10B981", dashed: true },
+                        { label: "Cenário conservador", color: "#94A3B8", dashed: true },
+                      ].map(({ label, color, dashed }) => (
+                        <span key={label} className="flex items-center gap-1.5 text-[10px] text-[#6B6B6B]">
+                          {dashed
+                            ? <span className="inline-block w-5 border-t-2 border-dashed" style={{ borderColor: color }} />
+                            : <span className="inline-block w-5 h-0.5 rounded-full" style={{ backgroundColor: color }} />
+                          }
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="h-[220px] sm:h-[260px]">
+                      {loading
+                        ? <Sk w="w-full" h="h-full" className="rounded-xl" />
+                        : (
+                          <Suspense fallback={<div className="w-full h-full bg-[#FFF8F5] rounded-xl animate-pulse" />}>
+                            <ProjectionChart projectionChartData={projectionChartData} usdBrl={usdBrl} />
+                          </Suspense>
+                        )
+                      }
+                    </div>
+                  </div>
+
+                  {/* Right: scenarios panel */}
+                  <div className="lg:w-64 xl:w-72 border-t lg:border-t-0 lg:border-l border-[#F1F1F1] p-4 sm:p-5 flex flex-col gap-1">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#999] mb-2">Cenários de Receita</p>
+
+                    {scenarios.map(({ key, label, chance, color, bgColor, value, userValue, highlight }) => (
+                      <div
+                        key={key}
+                        className={`rounded-xl p-3.5 ${highlight ? "border border-[#F44708]/20" : ""}`}
+                        style={bgColor ? { backgroundColor: bgColor } : {}}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-bold" style={{ color }}>{label}</span>
+                          <span className="text-[10px] text-[#999] bg-[#F5F5F5] rounded-full px-1.5 py-0.5">{chance}</span>
+                        </div>
+                        {loading ? (
+                          <Sk w="w-24" h="h-6" />
+                        ) : (
+                          <>
+                            <p className="text-xl font-black tabular-nums" style={{ color }}>{fmtUsd(value)}</p>
+                            {usdBrl && <p className="text-[11px] text-[#999] tabular-nums">{fmtBrl(value)}</p>}
+                          </>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* User personal projection (only if logged-in user has a colab card) */}
+                    {myCard && !loading && (
+                      <div className="mt-2 pt-3 border-t border-[#F1F1F1]">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#999] mb-2">Seus Ganhos</p>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-[#F44708]" />
+                          <span className="text-[11px] text-[#666]">Atual (mês)</span>
+                          <span className="ml-auto text-[11px] font-bold tabular-nums text-[#111]">
+                            {usdBrl ? formatBRL(myMonthReceita * usdBrl) : fmtUsd(myMonthReceita)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <div className="w-1.5 h-1.5 rounded-full border-2 border-dashed border-[#F44708]" />
+                          <span className="text-[11px] text-[#666]">Projeção provável</span>
+                          <span className="ml-auto text-[11px] font-bold tabular-nums text-[#F44708]">
+                            {usdBrl ? formatBRL(userProj * usdBrl) : fmtUsd(userProj)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-1.5 h-1.5 rounded-full border-2 border-dashed border-[#10B981]" />
+                          <span className="text-[11px] text-[#666]">Projeção otimista</span>
+                          <span className="ml-auto text-[11px] font-bold tabular-nums text-[#10B981]">
+                            {usdBrl ? formatBRL(userOptimistic * usdBrl) : fmtUsd(userOptimistic)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-              {/* Fixed height so chart always renders */}
-              <div className="h-[260px] sm:h-[320px]">
-                <Suspense fallback={<div className="w-full h-full bg-[#FFF8F5] rounded-xl animate-pulse" />}>
-                  <ProjectionChart
-                    projectionChartData={projectionChartData}
-                    usdBrl={usdBrl}
-                  />
-                </Suspense>
-              </div>
-              {/* Scenario legend */}
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-[#F1F1F1]">
-                <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
-                  <span className="h-0.5 w-5 bg-[#F44708] rounded-full inline-block" />Real
-                </span>
-                <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
-                  <span className="h-0.5 w-5 border-t-2 border-dashed border-emerald-500 inline-block" />Otimista
-                </span>
-                <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
-                  <span className="h-0.5 w-5 border-t-2 border-dashed border-[#F44708] inline-block" />Provável
-                </span>
-                <span className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B]">
-                  <span className="h-0.5 w-5 border-t-2 border-dashed border-slate-400 inline-block" />Conservador
-                </span>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ═══════════════ POSTS CAROUSEL ═══════════════ */}
           {!loading && top5Posts.length > 0 && (
