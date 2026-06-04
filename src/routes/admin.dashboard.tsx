@@ -2403,6 +2403,8 @@ function AdminDashboard() {
   // Current user's personal collaborator card (if they are linked to a collaborator)
   const myCard = myCollabId ? activeCollabCards.find(c => c.id === myCollabId) ?? null : null;
   const myReceita = myCard?.receita ?? 0;
+  // Ranking card always reflects the current calendar month (same as ranking + distribution table)
+  const myRankingCard = myCollabId ? rankingCollabCards.find(c => c.id === myCollabId) ?? null : null;
 
   const { totalMonth: correctedTotalMonth, totalMonthCsv, totalViews: csvTotalViews, avgRpm: csvAvgRpm, avgScore } = kpis;
 
@@ -2420,9 +2422,8 @@ function AdminDashboard() {
     : (showManual ? correctedTotalMonth : totalMonthCsv);
   const effectiveTotalMonthCsv = selectedColabOff?.receita ?? totalMonthCsv;
 
-  // "Seus Ganhos" — use the collaborator card's revenue directly so it always
-  // matches the ranking value (same algorithm: CSV + residual by prev-month views).
-  const myMonthReceita = myCard?.receita ?? 0;
+  // "Seus Ganhos" — use the ranking card so it always matches the ranking + distribution table.
+  const myMonthReceita = myRankingCard?.receita ?? 0;
 
   const totalViews = selectedColabOn
     ? (showManual ? selectedColabOn.views : (selectedColabOff?.views ?? 0))
