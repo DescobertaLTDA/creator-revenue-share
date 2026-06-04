@@ -2068,6 +2068,24 @@ function AdminDashboard() {
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([, v]) => ({ ...v, receita: parseFloat(v.receita.toFixed(4)) }));
 
+    // Previous month revenue by day (for chart reference dashed line)
+    const prevByDay: Record<string, { dia: string; receita: number }> = {};
+    for (const p of allPosts) {
+      if (!p.published_at) continue;
+      if (filterPage !== "all" && p.page_id !== filterPage) continue;
+      const day = p.published_at.slice(0, 10);
+      if (day < prevFrom || day > prevTo) continue;
+      const val = getPostUsd(p);
+      if (!prevByDay[day]) {
+        const [, m, d] = day.split("-");
+        prevByDay[day] = { dia: `${d}/${m}`, receita: 0 };
+      }
+      prevByDay[day].receita += val;
+    }
+    const prevChartData = Object.entries(prevByDay)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([, v]) => ({ ...v, receita: parseFloat(v.receita.toFixed(4)) }));
+
     const chartDataCsv = Object.entries(byDayCsv)
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([, v]) => ({ ...v, receita: parseFloat(v.receita.toFixed(4)) }));
@@ -2154,6 +2172,7 @@ function AdminDashboard() {
         avgScore,
       },
       chartData,
+      prevChartData,
       chartDataCsv,
       activeMonthRef: latestMonth,
       collabCards: Array.from(merged.values()).sort((a, b) => b.receita - a.receita || (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR")),
@@ -2174,7 +2193,7 @@ function AdminDashboard() {
   }, [allPosts, postAuthors, splitRules, colabs, manualBonuses, dailyEntries, filterPage, filterColab, filterFrom, filterTo, pages]);
 
   const {
-    kpis, chartData, chartDataCsv, activeMonthRef, collabCards, collabCardsCsv,
+    kpis, chartData, prevChartData, chartDataCsv, activeMonthRef, collabCards, collabCardsCsv,
     rulesByPage, postToCollabs, pageStats, projections, sparklineByPage, sparklineByColab,
     top5Posts,
   } = computed;
@@ -3163,7 +3182,7 @@ function AdminDashboard() {
             <div className="px-5 pt-3 pb-2">
               {loading
                 ? <Sk w="w-full" h="h-[160px]" />
-                : <KpiAreaChart data={chartData} />
+                : <KpiAreaChart current={chartData} previous={prevChartData} />
               }
             </div>
           </div>
@@ -3760,17 +3779,36 @@ function HeroSparkline({ data }: { data: number[] }) {
   );
 }
 
-// ─── KpiAreaChart (views over the filtered period, YouTube-Studio style) ─────
+// ─── KpiAreaChart (revenue over filtered period, interactive, YouTube-Studio style) ──
 
-function KpiAreaChart({ data }: { data: DayData[] }) {
-  if (data.length < 2) return null;
-  const W = 1000; const H = 160; const PB = 20; // PB = bottom padding for labels
+function KpiAreaChart({
+  current,
+  previous,
+}: {
+  current: DayData[];
+  previous: { dia: string; receita: number }[];
+}) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  if (current.length < 2) return null;
+
+  const W = 1000;
+  const H = 160;
+  const PB = 20; // bottom padding for date labels
   const iH = H - PB;
-  const maxV = Math.max(...data.map((d) => d.views), 1);
 
-  const pts = data.map((_, i) => ({
-    x: (i / (data.length - 1)) * W,
-    y: iH - (data[i].views / maxV) * (iH - 8),
+  // Scale based on combined max so both lines share the same Y axis
+  const maxCur = Math.max(...current.map((d) => d.receita), 0.0001);
+  const maxPrev = previous.length > 0 ? Math.max(...previous.map((d) => d.receita), 0.0001) : 0;
+  const maxV = Math.max(maxCur, maxPrev, 0.0001);
+
+  const toY = (v: number) => iH - (v / maxV) * (iH - 8);
+
+  // Current period points
+  const pts = current.map((d, i) => ({
+    x: (i / (current.length - 1)) * W,
+    y: toY(d.receita),
   }));
 
   const polyPts = pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
@@ -3779,8 +3817,18 @@ function KpiAreaChart({ data }: { data: DayData[] }) {
     pts.map((p) => `L${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ") +
     ` L${W},${iH} Z`;
 
+  // Previous month dashed line points
+  let prevPolyPts = "";
+  if (previous.length >= 2) {
+    const prevPts = previous.map((d, i) => ({
+      x: (i / (previous.length - 1)) * W,
+      y: toY(d.receita),
+    }));
+    prevPolyPts = prevPts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  }
+
   // ~4 evenly-spaced date labels
-  const n = data.length - 1;
+  const n = current.length - 1;
   const labelIdxs = [0, Math.round(n / 3), Math.round((2 * n) / 3), n].filter(
     (v, i, a) => a.indexOf(v) === i
   );
@@ -3788,37 +3836,165 @@ function KpiAreaChart({ data }: { data: DayData[] }) {
   // 3 horizontal grid lines
   const gridYs = [0.25, 0.5, 0.75].map((f) => ((iH - 8) * (1 - f) + 4).toFixed(1));
 
+  // Mouse move — compute hover index from cursor X
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const relX = (e.clientX - rect.left) / rect.width;
+    const idx = Math.min(Math.max(0, Math.round(relX * n)), n);
+    setHoverIdx(idx);
+  };
+
+  const hx = hoverIdx !== null ? pts[hoverIdx] : null;
+
+  // Previous-month value at same relative position
+  const prevAtHover =
+    hoverIdx !== null && previous.length > 0
+      ? (() => {
+          const relIdx = Math.round((hoverIdx / n) * (previous.length - 1));
+          return previous[Math.min(relIdx, previous.length - 1)];
+        })()
+      : null;
+
+  const fmtUsd = (v: number) =>
+    v >= 1000 ? `$${(v / 1000).toFixed(2)}k` : `$${v.toFixed(2)}`;
+
+  // Tooltip left% (clamped so it doesn't overflow)
+  const tooltipLeft = hoverIdx !== null ? `${(pts[hoverIdx].x / W) * 100}%` : "0%";
+  const tooltipTranslate =
+    hoverIdx !== null && hoverIdx > n * 0.7
+      ? "translateX(-100%)"
+      : hoverIdx !== null && hoverIdx < n * 0.3
+      ? "translateX(0%)"
+      : "translateX(-50%)";
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 160 }} preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="kpiAreaGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#F44708" stopOpacity="0.15" />
-          <stop offset="100%" stopColor="#F44708" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {/* Grid lines */}
-      {gridYs.map((y) => (
-        <line key={y} x1="0" y1={y} x2={W} y2={y} stroke="#EBEBEB" strokeWidth="1" />
-      ))}
-      {/* Area + line */}
-      <path d={areaD} fill="url(#kpiAreaGrad)" />
-      <polyline points={polyPts} fill="none" stroke="#F44708" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      {/* Last-point dot */}
-      <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r={4} fill="#F44708" />
-      {/* X-axis date labels */}
-      {labelIdxs.map((i, li) => (
-        <text
-          key={i}
-          x={pts[i].x}
-          y={H - 4}
-          fontSize="11"
-          fill="#AAA"
-          textAnchor={li === 0 ? "start" : li === labelIdxs.length - 1 ? "end" : "middle"}
+    <div className="relative select-none">
+      {/* Legend */}
+      <div className="flex items-center gap-4 mb-2 px-1">
+        <span className="flex items-center gap-1.5 text-[11px] text-[#606060]">
+          <span className="inline-block w-6 h-[2px] bg-[#F44708] rounded" />
+          Mês atual
+        </span>
+        {previous.length >= 2 && (
+          <span className="flex items-center gap-1.5 text-[11px] text-[#606060]">
+            <span className="inline-block w-6 border-t-2 border-dashed border-[#BDBDBD]" />
+            Mês anterior
+          </span>
+        )}
+      </div>
+
+      {/* Floating tooltip */}
+      {hoverIdx !== null && hx && (
+        <div
+          className="pointer-events-none absolute z-10 bg-white border border-[#E0E0E0] rounded-lg shadow-md px-3 py-2 text-xs"
+          style={{
+            left: tooltipLeft,
+            top: 20,
+            transform: tooltipTranslate,
+            whiteSpace: "nowrap",
+          }}
         >
-          {data[i].dia}
-        </text>
-      ))}
-    </svg>
+          <p className="font-semibold text-[#0f0f0f] mb-0.5">{current[hoverIdx].dia}</p>
+          <p className="text-[#F44708]">
+            Atual: <span className="font-bold">{fmtUsd(current[hoverIdx].receita)}</span>
+          </p>
+          {prevAtHover && (
+            <p className="text-[#888]">
+              Anterior: <span className="font-semibold">{fmtUsd(prevAtHover.receita)}</span>
+            </p>
+          )}
+        </div>
+      )}
+
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full cursor-crosshair"
+        style={{ height: 160 }}
+        preserveAspectRatio="none"
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setHoverIdx(null)}
+      >
+        <defs>
+          <linearGradient id="kpiAreaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#F44708" stopOpacity="0.15" />
+            <stop offset="100%" stopColor="#F44708" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {/* Grid lines */}
+        {gridYs.map((y) => (
+          <line key={y} x1="0" y1={y} x2={W} y2={y} stroke="#EBEBEB" strokeWidth="1" />
+        ))}
+
+        {/* Previous month dashed line */}
+        {prevPolyPts && (
+          <polyline
+            points={prevPolyPts}
+            fill="none"
+            stroke="#BDBDBD"
+            strokeWidth="2"
+            strokeDasharray="8,5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
+
+        {/* Current month area + line */}
+        <path d={areaD} fill="url(#kpiAreaGrad)" />
+        <polyline
+          points={polyPts}
+          fill="none"
+          stroke="#F44708"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* Hover crosshair + dot */}
+        {hx && (
+          <>
+            <line
+              x1={hx.x.toFixed(1)}
+              y1="0"
+              x2={hx.x.toFixed(1)}
+              y2={iH}
+              stroke="#888"
+              strokeWidth="1"
+              strokeDasharray="4,3"
+            />
+            <circle
+              cx={hx.x.toFixed(1)}
+              cy={hx.y.toFixed(1)}
+              r={5}
+              fill="white"
+              stroke="#F44708"
+              strokeWidth="2"
+            />
+          </>
+        )}
+
+        {/* Endpoint dot (only when not hovering) */}
+        {hoverIdx === null && (
+          <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r={4} fill="#F44708" />
+        )}
+
+        {/* X-axis date labels */}
+        {labelIdxs.map((i, li) => (
+          <text
+            key={i}
+            x={pts[i].x}
+            y={H - 4}
+            fontSize="11"
+            fill="#AAA"
+            textAnchor={li === 0 ? "start" : li === labelIdxs.length - 1 ? "end" : "middle"}
+          >
+            {current[i].dia}
+          </text>
+        ))}
+      </svg>
+    </div>
   );
 }
 
