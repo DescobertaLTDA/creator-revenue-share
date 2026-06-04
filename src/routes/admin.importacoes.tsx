@@ -159,7 +159,27 @@ export default function DataPipelinePage() {
     return () => { cancelled = true; };
   }, [thumbPageId, thumbDateFrom, thumbDateTo]);
 
-  // Upload thumbnail for a given post
+  // Helper: find IDs of all posts (across ALL pages in DB) with same title or description
+  const findSameContentIds = async (
+    postId: string,
+    title: string | null,
+    description: string | null
+  ): Promise<string[]> => {
+    const conditions: string[] = [];
+    if (title && title.trim().length > 5) conditions.push(`title.eq.${title}`);
+    if (description && description.trim().length > 10) conditions.push(`description.eq.${description}`);
+    if (conditions.length === 0) return [];
+    // Use a direct query filtering by title or description
+    const orFilter = conditions.join(",");
+    const { data } = await (supabase as any)
+      .from("posts")
+      .select("id")
+      .or(orFilter)
+      .neq("id", postId);
+    return (data ?? []).map((r: { id: string }) => r.id);
+  };
+
+  // Upload thumbnail for a given post (and all posts with same content)
   const handleThumbUpload = async (file: File, postId: string) => {
     if (!profile) return;
     if (!file.type.startsWith("image/")) { toast.error("Apenas imagens são permitidas"); return; }
@@ -174,12 +194,27 @@ export default function DataPipelinePage() {
       if (upErr) throw upErr;
       const { data: urlData } = supabase.storage.from("post-thumbnails").getPublicUrl(path);
       const publicUrl = urlData.publicUrl;
-      const { error: dbErr } = await supabase.from("posts")
-        .update({ thumbnail_url: publicUrl } as any)
-        .eq("id", postId);
+
+      // Find the source post data to get title/description for matching
+      const sourcePost = thumbPosts.find((p) => p.id === postId);
+      const siblingIds = sourcePost
+        ? await findSameContentIds(postId, sourcePost.title, sourcePost.description)
+        : [];
+      const allIds = [postId, ...siblingIds];
+
+      // Batch update all matching posts
+      const { error: dbErr } = await (supabase as any).from("posts")
+        .update({ thumbnail_url: publicUrl })
+        .in("id", allIds);
       if (dbErr) throw dbErr;
-      setThumbPosts((prev) => prev.map((p) => p.id === postId ? { ...p, thumbnail_url: publicUrl } : p));
-      toast.success("Thumbnail salva!");
+
+      // Update local state for all matched posts
+      setThumbPosts((prev) => prev.map((p) => allIds.includes(p.id) ? { ...p, thumbnail_url: publicUrl } : p));
+      toast.success(
+        siblingIds.length > 0
+          ? `Thumbnail aplicada a ${allIds.length} posts com o mesmo conteúdo!`
+          : "Thumbnail salva!"
+      );
     } catch (e: any) {
       toast.error("Erro ao fazer upload", { description: e.message });
     } finally {
@@ -189,13 +224,22 @@ export default function DataPipelinePage() {
 
   const handleThumbRemove = async (postId: string) => {
     setThumbUploading(postId);
-    const { error } = await supabase.from("posts")
-      .update({ thumbnail_url: null } as any)
-      .eq("id", postId);
+    const sourcePost = thumbPosts.find((p) => p.id === postId);
+    const siblingIds = sourcePost
+      ? await findSameContentIds(postId, sourcePost.title, sourcePost.description)
+      : [];
+    const allIds = [postId, ...siblingIds];
+    const { error } = await (supabase as any).from("posts")
+      .update({ thumbnail_url: null })
+      .in("id", allIds);
     setThumbUploading(null);
     if (error) { toast.error("Erro ao remover thumbnail"); return; }
-    setThumbPosts((prev) => prev.map((p) => p.id === postId ? { ...p, thumbnail_url: null } : p));
-    toast.success("Thumbnail removida");
+    setThumbPosts((prev) => prev.map((p) => allIds.includes(p.id) ? { ...p, thumbnail_url: null } : p));
+    toast.success(
+      siblingIds.length > 0
+        ? `Thumbnail removida de ${allIds.length} posts idênticos`
+        : "Thumbnail removida"
+    );
   };
 
   // Will be set below after onUpload is defined

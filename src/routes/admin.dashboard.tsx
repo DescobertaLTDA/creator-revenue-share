@@ -564,6 +564,18 @@ function PostsCarousel({
     setThumbPreviewUrl(URL.createObjectURL(f));
   };
 
+  // Helper: find all posts in the cache that share the same title or description
+  const findSameContentIds = (post: CarouselPost): string[] => {
+    const all = _dashCache?.posts ?? [];
+    const matched = all.filter((p) => {
+      if (p.id === post.id) return false;
+      const titleMatch = post.title && post.title.trim().length > 5 && p.title === post.title;
+      const descMatch = post.description && post.description.trim().length > 10 && p.description === post.description;
+      return titleMatch || descMatch;
+    });
+    return matched.map((p) => p.id);
+  };
+
   const handleUpload = async () => {
     if (!thumbFile || !modalPost || !profile) return;
     setThumbUploading(true);
@@ -576,20 +588,33 @@ function PostsCarousel({
       if (upErr) throw upErr;
       const { data: urlData } = supabase.storage.from("post-thumbnails").getPublicUrl(path);
       const publicUrl = urlData.publicUrl;
+
+      // Find all posts with same title or description
+      const siblingIds = findSameContentIds(modalPost);
+      const allIds = [modalPost.id, ...siblingIds];
+
+      // Batch update all matching posts
       const { error: dbErr } = await (supabase as any).from("posts")
         .update({ thumbnail_url: publicUrl })
-        .eq("id", modalPost.id);
+        .in("id", allIds);
       if (dbErr) throw dbErr;
-      toast.success("Thumbnail salva!");
+
+      toast.success(
+        siblingIds.length > 0
+          ? `Thumbnail aplicada a ${allIds.length} posts com o mesmo conteúdo!`
+          : "Thumbnail salva!"
+      );
+
       const updated = { ...modalPost, thumbnail_url: publicUrl };
       setModalPost(updated);
       setThumbFile(null);
       if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl);
       setThumbPreviewUrl(null);
-      // Patch module-level cache too
+
+      // Patch module-level cache for all matched posts
       if (_dashCache) {
         _dashCache.posts = _dashCache.posts.map((p) =>
-          p.id === updated.id ? { ...p, thumbnail_url: publicUrl } : p
+          allIds.includes(p.id) ? { ...p, thumbnail_url: publicUrl } : p
         );
       }
     } catch (e: any) {
@@ -602,22 +627,34 @@ function PostsCarousel({
   const handleRemove = async () => {
     if (!modalPost) return;
     setThumbUploading(true);
+
+    // Find all posts with same title or description
+    const siblingIds = findSameContentIds(modalPost);
+    const allIds = [modalPost.id, ...siblingIds];
+
     const { error } = await (supabase as any).from("posts")
       .update({ thumbnail_url: null })
-      .eq("id", modalPost.id);
+      .in("id", allIds);
     setThumbUploading(false);
     if (error) { toast.error("Erro ao remover thumbnail"); return; }
+
     const updated = { ...modalPost, thumbnail_url: null };
     setModalPost(updated);
     setThumbFile(null);
     if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl);
     setThumbPreviewUrl(null);
+
     if (_dashCache) {
       _dashCache.posts = _dashCache.posts.map((p) =>
-        p.id === updated.id ? { ...p, thumbnail_url: null } : p
+        allIds.includes(p.id) ? { ...p, thumbnail_url: null } : p
       );
     }
-    toast.success("Thumbnail removida");
+
+    toast.success(
+      siblingIds.length > 0
+        ? `Thumbnail removida de ${allIds.length} posts idênticos`
+        : "Thumbnail removida"
+    );
   };
 
   // What to display in the image panel
