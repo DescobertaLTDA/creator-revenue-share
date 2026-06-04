@@ -257,12 +257,20 @@ function Page() {
       const cid = row.collaborator_id;
       if (!metricsMap[cid]) metricsMap[cid] = { post_count: 0, total_views: 0, total_reactions: 0, total_comments: 0, months: Array(6).fill(0) };
       const m = metricsMap[cid];
-      m.post_count++;
-      const v = row.posts?.views ?? 0;
-      m.total_views += v;
-      m.total_reactions += row.posts?.reactions ?? 0;
-      m.total_comments += row.posts?.comments ?? 0;
       const pub = row.posts?.published_at;
+      const pubDate = pub?.slice(0, 10);
+
+      // Only accumulate metrics for posts within the selected date range
+      if (pubDate && pubDate >= filterFrom && pubDate <= filterTo) {
+        m.post_count++;
+        const v = row.posts?.views ?? 0;
+        m.total_views += v;
+        m.total_reactions += row.posts?.reactions ?? 0;
+        m.total_comments += row.posts?.comments ?? 0;
+      }
+
+      // Sparkline: always show last 6 rolling months regardless of filter
+      const v = row.posts?.views ?? 0;
       if (pub && v > 0) {
         const d = new Date(pub);
         const mAgo = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
