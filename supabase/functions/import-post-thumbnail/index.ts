@@ -17,7 +17,7 @@ function unescapeUrl(s: string): string {
   return s
     .replace(/\\u0026/g, "&")
     .replace(/\\u003F/g, "?")
-    .replace(/\\\//g, "/")
+    .split("\\/").join("/")
     .replace(/&amp;/g, "&");
 }
 
@@ -196,7 +196,7 @@ Deno.serve(async (req) => {
     // ── 4. Fetch post metadata ───────────────────────────────────────────────
     const { data: postData } = await supabaseAdmin
       .from("posts")
-      .select("id, title, description, platform, link")
+      .select("id, title, description, source, permalink")
       .eq("id", postId)
       .single();
 
@@ -211,9 +211,9 @@ Deno.serve(async (req) => {
       // ── 5a. Try Google Images first (automatic, best quality) ──────────────
       if (postData) {
         // Build search query from post content
-        const platform = postData.platform ?? "";
-        // Instagram posts use description; Facebook posts use title
-        const searchText = (platform === "instagram"
+        const source = postData.source ?? "";
+        // Instagram posts store text in description; Facebook in title
+        const searchText = (source === "instagram"
           ? postData.description?.trim() || postData.title?.trim()
           : postData.title?.trim() || postData.description?.trim()
         ) ?? "";
@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
       }
 
       // ── 5b. Scrape og:image from post URL (user-provided or stored in DB) ───
-      const scrapeUrl = url || postData?.link;
+      const scrapeUrl = url || postData?.permalink;
       if (!imageUrl && scrapeUrl) {
         const pageRes = await fetch(scrapeUrl, {
           headers: {
@@ -253,7 +253,7 @@ Deno.serve(async (req) => {
     const imgRes = await fetch(imageUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
-        "Referer": url ?? postData?.link ?? "https://www.google.com",
+        "Referer": url ?? postData?.permalink ?? "https://www.google.com",
       },
     });
     if (!imgRes.ok) {
