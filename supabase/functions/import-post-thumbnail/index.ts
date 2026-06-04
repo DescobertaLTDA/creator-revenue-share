@@ -146,15 +146,14 @@ async function searchGoogleImages(query: string): Promise<string | null> {
     if (items.length === 0) return null;
 
     // Prefer larger images (portrait or square, at least 500px wide)
-    const sorted = items
-      .filter((item) => item.link && /\.(jpg|jpeg|png|webp)(\?|$)/i.test(item.link))
-      .sort((a, b) => {
-        const aArea = (a.image?.width ?? 0) * (a.image?.height ?? 0);
-        const bArea = (b.image?.width ?? 0) * (b.image?.height ?? 0);
-        return bArea - aArea;
-      });
+    // Sort by image area (largest first); accept any image URL Google returns
+    const sorted = [...items].sort((a, b) => {
+      const aArea = (a.image?.width ?? 0) * (a.image?.height ?? 0);
+      const bArea = (b.image?.width ?? 0) * (b.image?.height ?? 0);
+      return bArea - aArea;
+    });
 
-    return sorted[0]?.link ?? items[0]?.link ?? null;
+    return sorted[0]?.link ?? null;
   } catch {
     return null;
   }
@@ -213,17 +212,17 @@ Deno.serve(async (req) => {
       if (postData) {
         // Build search query from post content
         const platform = postData.platform ?? "";
-        const searchText = postData.title?.trim() || postData.description?.trim() || "";
-        if (searchText.length > 5) {
-          const siteHint = platform === "instagram" ? "instagram.com" : "facebook.com";
-          const googleUrl = await searchGoogleImages(`${searchText} site:${siteHint}`);
-          if (googleUrl) imageUrl = googleUrl;
+        // Instagram posts use description; Facebook posts use title
+        const searchText = (platform === "instagram"
+          ? postData.description?.trim() || postData.title?.trim()
+          : postData.title?.trim() || postData.description?.trim()
+        ) ?? "";
 
-          // If nothing found on specific platform, try both
-          if (!imageUrl) {
-            const fallbackUrl = await searchGoogleImages(searchText);
-            if (fallbackUrl) imageUrl = fallbackUrl;
-          }
+        if (searchText.length > 5) {
+          // Use first 120 chars to avoid overly specific queries
+          const query = searchText.slice(0, 120);
+          const googleUrl = await searchGoogleImages(query);
+          if (googleUrl) imageUrl = googleUrl;
         }
       }
 
