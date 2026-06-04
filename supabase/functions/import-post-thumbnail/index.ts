@@ -226,8 +226,37 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ── 5b. Scrape og:image from post URL (user-provided or stored in DB) ───
-      const scrapeUrl = url || postData?.permalink;
+      // ── 5b. Scrape og:image — prefer Facebook permalink (better image quality) ─
+      // Instagram's og:image is always a square crop; the same post on Facebook
+      // returns the full-resolution image. So for Instagram posts we look for a
+      // matching Facebook post in the DB and scrape that URL instead.
+      let scrapeUrl: string | undefined = url || postData?.permalink;
+
+      if (!imageUrl && !url && postData?.source === "instagram" && postData) {
+        const keys: string[] = [];
+        if (postData.title && postData.title.trim().length > 5) keys.push(postData.title.trim());
+        if (postData.description && postData.description.trim().length > 10) keys.push(postData.description.trim());
+
+        outer:
+        for (const key of keys) {
+          for (const col of ["title", "description"] as const) {
+            const { data: fbPost } = await supabaseAdmin
+              .from("posts")
+              .select("permalink")
+              .eq("source", "facebook")
+              .eq(col, key)
+              .not("permalink", "is", null)
+              .limit(1)
+              .maybeSingle();
+
+            if (fbPost?.permalink) {
+              scrapeUrl = fbPost.permalink;
+              break outer;
+            }
+          }
+        }
+      }
+
       if (!imageUrl && scrapeUrl) {
         const pageRes = await fetch(scrapeUrl, {
           headers: {
