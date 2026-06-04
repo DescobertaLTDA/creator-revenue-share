@@ -720,7 +720,12 @@ function PostsCarousel({
   }, [thumbPreviewUrl]);
 
   const openModal = (post: CarouselPost) => {
-    setModalPost(post);
+    // Apply any pending thumbnail override so the modal reflects the current state
+    // (the `posts` prop array is stale — it comes from the parent and only refreshes on reload)
+    const effective: CarouselPost = post.id in thumbnailOverrides
+      ? { ...post, thumbnail_url: thumbnailOverrides[post.id] }
+      : post;
+    setModalPost(effective);
     setThumbFile(null);
     setThumbPreviewUrl(null);
     setUrlInput("");
