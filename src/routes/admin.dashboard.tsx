@@ -3129,29 +3129,35 @@ function AdminDashboard() {
             );
           })()}
 
-          {/* ═══════════════ 4 KPI CARDS ═══════════════ */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {loading ? [1,2,3,4].map(i => (
-              <div key={i} className="bg-white rounded-2xl p-5 border border-[#F0F0F0] space-y-3" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                <Sk w="w-20" h="h-2.5" /><Sk w="w-28" h="h-7" /><Sk w="w-24" h="h-2.5" />
-              </div>
-            )) : ([
-              { label: "Views", value: fmt(totalViews), sub: `${kpis.totalPosts} posts`, icon: Eye },
-              { label: "Alcance", value: fmt(missionCur.reach + missionCurIG.reach), sub: "pessoas alcançadas", icon: Maximize2 },
-              { label: "RPM", value: usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(3)}`, sub: "por mil visualizações", icon: Target },
-              { label: "Monetizados", value: String(missionCur.monetized + missionCurIG.monetized), sub: "posts com receita", icon: CheckCircle2 },
-            ] as { label: string; value: string; sub: string; icon: React.ElementType }[]).map(({ label, value, sub, icon: Icon }) => (
-              <div key={label} className="bg-white rounded-2xl p-4 sm:p-5 border border-[#F0F0F0] transition-shadow hover:shadow-md" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[#666]">{label}</span>
-                  <div className="h-7 w-7 rounded-lg bg-[#FFF3EE] flex items-center justify-center">
-                    <Icon className="h-3.5 w-3.5 text-[#FF6B00]" />
-                  </div>
+          {/* ═══════════════ 4 KPI CARDS (YouTube Studio style) ═══════════════ */}
+          <div className="bg-white border border-[#E0E0E0] rounded-2xl overflow-hidden">
+            <div className="grid grid-cols-2 sm:grid-cols-4">
+              {(loading
+                ? [
+                    { label: "Views",        value: null, sub: null },
+                    { label: "Alcance",      value: null, sub: null },
+                    { label: "RPM",          value: null, sub: null },
+                    { label: "Monetizados",  value: null, sub: null },
+                  ]
+                : [
+                    { label: "Views",        value: fmt(totalViews),                                                              sub: `${kpis.totalPosts} posts` },
+                    { label: "Alcance",      value: fmt(missionCur.reach + missionCurIG.reach),                                   sub: "pessoas alcançadas" },
+                    { label: "RPM",          value: usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(3)}`,                sub: "por mil visualizações" },
+                    { label: "Monetizados",  value: String(missionCur.monetized + missionCurIG.monetized),                        sub: "posts com receita" },
+                  ]
+              ).map(({ label, value, sub }) => (
+                <div key={label} className="px-5 py-4 border-r border-b border-[#EBEBEB]">
+                  <p className="text-sm text-[#606060] mb-2">{label}</p>
+                  {value === null
+                    ? <><Sk w="w-28" h="h-8" /><div className="mt-2"><Sk w="w-20" h="h-3" /></div></>
+                    : <>
+                        <p className="text-[1.65rem] font-bold tabular-nums text-[#0f0f0f] leading-none">{value}</p>
+                        <p className="text-[11px] text-[#888] italic mt-1.5">{sub}</p>
+                      </>
+                  }
                 </div>
-                <p className="text-2xl font-black tabular-nums text-[#111]">{value}</p>
-                <p className="text-[10px] text-[#999] mt-1">{sub}</p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           {/* ═══════════════ POSTS CAROUSEL ═══════════════ */}
