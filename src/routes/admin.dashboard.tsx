@@ -1452,6 +1452,7 @@ function AdminDashboard() {
   const [recentImports, setRecentImports] = useState<RecentImport[]>(() => _dashCache?.imports ?? []);
   const [usdBrl, setUsdBrl] = useState<number | null>(null);
   const [myCollabId, setMyCollabId] = useState<string | null>(null);
+  const [myPendingAmount, setMyPendingAmount] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<"overview" | "charts">("overview");
   const [chartMetric, setChartMetric] = useState<"receita" | "views" | "curtidas" | "comentarios" | "compartilhamentos" | "seguidores">("receita");
 
@@ -1490,6 +1491,20 @@ function AdminDashboard() {
         setMyCollabId(data?.id ?? null);
       });
   }, [profile?.id]);
+
+  // Fetch pending balance for the logged-in collaborator (unpaid closing items)
+  useEffect(() => {
+    if (!myCollabId) return;
+    (supabase as any)
+      .from("monthly_closing_items")
+      .select("final_amount")
+      .eq("collaborator_id", myCollabId)
+      .eq("payment_status", "a_pagar")
+      .then(({ data }: { data: { final_amount: number }[] | null }) => {
+        const total = (data ?? []).reduce((s, r) => s + Number(r.final_amount ?? 0), 0);
+        setMyPendingAmount(total);
+      });
+  }, [myCollabId]);
 
   // Fetch total pending balance = sum of total_gross of all open closings from past months (company-wide)
   useEffect(() => {
@@ -3181,6 +3196,69 @@ function AdminDashboard() {
               </div>
             </div>
           </div>
+
+          {/* ═══════════════ MY PERSONAL CARD ═══════════════ */}
+          {myCollabId && myCard && (
+            <div
+              className="rounded-2xl overflow-hidden px-5 py-4 flex flex-wrap items-center gap-4 sm:gap-6"
+              style={{ background: "linear-gradient(135deg, #C93800 0%, #A32C00 100%)", boxShadow: "0 4px 20px rgba(169,44,0,.30)" }}
+            >
+              {/* Avatar + Name */}
+              <div className="flex items-center gap-3 min-w-0">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt={profile.nome ?? ""} className="h-11 w-11 rounded-full object-cover border-2 border-white/30 shrink-0" />
+                ) : (
+                  <div className="h-11 w-11 rounded-full bg-white/20 flex items-center justify-center shrink-0 text-white font-bold text-base">
+                    {(profile?.nome ?? "?").slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-white/60 text-[10px] font-semibold uppercase tracking-wider">Olá,</p>
+                  <p className="text-white font-bold text-sm truncate leading-tight">{(myCard.nome ?? profile?.nome ?? "—").split(" ")[0]}</p>
+                </div>
+              </div>
+
+              <div className="w-px h-8 bg-white/20 shrink-0 hidden sm:block" />
+
+              {/* Ganhos */}
+              <div className="flex flex-col min-w-0">
+                <p className="text-white/60 text-[10px] font-semibold uppercase tracking-wider">Ganhos no período</p>
+                <p className="text-white font-bold text-base tabular-nums leading-tight">
+                  {usdBrl ? formatBRL(myCard.receita * usdBrl) : `$${myCard.receita.toFixed(2)}`}
+                </p>
+                <p className="text-white/50 text-[11px] tabular-nums">${myCard.receita.toFixed(2)}</p>
+              </div>
+
+              <div className="w-px h-8 bg-white/20 shrink-0 hidden sm:block" />
+
+              {/* Posts */}
+              <div className="flex flex-col min-w-0">
+                <p className="text-white/60 text-[10px] font-semibold uppercase tracking-wider">Posts</p>
+                <p className="text-white font-bold text-base tabular-nums leading-tight">{myCard.posts}</p>
+                <p className="text-white/50 text-[11px]">no período</p>
+              </div>
+
+              <div className="w-px h-8 bg-white/20 shrink-0 hidden sm:block" />
+
+              {/* Views */}
+              <div className="flex flex-col min-w-0">
+                <p className="text-white/60 text-[10px] font-semibold uppercase tracking-wider">Views</p>
+                <p className="text-white font-bold text-base tabular-nums leading-tight">{fmt(Math.round(myCard.views))}</p>
+                <p className="text-white/50 text-[11px]">no período</p>
+              </div>
+
+              <div className="w-px h-8 bg-white/20 shrink-0 hidden sm:block" />
+
+              {/* Saldo Pendente */}
+              <div className="flex flex-col min-w-0">
+                <p className="text-white/60 text-[10px] font-semibold uppercase tracking-wider">Saldo Pendente</p>
+                <p className={`font-bold text-base tabular-nums leading-tight ${myPendingAmount > 0 ? "text-yellow-300" : "text-white"}`}>
+                  {usdBrl ? formatBRL(myPendingAmount * usdBrl) : `$${myPendingAmount.toFixed(2)}`}
+                </p>
+                <p className="text-white/50 text-[11px]">${myPendingAmount.toFixed(2)} a receber</p>
+              </div>
+            </div>
+          )}
 
           {/* ═══════════════ FILTER BAR ═══════════════ */}
           {/* Helper to render page options */}
