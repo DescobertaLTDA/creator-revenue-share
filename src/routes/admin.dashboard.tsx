@@ -3131,6 +3131,7 @@ function AdminDashboard() {
 
           {/* ═══════════════ 4 KPI CARDS (YouTube Studio style) ═══════════════ */}
           <div className="bg-white border border-[#E0E0E0] rounded-2xl overflow-hidden">
+            {/* Stats row */}
             <div className="grid grid-cols-2 sm:grid-cols-4">
               {(loading
                 ? [
@@ -3140,10 +3141,10 @@ function AdminDashboard() {
                     { label: "Monetizados",  value: null, sub: null },
                   ]
                 : [
-                    { label: "Views",        value: fmt(totalViews),                                                              sub: `${kpis.totalPosts} posts` },
-                    { label: "Alcance",      value: fmt(missionCur.reach + missionCurIG.reach),                                   sub: "pessoas alcançadas" },
-                    { label: "RPM",          value: usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(3)}`,                sub: "por mil visualizações" },
-                    { label: "Monetizados",  value: String(missionCur.monetized + missionCurIG.monetized),                        sub: "posts com receita" },
+                    { label: "Views",        value: fmt(totalViews),                                                   sub: `${kpis.totalPosts} posts` },
+                    { label: "Alcance",      value: fmt(missionCur.reach + missionCurIG.reach),                        sub: "pessoas alcançadas" },
+                    { label: "RPM",          value: usdBrl ? formatBRL(avgRpm * usdBrl) : `$${avgRpm.toFixed(3)}`,     sub: "por mil visualizações" },
+                    { label: "Monetizados",  value: String(missionCur.monetized + missionCurIG.monetized),             sub: "posts com receita" },
                   ]
               ).map(({ label, value, sub }) => (
                 <div key={label} className="px-5 py-4 border-r border-b border-[#EBEBEB]">
@@ -3157,6 +3158,13 @@ function AdminDashboard() {
                   }
                 </div>
               ))}
+            </div>
+            {/* Chart row */}
+            <div className="px-5 pt-3 pb-2">
+              {loading
+                ? <Sk w="w-full" h="h-[72px]" />
+                : <KpiAreaChart data={chartData} />
+              }
             </div>
           </div>
 
@@ -3748,6 +3756,69 @@ function HeroSparkline({ data }: { data: number[] }) {
       <path d={areaD} fill="url(#heroGrad)" />
       <polyline points={polyPts} fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
       <circle cx={lx} cy={ly} r={3} fill="white" />
+    </svg>
+  );
+}
+
+// ─── KpiAreaChart (views over the filtered period, YouTube-Studio style) ─────
+
+function KpiAreaChart({ data }: { data: DayData[] }) {
+  if (data.length < 2) return null;
+  const W = 1000; const H = 72; const PB = 18; // PB = bottom padding for labels
+  const iH = H - PB;
+  const maxV = Math.max(...data.map((d) => d.views), 1);
+
+  const pt = (i: number) => ({
+    x: (i / (data.length - 1)) * W,
+    y: iH - (data[i].views / maxV) * iH,
+  });
+
+  const pts = data.map((_, i) => pt(i));
+  const polyPts = pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const areaD =
+    `M0,${iH} ` +
+    pts.map((p) => `L${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ") +
+    ` L${W},${iH} Z`;
+
+  // ~4 evenly-spaced date labels
+  const n = data.length - 1;
+  const labelIdxs = [0, Math.round(n / 3), Math.round((2 * n) / 3), n].filter(
+    (v, i, a) => a.indexOf(v) === i
+  );
+
+  // 3 horizontal grid lines at 25%, 50%, 75%
+  const gridYs = [0.25, 0.5, 0.75].map((f) => (iH * (1 - f)).toFixed(1));
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 72 }} preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="kpiAreaGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#1a73e8" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="#1a73e8" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {/* Grid lines */}
+      {gridYs.map((y) => (
+        <line key={y} x1="0" y1={y} x2={W} y2={y} stroke="#E8E8E8" strokeWidth="1" />
+      ))}
+      {/* Area + line */}
+      <path d={areaD} fill="url(#kpiAreaGrad)" />
+      <polyline points={polyPts} fill="none" stroke="#1a73e8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Last-point dot */}
+      <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r={3} fill="#1a73e8" />
+      {/* X-axis date labels */}
+      {labelIdxs.map((i, li) => (
+        <text
+          key={i}
+          x={pts[i].x}
+          y={H - 3}
+          fontSize="10"
+          fill="#999"
+          textAnchor={li === 0 ? "start" : li === labelIdxs.length - 1 ? "end" : "middle"}
+        >
+          {data[i].dia}
+        </text>
+      ))}
     </svg>
   );
 }
