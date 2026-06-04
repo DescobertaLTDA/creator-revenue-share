@@ -474,6 +474,7 @@ function PostsCarousel({
   const dragStartX = useRef(0);
   const dragScrollLeft = useRef(0);
   const hasDragged = useRef(false);
+  const pointerDownPostId = useRef<string | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [modalPost, setModalPost] = useState<CarouselPost | null>(null);
@@ -531,6 +532,9 @@ function PostsCarousel({
     dragStartX.current = e.clientX;
     dragScrollLeft.current = trackRef.current?.scrollLeft ?? 0;
     trackRef.current?.setPointerCapture(e.pointerId);
+    // Record which card was pressed (pointer capture prevents click events from firing on cards)
+    const card = (e.target as HTMLElement).closest<HTMLElement>("[data-post-id]");
+    pointerDownPostId.current = card?.dataset.postId ?? null;
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -540,7 +544,16 @@ function PostsCarousel({
     if (trackRef.current) trackRef.current.scrollLeft = dragScrollLeft.current - dx;
   };
 
-  const onPointerUp = () => { isDragging.current = false; };
+  const onPointerUp = () => {
+    isDragging.current = false;
+    // Open modal here instead of onClick — pointer capture redirects pointerup to
+    // the track so card onClick never fires when setPointerCapture is active
+    if (!hasDragged.current && pointerDownPostId.current) {
+      const post = posts.find((p) => p.id === pointerDownPostId.current);
+      if (post) openModal(post);
+    }
+    pointerDownPostId.current = null;
+  };
 
   const dateLabel = (published_at: string | null) => {
     if (!published_at) return "—";
@@ -736,9 +749,9 @@ function PostsCarousel({
           return (
             <div
               key={post.id}
+              data-post-id={post.id}
               className="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden flex flex-col shrink-0 cursor-pointer hover:shadow-md transition-shadow"
               style={{ width: CARD_W, boxShadow: "0 1px 4px rgba(0,0,0,.05)", scrollSnapAlign: "start" }}
-              onClick={() => !hasDragged.current && openModal(post)}
             >
               <div className="relative w-full overflow-hidden" style={{ paddingTop: "133%" }}>
                 {post.thumbnail_url ? (
