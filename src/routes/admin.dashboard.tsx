@@ -3549,14 +3549,18 @@ function AdminDashboard() {
                     )}
                   </div>
                 </div>
-                {/* Média de Ganhos Diários */}
+                {/* Média de Ganhos Diários — do usuário logado */}
                 <div>
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-0.5">Média Diária</p>
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-0.5">
+                    {myCard ? "Sua Média Diária" : "Média Diária"}
+                  </p>
                   {loading
                     ? <div className="h-[18px] w-24 rounded bg-white/20 animate-pulse" />
                     : (() => {
                         const daysElapsed = Math.max(1, new Date().getDate());
-                        const avgUsd = curMonthRevenue / daysElapsed;
+                        // Se usuário logado tem card, usa os ganhos dele; senão usa total das páginas
+                        const baseUsd = myCard ? myMonthReceita : curMonthRevenue;
+                        const avgUsd = baseUsd / daysElapsed;
                         return (
                           <p className="text-sm font-bold tabular-nums">
                             {usdBrl ? formatBRL(avgUsd * usdBrl) : `$${avgUsd.toFixed(2)}`}
