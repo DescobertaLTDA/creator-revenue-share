@@ -3483,8 +3483,8 @@ function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Bottom: 4 quick stats */}
-              <div className="mt-4 pt-4 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* Bottom: 5 quick stats */}
+              <div className="mt-4 pt-4 border-t border-white/15 grid grid-cols-2 sm:grid-cols-5 gap-3">
                 {/* Each stat always renders label + value + subtitle skeleton so height is fixed */}
                 <div>
                   <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-0.5">
@@ -3549,6 +3549,34 @@ function AdminDashboard() {
                     )}
                   </div>
                 </div>
+                {/* Média de Ganhos Diários */}
+                <div>
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-0.5">Média Diária</p>
+                  {loading
+                    ? <div className="h-[18px] w-24 rounded bg-white/20 animate-pulse" />
+                    : (() => {
+                        const daysElapsed = Math.max(1, new Date().getDate());
+                        const avgUsd = curMonthRevenue / daysElapsed;
+                        return (
+                          <p className="text-sm font-bold tabular-nums">
+                            {usdBrl ? formatBRL(avgUsd * usdBrl) : `$${avgUsd.toFixed(2)}`}
+                          </p>
+                        );
+                      })()}
+                  <div className="h-[13px] mt-0.5">
+                    {!loading && (
+                      <p className="text-[9px] text-white/40">
+                        {(() => {
+                          const d = new Date();
+                          const days = d.getDate();
+                          const month = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][d.getMonth()];
+                          return `${days} dias em ${month}`;
+                        })()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
                 <div>
                   <p className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mb-0.5">Score Geral</p>
                   {loading
