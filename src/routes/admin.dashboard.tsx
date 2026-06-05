@@ -692,6 +692,9 @@ function PostsCarousel({
   // carousel cards update without a page reload.
   const [thumbnailOverrides, setThumbnailOverrides] = useState<Record<string, string | null>>({});
 
+  // Per-card image search loading
+  const [searchingImages, setSearchingImages] = useState<Set<string>>(new Set());
+
   // Crop state
   const [showCrop, setShowCrop] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
@@ -781,6 +784,34 @@ function PostsCarousel({
     await new Promise((r) => setTimeout(r, 1500));
     setOcrText(modalPost.title ?? "Nenhum texto encontrado na imagem.");
     setOcrLoading(false);
+  };
+
+  // Busca automática de imagem para cards sem thumbnail — sem abrir modal
+  const handleAutoSearchImage = async (post: CarouselPost, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (searchingImages.has(post.id)) return;
+    setSearchingImages((prev) => new Set(prev).add(post.id));
+    try {
+      const { data, error } = await (supabase as any).functions.invoke("import-post-thumbnail", {
+        body: { postId: post.id },
+      });
+      if (error) throw new Error(error.message ?? "Erro na função");
+      if (data?.error) throw new Error(data.error);
+      const publicUrl: string = data.publicUrl;
+      setThumbnailOverrides((prev) => ({ ...prev, [post.id]: publicUrl }));
+      if (_dashCache) {
+        _dashCache.posts = _dashCache.posts.map((p) =>
+          p.id === post.id ? { ...p, thumbnail_url: publicUrl } : p
+        );
+      }
+      toast.success("Imagem encontrada e aplicada!");
+    } catch (err: unknown) {
+      toast.error("Erro ao buscar imagem", {
+        description: err instanceof Error ? err.message : "Tente novamente",
+      });
+    } finally {
+      setSearchingImages((prev) => { const next = new Set(prev); next.delete(post.id); return next; });
+    }
   };
 
   const scrollBy = (dir: 1 | -1) => {
@@ -1156,13 +1187,13 @@ function PostsCarousel({
           // Rank medal colors
           const medal = idx === 0 ? "#FFB800" : idx === 1 ? "#A8B5C0" : idx === 2 ? "#C87533" : null;
 
+          const isSearching = searchingImages.has(post.id);
           return (
             <div
               key={post.id}
               data-post-id={post.id}
-              className="shrink-0 cursor-pointer group"
+              className="shrink-0 group"
               style={{ width: CARD_W, scrollSnapAlign: "start" }}
-              onClick={() => { if (!hasDragged.current) openModal(post); }}
             >
               {/* ── Imagem ── */}
               <div
@@ -1173,18 +1204,28 @@ function PostsCarousel({
                   boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
                 }}
               >
-                {/* Thumb ou placeholder */}
+                {/* Thumb ou botão de busca */}
                 {cardThumb ? (
                   <img
                     src={`${cardThumb}?t=${Math.floor(Date.now() / 60000)}`}
                     alt={body.slice(0, 40)}
                     draggable={false}
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="absolute inset-0 w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#1A1A1A]">
-                    <FileText className="h-7 w-7 text-[#444]" />
-                    <span className="text-[9px] font-medium text-[#555] tracking-wide uppercase">Sem imagem</span>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#111]">
+                    <FileText className="h-6 w-6 text-[#333]" />
+                    <button
+                      onClick={(e) => handleAutoSearchImage(post, e)}
+                      disabled={isSearching}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold text-white transition-all disabled:opacity-60 hover:scale-105 active:scale-95"
+                      style={{ background: "#FF5A00" }}
+                    >
+                      {isSearching
+                        ? <><Loader2 className="h-3 w-3 animate-spin" /> Buscando...</>
+                        : <><span>🔍</span> Buscar imagem</>
+                      }
+                    </button>
                   </div>
                 )}
 
