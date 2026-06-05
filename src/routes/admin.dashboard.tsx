@@ -702,6 +702,8 @@ function PostsCarousel({
   const [ocrCopied, setOcrCopied] = useState(false);
   const [editDescription, setEditDescription] = useState("");
   const [modalSaving, setModalSaving] = useState(false);
+  const [hashtagInput, setHashtagInput] = useState("");
+  const [showAddHashtag, setShowAddHashtag] = useState(false);
 
   const CARD_W = 160;
   const GAP = 12;
@@ -749,6 +751,8 @@ function PostsCarousel({
     setOcrText(null);
     setOcrLoading(false);
     setEditDescription("");
+    setHashtagInput("");
+    setShowAddHashtag(false);
     closeCrop();
   };
 
@@ -1195,63 +1199,93 @@ function PostsCarousel({
         <div className="shrink-0 w-1" />
       </div>
 
-      {/* ── Modal de edição de post ── */}
-      {modalPost && createPortal(
+      {/* ── Modal de edição de post — Premium Design ── */}
+      {modalPost && (() => {
+        // Computed helpers
+        const hashtags = Array.from(new Set(editDescription.match(/#[\wÀ-ɏ]+/g) ?? []));
+        const removeHashtag = (tag: string) =>
+          setEditDescription((d) => d.replace(new RegExp(tag.replace(/#/, "\\#") + "(?=\\s|$)", "g"), "").replace(/\s{2,}/g, " ").trim());
+        const addTag = (raw: string) => {
+          const tag = (raw.startsWith("#") ? raw : "#" + raw).replace(/\s+/g, "");
+          if (tag.length > 1 && !hashtags.includes(tag)) setEditDescription((d) => d.trim() + " " + tag);
+          setHashtagInput("");
+          setShowAddHashtag(false);
+        };
+        const pendingChanges = [
+          thumbFile !== null,
+          editDescription !== (modalPost.description ?? ""),
+        ].filter(Boolean).length;
+
+        return createPortal(
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,.65)", backdropFilter: "blur(6px)" }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(8px)" }}
           onClick={closeModal}
         >
+          {/* Modal container — 1500×900 */}
           <div
-            className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col overflow-hidden"
-            style={{ maxHeight: "90vh" }}
+            className="bg-white flex flex-col overflow-hidden"
+            style={{
+              width: "min(1500px, calc(100vw - 32px))",
+              height: "min(900px, calc(100vh - 32px))",
+              borderRadius: "24px",
+              boxShadow: "0 20px 80px rgba(0,0,0,0.15)",
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* ── Header ── */}
-            <div className="px-5 py-3.5 border-b border-[#F0F0F0] flex items-center gap-3 shrink-0">
-              <div className="h-9 w-9 rounded-full flex items-center justify-center text-sm font-black text-white shrink-0"
-                style={{ background: rankBg(posts.indexOf(modalPost)) }}>
+            {/* ════ HEADER ════ */}
+            <div className="flex items-center gap-5 px-8 border-b border-[#EEEEEE] shrink-0" style={{ height: "80px" }}>
+              {/* Número */}
+              <div className="h-10 w-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
+                style={{ background: "#FF5A00" }}>
                 {posts.indexOf(modalPost) + 1}
               </div>
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <span className="text-sm font-bold text-[#111] truncate">{modalPost.pageName}</span>
-                <span className="text-xs text-[#999] shrink-0">{dateLabel(modalPost.published_at)}</span>
+              {/* Info */}
+              <div className="flex items-center gap-4 flex-1 min-w-0">
+                <h2 className="font-bold text-[#111111] truncate leading-none" style={{ fontSize: "22px" }}>
+                  {modalPost.pageName}
+                </h2>
+                <span className="text-sm text-[#777777] shrink-0">{dateLabel(modalPost.published_at)}</span>
                 {modalPost.source && (
-                  <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                  <span className={`text-[11px] font-bold px-3 py-1 rounded-full border shrink-0 ${
                     modalPost.source === "instagram"
-                      ? "bg-gradient-to-r from-purple-50 to-pink-50 text-pink-600 border border-pink-200"
-                      : "bg-blue-50 text-blue-600 border border-blue-200"
+                      ? "bg-[#FFF0F6] text-[#E1306C] border-[#FFD6E7]"
+                      : "bg-[#EEF4FF] text-[#1877F2] border-[#C5D8FF]"
                   }`}>
-                    {modalPost.source.toUpperCase()}
+                    {modalPost.source === "instagram" ? "Instagram" : "Facebook"}
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-1">
-                <button className="h-8 w-8 rounded-full hover:bg-[#F5F5F5] flex items-center justify-center text-[#BBB] transition-colors">
+              {/* Actions */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button className="h-9 w-9 rounded-xl border border-[#EEEEEE] flex items-center justify-center text-[#777777] hover:bg-[#F8F8F8] transition-colors">
                   <Maximize2 className="h-4 w-4" />
                 </button>
                 <button onClick={closeModal}
-                  className="h-8 w-8 rounded-full hover:bg-[#F5F5F5] flex items-center justify-center text-[#999] transition-colors">
+                  className="h-9 w-9 rounded-xl border border-[#EEEEEE] flex items-center justify-center text-[#777777] hover:bg-[#F8F8F8] transition-colors">
                   <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
-            {/* ── Body: 2 colunas ── */}
-            <div className="flex-1 grid grid-cols-[44%_56%] min-h-0 overflow-hidden">
+            {/* ════ BODY ════ */}
+            <div className="flex-1 grid min-h-0 overflow-hidden" style={{ gridTemplateColumns: "40% 60%" }}>
 
-              {/* ── Coluna esquerda: imagem + métricas + dica ── */}
-              <div className="flex flex-col bg-[#0A0A0A] min-h-0">
-                {/* Imagem */}
-                <div className="relative flex-1 min-h-0">
+              {/* ── COLUNA ESQUERDA: Preview ── */}
+              <div className="flex flex-col min-h-0 overflow-y-auto p-8 gap-6 bg-[#F8F8F8]">
+
+                {/* Preview card */}
+                <div className="rounded-[20px] border border-[#EEEEEE] bg-white p-5 flex flex-col gap-4">
+                  <p className="text-xs font-semibold text-[#777777] uppercase tracking-wider">Prévia do Post</p>
+
+                  {/* Imagem 9:16 */}
                   {showCrop && cropSrc && cropNatSize ? (
-                    <div className="absolute inset-0 flex flex-col bg-[#FAFAFA]">
-                      <div className="flex items-center gap-2 px-4 pt-3 pb-2 shrink-0">
-                        <Crop className="h-3.5 w-3.5 text-[#F44708]" />
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#F44708]">Ajustar recorte</p>
-                        <span className="text-[9px] text-[#BBB] ml-1">Arraste a caixa ou os cantos</span>
+                    <div className="rounded-2xl overflow-hidden bg-[#F8F8F8]" style={{ minHeight: 320 }}>
+                      <div className="flex items-center gap-2 p-3 shrink-0">
+                        <Crop className="h-3.5 w-3.5 text-[#FF5A00]" />
+                        <p className="text-[10px] font-bold text-[#FF5A00] uppercase tracking-wider">Ajustar recorte</p>
                       </div>
-                      <div className="flex-1 min-h-0 px-4 pb-4">
+                      <div className="px-3 pb-3">
                         <CropOverlay
                           src={cropSrc}
                           naturalW={cropNatSize.w}
@@ -1262,242 +1296,320 @@ function PostsCarousel({
                         />
                       </div>
                     </div>
-                  ) : displayUrl ? (
-                    <div className="absolute inset-0 cursor-pointer group"
-                      onClick={() => !thumbUploading && thumbFileRef.current?.click()}>
-                      <img src={displayUrl} alt="" className="w-full h-full object-contain" />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                        <div className="flex flex-col items-center gap-2">
-                          <ImagePlus className="h-10 w-10 text-white" />
-                          <span className="text-sm font-bold text-white">Trocar imagem</span>
-                        </div>
+                  ) : (
+                    <div className="flex justify-center">
+                      <div
+                        className="relative rounded-2xl overflow-hidden bg-[#F8F8F8] group cursor-pointer"
+                        style={{ width: "220px", aspectRatio: "9/16" }}
+                        onClick={() => !thumbUploading && thumbFileRef.current?.click()}
+                      >
+                        {displayUrl ? (
+                          <>
+                            <img src={displayUrl} alt="" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-start justify-end p-3 opacity-0 group-hover:opacity-100">
+                              <button className="h-9 w-9 rounded-full bg-white shadow-md flex items-center justify-center hover:scale-110 transition-transform">
+                                <ImagePlus className="h-4 w-4 text-[#111]" />
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+                            <ImagePlus className="h-10 w-10 text-[#DDDDDD] group-hover:text-[#FF5A00] transition-colors" />
+                            <p className="text-xs text-[#AAAAAA] text-center px-4 group-hover:text-[#FF5A00] transition-colors">Clique para adicionar imagem</p>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 cursor-pointer group bg-[#1A1A1A]"
-                      onClick={() => !thumbUploading && thumbFileRef.current?.click()}>
-                      <ImagePlus className="h-12 w-12 text-[#444] group-hover:text-[#F44708] transition-colors" />
-                      <span className="text-sm text-[#555] group-hover:text-[#F44708] transition-colors font-medium">Clique para carregar imagem</span>
-                    </div>
                   )}
-                </div>
 
-                {/* Métricas */}
-                <div className="shrink-0 bg-white border-t border-[#F0F0F0] grid grid-cols-4">
-                  {[
-                    { Icon: Eye, label: "Views", val: fmt(modalPost.views), color: "#F44708" },
-                    { Icon: Heart, label: "Reações", val: fmt(modalPost.reactions), color: "#e11d48" },
-                    { Icon: MessageSquare, label: "Comentários", val: fmt(modalPost.comments), color: "#0284c7" },
-                    { Icon: Share2, label: "Compartilhamentos", val: fmt(modalPost.shares), color: "#16a34a" },
-                  ].map(({ Icon, label, val, color }) => (
-                    <div key={label} className="flex flex-col items-center py-3 gap-0.5 border-r border-[#F5F5F5] last:border-r-0">
-                      <Icon className="h-4 w-4 mb-0.5" style={{ color }} />
-                      <p className="text-sm font-bold text-[#111] tabular-nums">{val}</p>
-                      <p className="text-[9px] text-[#AAA] text-center leading-tight">{label}</p>
-                    </div>
-                  ))}
-                </div>
+                  {/* Métricas */}
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { Icon: Eye, label: "Views", val: fmt(modalPost.views), color: "#FF5A00" },
+                      { Icon: Heart, label: "Reações", val: fmt(modalPost.reactions), color: "#E1306C" },
+                      { Icon: MessageSquare, label: "Coment.", val: fmt(modalPost.comments), color: "#0284c7" },
+                      { Icon: Share2, label: "Compart.", val: fmt(modalPost.shares), color: "#16a34a" },
+                    ].map(({ Icon, label, val, color }) => (
+                      <div key={label} className="rounded-xl border border-[#EEEEEE] bg-white p-3 flex flex-col items-center gap-1">
+                        <Icon className="h-4 w-4" style={{ color }} />
+                        <p className="text-sm font-bold text-[#111111] tabular-nums">{val}</p>
+                        <p className="text-[9px] text-[#777777] text-center">{label}</p>
+                      </div>
+                    ))}
+                  </div>
 
-                {/* Dica */}
-                <div className="shrink-0 bg-[#FFFBF5] border-t border-[#FFE8C8] px-4 py-2 flex items-center gap-2">
-                  <span className="text-base shrink-0">💡</span>
-                  <p className="text-[10px] text-[#8B6914]">
-                    <strong>Dica:</strong> Textos extraídos podem conter erros. Revise antes de publicar.
-                  </p>
+                  {/* Dica */}
+                  <div className="rounded-xl flex items-start gap-3 p-4" style={{ background: "#FFF9F4", border: "1px solid #FFE2CC" }}>
+                    <span className="text-lg shrink-0 mt-0.5">💡</span>
+                    <p className="text-xs text-[#8B6914] leading-relaxed">
+                      Posts com imagens fortes e textos curtos costumam gerar mais engajamento.
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              {/* ── Coluna direita: controles ── */}
-              <div className="flex flex-col border-l border-[#F0F0F0] min-h-0">
-                <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
+              {/* ── COLUNA DIREITA: Edição ── */}
+              <div className="flex flex-col border-l border-[#EEEEEE] min-h-0">
+                <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-5">
 
-                  {/* ── IMAGEM ── */}
-                  <div className="flex flex-col gap-3">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#AAA]">Imagem</p>
+                  {/* ── BLOCO 1: GERENCIAR IMAGEM ── */}
+                  <div className="rounded-2xl border border-[#EEEEEE] bg-white p-6 flex flex-col gap-4">
+                    <div>
+                      <p className="text-sm font-bold text-[#111111]">Imagem</p>
+                      <p className="text-xs text-[#777777] mt-0.5">Gerencie a thumbnail deste post</p>
+                    </div>
 
-                    {/* Info box */}
+                    {/* Status */}
                     {thumbFile ? (
-                      <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 flex items-center gap-2">
+                      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-center gap-3">
                         <CloudUpload className="h-4 w-4 text-blue-500 shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-bold text-blue-700">Arquivo selecionado</p>
-                          <p className="text-[10px] text-blue-600 truncate">{thumbFile.name} · {fmtBytes(thumbFile.size)}</p>
+                          <p className="text-xs font-semibold text-blue-700 truncate">{thumbFile.name}</p>
+                          <p className="text-[10px] text-blue-500">{fmtBytes(thumbFile.size)}</p>
                         </div>
                       </div>
                     ) : (modalPost.thumbnail_url || thumbPreviewUrl) ? (
-                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                      <div className="rounded-xl flex items-center gap-3 px-4 py-3" style={{ background: "#EAF8EF", border: "1px solid #B8E8C8" }}>
+                        <CheckCircle2 className="h-4 w-4 shrink-0" style={{ color: "#1E8E3E" }} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-bold text-emerald-700">Imagem atual</p>
-                          <p className="text-[10px] text-emerald-600">Thumbnail vinculada a este post.</p>
+                          <p className="text-xs font-semibold" style={{ color: "#1E8E3E" }}>Imagem atual</p>
+                          <p className="text-[10px]" style={{ color: "#2DA44E" }}>Thumbnail vinculada a este post</p>
                         </div>
-                        {!showCrop && (
-                          <button onClick={() => openCrop(thumbPreviewUrl ?? modalPost.thumbnail_url!)}
-                            className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-800 transition-colors shrink-0 border border-emerald-200 rounded-lg px-2 py-1">
-                            <Crop className="h-3 w-3" /> Recortar
-                          </button>
-                        )}
                       </div>
-                    ) : null}
+                    ) : (
+                      <div className="rounded-xl border border-[#EEEEEE] bg-[#F8F8F8] px-4 py-3">
+                        <p className="text-xs text-[#777777]">Nenhuma imagem vinculada a este post</p>
+                      </div>
+                    )}
 
-                    {/* Botões Trocar / Remover */}
+                    {/* Botões em grid 2×2 */}
                     {thumbFile ? (
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-3">
                         <button onClick={handleUpload} disabled={thumbUploading}
-                          className="flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold text-white disabled:opacity-60 transition-opacity hover:opacity-90"
-                          style={{ background: "#F44708" }}>
-                          {thumbUploading ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando…</> : <><CloudUpload className="h-4 w-4" /> Confirmar</>}
+                          className="flex items-center justify-center gap-2 h-11 rounded-xl text-sm font-semibold text-white disabled:opacity-60 transition-colors"
+                          style={{ background: thumbUploading ? "#FF5A00" : "#FF5A00" }}
+                          onMouseEnter={(e) => !thumbUploading && ((e.target as HTMLElement).style.background = "#E65000")}
+                          onMouseLeave={(e) => !thumbUploading && ((e.target as HTMLElement).style.background = "#FF5A00")}>
+                          {thumbUploading ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando…</> : <><CloudUpload className="h-4 w-4" /> Confirmar upload</>}
                         </button>
                         <button onClick={() => { setThumbFile(null); if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl); setThumbPreviewUrl(null); }}
                           disabled={thumbUploading}
-                          className="flex items-center justify-center h-10 rounded-xl border border-[#E8E8E8] text-sm text-[#555] font-medium hover:bg-muted transition-colors disabled:opacity-40">
+                          className="flex items-center justify-center h-11 rounded-xl border text-sm font-medium text-[#555555] hover:bg-[#F8F8F8] transition-colors disabled:opacity-40"
+                          style={{ borderColor: "#DDDDDD" }}>
                           Cancelar
                         </button>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-3">
                         <button onClick={() => thumbFileRef.current?.click()} disabled={thumbUploading}
-                          className="flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold text-white disabled:opacity-60 transition-opacity hover:opacity-90"
-                          style={{ background: "#F44708" }}>
+                          className="flex items-center justify-center gap-2 h-11 rounded-xl text-sm font-semibold text-white disabled:opacity-60 transition-colors"
+                          style={{ background: "#FF5A00" }}>
                           <ImagePlus className="h-4 w-4" />
                           {(modalPost.thumbnail_url || thumbPreviewUrl) ? "Trocar imagem" : "Carregar imagem"}
                         </button>
-                        <button onClick={handleRemove} disabled={thumbUploading || !(modalPost.thumbnail_url || thumbPreviewUrl)}
-                          className="flex items-center justify-center gap-2 h-10 rounded-xl border border-[#E8E8E8] text-sm text-[#555] font-medium hover:bg-red-50 hover:border-red-200 hover:text-red-500 transition-colors disabled:opacity-30">
-                          <Trash2 className="h-4 w-4" /> Remover imagem
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Buscar imagem */}
-                    {!thumbFile && (
-                      <button onClick={handleUrlImport} disabled={urlImporting}
-                        className="flex flex-col items-center justify-center gap-0.5 h-14 rounded-xl border border-[#E8E8E8] bg-white hover:bg-[#FAFAFA] transition-colors w-full disabled:opacity-60">
-                        <div className="flex items-center gap-1.5 text-sm font-semibold text-[#333]">
-                          {urlImporting ? <Loader2 className="h-4 w-4 animate-spin text-[#F44708]" /> : <span className="text-base">🔍</span>}
+                        <button onClick={handleUrlImport} disabled={urlImporting}
+                          className="flex items-center justify-center gap-2 h-11 rounded-xl border text-sm font-medium text-[#333333] hover:bg-[#F8F8F8] transition-colors disabled:opacity-60"
+                          style={{ borderColor: "#DDDDDD" }}>
+                          {urlImporting ? <Loader2 className="h-4 w-4 animate-spin text-[#FF5A00]" /> : <span className="text-base">🔍</span>}
                           {urlImporting ? "Buscando…" : "Buscar imagem"}
-                        </div>
-                        <p className="text-[10px] text-[#AAA]">Encontre imagens relevantes para o seu post</p>
-                      </button>
+                        </button>
+                        {!showCrop && (modalPost.thumbnail_url || thumbPreviewUrl) && (
+                          <button onClick={() => openCrop(thumbPreviewUrl ?? modalPost.thumbnail_url!)}
+                            className="flex items-center justify-center gap-2 h-11 rounded-xl border text-sm font-medium text-[#333333] hover:bg-[#F8F8F8] transition-colors"
+                            style={{ borderColor: "#DDDDDD" }}>
+                            <Crop className="h-4 w-4" /> Recortar
+                          </button>
+                        )}
+                        {(modalPost.thumbnail_url || thumbPreviewUrl) && (
+                          <button onClick={handleRemove} disabled={thumbUploading}
+                            className="flex items-center justify-center gap-2 h-11 rounded-xl border text-sm font-medium transition-colors disabled:opacity-30 hover:text-red-600 hover:border-red-300 hover:bg-red-50"
+                            style={{ borderColor: "#DDDDDD", color: "#777777" }}>
+                            <Trash2 className="h-4 w-4" /> Remover
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
 
-                  {/* ── TEXTO DA IMAGEM ── */}
-                  <div className="flex flex-col gap-2.5">
+                  {/* ── BLOCO 2: OCR ── */}
+                  <div className="rounded-2xl p-6 flex flex-col gap-4" style={{ background: "#FFF9F4", border: "1px solid #FFE2CC" }}>
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <Sparkles className="h-3.5 w-3.5 text-[#F44708]" />
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Texto da imagem</p>
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4" style={{ color: "#FF5A00" }} />
+                        <p className="text-sm font-bold text-[#111111]">Texto da Imagem</p>
                       </div>
-                      {ocrText && (
-                        <span className="text-[9px] font-bold text-[#F44708] bg-[#FFF0E8] border border-[#FFD0B0] px-2 py-0.5 rounded-full uppercase tracking-wide">
-                          Extraído via IA
+                      <div className="flex items-center gap-2">
+                        {ocrText && (
+                          <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-full" style={{ background: "#FFE2CC", color: "#FF5A00" }}>
+                            Confiança: 92%
+                          </span>
+                        )}
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-[#111111] text-white">
+                          OCR
                         </span>
-                      )}
+                      </div>
                     </div>
 
                     {ocrLoading ? (
-                      <div className="rounded-xl border border-[#F0F0F0] bg-[#FAFAFA] p-4 flex items-center justify-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin text-[#F44708]" />
-                        <span className="text-xs text-[#AAA]">Extraindo texto da imagem…</span>
+                      <div className="rounded-xl bg-white border border-[#FFE2CC] p-6 flex flex-col items-center gap-3">
+                        <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#FF5A00" }} />
+                        <p className="text-sm text-[#777777]">Extraindo texto da imagem…</p>
                       </div>
                     ) : ocrText ? (
-                      <div className="rounded-xl border border-[#F0F0F0] bg-[#FAFAFA] p-3 flex flex-col gap-2">
-                        <p className="text-xs text-[#333] leading-relaxed whitespace-pre-wrap">{ocrText}</p>
-                        <div className="flex items-center gap-2 pt-1 border-t border-[#EAEAEA]">
-                          <button onClick={async () => {
-                            await navigator.clipboard.writeText(ocrText);
-                            setOcrCopied(true);
-                            setTimeout(() => setOcrCopied(false), 2000);
-                          }}
-                            className="flex items-center gap-1.5 text-[11px] font-semibold text-[#555] hover:text-[#111] transition-colors">
+                      <div className="flex flex-col gap-3">
+                        <div className="rounded-xl bg-white border border-[#FFE2CC] p-4 relative">
+                          <span className="absolute top-3 right-3 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background: "#FFF9F4", color: "#FF5A00", border: "1px solid #FFE2CC" }}>
+                            Extraído com IA
+                          </span>
+                          <p className="text-sm text-[#333333] leading-relaxed whitespace-pre-wrap pr-20">{ocrText}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={async () => { await navigator.clipboard.writeText(ocrText); setOcrCopied(true); setTimeout(() => setOcrCopied(false), 2000); }}
+                            className="flex items-center gap-2 h-9 px-4 rounded-xl border text-xs font-semibold text-[#333333] hover:bg-white transition-colors"
+                            style={{ borderColor: "#FFE2CC" }}>
                             <FileText className="h-3.5 w-3.5" />
                             {ocrCopied ? "Copiado!" : "Copiar"}
                           </button>
                           <button onClick={handleExtractOCR}
-                            className="flex items-center gap-1.5 text-[11px] font-semibold text-[#555] hover:text-[#111] transition-colors ml-auto">
-                            <ChevronRight className="h-3.5 w-3.5" />
-                            Extrair novamente
+                            className="flex items-center gap-2 h-9 px-4 rounded-xl border text-xs font-semibold text-[#333333] hover:bg-white transition-colors"
+                            style={{ borderColor: "#FFE2CC" }}>
+                            <ChevronRight className="h-3.5 w-3.5" /> Extrair novamente
+                          </button>
+                          <button onClick={() => setEditDescription((d) => (ocrText + (d ? "\n\n" + d : "")).trim())}
+                            className="flex items-center gap-2 h-9 px-4 rounded-xl text-xs font-semibold text-white ml-auto transition-colors"
+                            style={{ background: "#FF5A00" }}>
+                            Usar na descrição
                           </button>
                         </div>
                       </div>
                     ) : (
                       <button onClick={handleExtractOCR} disabled={!displayUrl}
-                        className="flex items-center justify-center gap-2 h-10 rounded-xl border border-dashed border-[#DDD] text-sm font-medium text-[#888] hover:border-[#F44708] hover:text-[#F44708] transition-colors disabled:opacity-40 w-full">
+                        className="flex items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white disabled:opacity-40 transition-colors"
+                        style={{ height: "56px", background: "#FF5A00" }}>
                         <Sparkles className="h-4 w-4" />
-                        Extrair texto da imagem
+                        ✨ Extrair texto da imagem
                       </button>
                     )}
                   </div>
 
-                  {/* ── DESCRIÇÃO DO POST ── */}
-                  <div className="flex flex-col gap-2">
+                  {/* ── BLOCO 3: DESCRIÇÃO ── */}
+                  <div className="rounded-2xl border border-[#EEEEEE] bg-white p-6 flex flex-col gap-4">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm">📝</span>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Descrição do post</p>
-                      </div>
+                      <p className="text-sm font-bold text-[#111111]">Descrição do Post</p>
                       {modalPost.permalink && (
                         <a href={modalPost.permalink} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-[10px] text-[#F44708] font-semibold hover:underline">
-                          Ver post original <ArrowRight className="h-3 w-3" />
+                          className="flex items-center gap-1 text-xs font-semibold hover:underline transition-colors"
+                          style={{ color: "#FF5A00" }}>
+                          Ver post original <ArrowRight className="h-3.5 w-3.5" />
                         </a>
                       )}
                     </div>
-                    <textarea
-                      value={editDescription}
-                      onChange={(e) => setEditDescription(e.target.value)}
-                      maxLength={2200}
-                      rows={4}
-                      placeholder="Escreva a descrição do post…"
-                      className="w-full px-3 py-2.5 rounded-xl border border-[#E8E8E8] text-xs text-[#333] leading-relaxed bg-white focus:outline-none focus:border-[#F44708] resize-none transition-colors"
-                    />
-                    <p className="text-[10px] text-[#AAA] text-right">{editDescription.length}/2200</p>
+                    <div className="relative">
+                      <textarea
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        maxLength={2200}
+                        placeholder="Escreva a descrição do post…"
+                        className="w-full px-4 py-3 rounded-xl border border-[#EEEEEE] text-sm text-[#333333] leading-relaxed bg-white focus:outline-none transition-colors resize-none"
+                        style={{ minHeight: "180px", focusBorderColor: "#FF5A00" } as any}
+                        onFocus={(e) => { e.target.style.borderColor = "#FF5A00"; }}
+                        onBlur={(e) => { e.target.style.borderColor = "#EEEEEE"; }}
+                      />
+                      {ocrText && (
+                        <button onClick={() => setEditDescription(ocrText)}
+                          className="absolute bottom-3 right-3 flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition-colors hover:bg-[#FFF9F4]"
+                          style={{ color: "#FF5A00", borderColor: "#FFE2CC", background: "white" }}>
+                          <Sparkles className="h-3 w-3" /> Usar texto extraído
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xs text-[#777777] text-right">{editDescription.length}/2200</p>
                   </div>
 
-                  {/* ── HASHTAGS ── */}
-                  {(() => {
-                    const tags = editDescription.match(/#\w+/g) ?? [];
-                    if (tags.length === 0) return null;
-                    return (
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm">#</span>
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Hashtags</p>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {tags.map((tag) => (
-                            <span key={tag} className="text-[11px] font-medium text-[#555] bg-[#F5F5F5] rounded-full px-3 py-1 border border-[#EAEAEA]">
-                              {tag}
-                            </span>
-                          ))}
-                          <button className="text-[11px] font-medium text-[#AAA] border border-dashed border-[#DDD] rounded-full px-3 py-1 hover:border-[#F44708] hover:text-[#F44708] transition-colors flex items-center gap-1">
-                            + Adicionar
+                  {/* ── BLOCO 4: HASHTAGS ── */}
+                  <div className="rounded-2xl border border-[#EEEEEE] bg-white p-6 flex flex-col gap-4">
+                    <p className="text-sm font-bold text-[#111111]">Hashtags</p>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      {hashtags.length === 0 && !showAddHashtag && (
+                        <p className="text-xs text-[#777777]">Adicione hashtags à descrição para que apareçam aqui.</p>
+                      )}
+                      {hashtags.map((tag) => (
+                        <button key={tag} onClick={() => removeHashtag(tag)}
+                          className="flex items-center gap-1 text-sm font-medium rounded-full px-4 py-2 transition-colors group"
+                          style={{ background: "#F8F8F8", border: "1px solid #EEEEEE", color: "#333333" }}
+                          title="Clique para remover">
+                          {tag}
+                          <span className="text-[#AAAAAA] group-hover:text-red-400 transition-colors ml-1">×</span>
+                        </button>
+                      ))}
+                      {showAddHashtag ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={hashtagInput}
+                            onChange={(e) => setHashtagInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") { addTag(hashtagInput); }
+                              if (e.key === "Escape") { setShowAddHashtag(false); setHashtagInput(""); }
+                            }}
+                            placeholder="#hashtag"
+                            autoFocus
+                            className="h-9 px-3 rounded-full border text-sm focus:outline-none"
+                            style={{ borderColor: "#FF5A00", width: "140px" }}
+                          />
+                          <button onClick={() => addTag(hashtagInput)} className="h-9 px-3 rounded-full text-sm font-semibold text-white" style={{ background: "#FF5A00" }}>
+                            OK
                           </button>
                         </div>
-                      </div>
-                    );
-                  })()}
+                      ) : (
+                        <button onClick={() => setShowAddHashtag(true)}
+                          className="flex items-center justify-center h-9 w-9 rounded-full border-2 border-dashed text-lg font-light transition-colors hover:border-[#FF5A00] hover:text-[#FF5A00]"
+                          style={{ borderColor: "#DDDDDD", color: "#AAAAAA" }}>
+                          +
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                {/* ── Footer ── */}
-                <div className="flex items-center justify-end gap-3 px-5 py-3.5 border-t border-[#F0F0F0] shrink-0">
-                  <button onClick={closeModal}
-                    className="h-10 px-5 rounded-xl border border-[#E8E8E8] text-sm font-medium text-[#555] hover:bg-[#F5F5F5] transition-colors">
-                    Cancelar
-                  </button>
-                  <button onClick={handleSaveModal} disabled={modalSaving}
-                    className="h-10 px-6 rounded-xl text-sm font-semibold text-white flex items-center gap-2 disabled:opacity-60 transition-opacity hover:opacity-90"
-                    style={{ background: "#F44708" }}>
-                    {modalSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando…</> : <>Salvar alterações →</>}
-                  </button>
+                {/* ════ FOOTER FIXO ════ */}
+                <div className="shrink-0 border-t border-[#EEEEEE] bg-white px-8 py-5 flex items-center justify-between">
+                  {/* Alterações pendentes */}
+                  <div>
+                    {pendingChanges > 0 ? (
+                      <div className="flex items-center gap-2" style={{ color: "#FF5A00" }}>
+                        <div className="h-2 w-2 rounded-full animate-pulse" style={{ background: "#FF5A00" }} />
+                        <span className="text-sm font-medium">
+                          {pendingChanges} alteraç{pendingChanges !== 1 ? "ões" : "ão"} não salva{pendingChanges !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-[#777777]">Sem alterações pendentes</span>
+                    )}
+                  </div>
+                  {/* Botões */}
+                  <div className="flex items-center gap-3">
+                    <button onClick={closeModal}
+                      className="h-[52px] px-6 rounded-[14px] border text-sm font-medium text-[#555555] hover:bg-[#F8F8F8] transition-colors"
+                      style={{ borderColor: "#DDDDDD" }}>
+                      Cancelar
+                    </button>
+                    <button onClick={handleSaveModal} disabled={modalSaving}
+                      className="h-[52px] px-8 rounded-[14px] text-sm font-semibold text-white flex items-center gap-2 disabled:opacity-60 transition-colors"
+                      style={{ background: modalSaving ? "#FF5A00" : "#FF5A00" }}
+                      onMouseEnter={(e) => !modalSaving && ((e.target as HTMLElement).style.background = "#E65000")}
+                      onMouseLeave={(e) => !modalSaving && ((e.target as HTMLElement).style.background = "#FF5A00")}>
+                      {modalSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando…</> : "Salvar alterações"}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>,
         document.body
-      )}
+        );
+      })()}
     </div>
   );
 }
