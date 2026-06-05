@@ -329,6 +329,9 @@ function BonusManualPage() {
   const [followersFocusDate, setFollowersFocusDate] = useState<string | null>(null);
   const [totalFollowersFocusDate, setTotalFollowersFocusDate] = useState<string | null>(null);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  // Ref always pointing to latest rows — used for propagation without stale closure
+  const rowsRef = useRef<DayEntry[]>([]);
+  useEffect(() => { rowsRef.current = rows; }, [rows]);
 
   const isIG = platform === "instagram";
   const [igPageIds, setIgPageIds] = useState<Set<string>>(new Set());
@@ -711,12 +714,7 @@ function BonusManualPage() {
 
       // Auto-propagate total_followers quando o campo foi editado
       if (row.last_edited_field === "total_followers" && row.total_followers != null) {
-        // Usa rows atual (state snapshot) para o cálculo
-        setRows((snapshot) => {
-          // Dispara de forma async sem bloquear o setState
-          setTimeout(() => propagateTotalFollowers(row.date, row.total_followers!, snapshot), 0);
-          return snapshot;
-        });
+        propagateTotalFollowers(row.date, row.total_followers, rowsRef.current);
       }
     }
   };
@@ -1148,6 +1146,14 @@ function BonusManualPage() {
                             </td>
                             {/* Total Seguidores */}
                             <td className="px-4 py-2.5 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                              {row.total_followers != null && row.total_followers > 0 && (
+                                <button
+                                  onClick={() => propagateTotalFollowers(row.date, row.total_followers!, rowsRef.current)}
+                                  title="Recalcular todos os dias com base nesse valor"
+                                  className="text-[9px] text-blue-400 hover:text-blue-600 transition-colors shrink-0"
+                                >↺</button>
+                              )}
                               <input
                                 type="text" inputMode="numeric" disabled={isFuture || !canWrite}
                                 placeholder="0"
@@ -1159,6 +1165,7 @@ function BonusManualPage() {
                                 onChange={(e) => handleTotalFollowersChange(row, e.target.value)}
                                 className="w-28 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums text-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-500/40 disabled:opacity-30"
                               />
+                              </div>
                             </td>
                             {!isIG && (
                               <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
