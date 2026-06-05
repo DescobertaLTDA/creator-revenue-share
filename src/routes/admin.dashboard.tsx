@@ -1762,10 +1762,11 @@ function AdminDashboard() {
   const [filterColab, setFilterColab] = useState("all");
   const [filterFrom, setFilterFrom] = useState(() => {
     const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+    d.setDate(d.getDate() - 27); // Últimos 28 dias
+    return d.toISOString().slice(0, 10);
   });
   const [filterTo, setFilterTo] = useState(() => new Date().toISOString().slice(0, 10));
-  const [datePreset, setDatePreset] = useState("este-mes");
+  const [datePreset, setDatePreset] = useState("28d");
   const [showPresetDropdown, setShowPresetDropdown] = useState(false);
   const presetDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -3761,7 +3762,7 @@ function AdminDashboard() {
                           ) : (
                             <button
                               key={item.key}
-                              onClick={() => applyDatePreset(item.key)}
+                              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); applyDatePreset(item.key); }}
                               className={`w-full text-left px-4 py-2 text-sm transition-colors hover:bg-[#FFF5F0] ${datePreset === item.key ? "text-[#F44708] font-semibold bg-[#FFF5F0]" : "text-[#333]"}`}
                             >
                               {item.label}
