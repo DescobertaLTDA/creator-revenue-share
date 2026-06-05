@@ -1232,64 +1232,84 @@ function BonusManualPage() {
                         <td />
                       </tr>
 
-                      {/* ── FECHAMENTO DO MÊS ── */}
-                      <tr className="border-t border-blue-100 bg-blue-50/60">
-                        <td colSpan={3} className="px-4 py-2.5">
-                          <div className="flex items-center gap-2">
-                            <div className="h-5 w-5 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
-                              <svg className="h-3 w-3 text-white" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
-                              </svg>
-                            </div>
-                            <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">
-                              Fechamento do Mês
-                            </span>
-                            <span className="text-[10px] text-blue-500">
-                              · Total de seguidores no último dia de {monthRef.slice(0, 7).replace("-", "/")}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          {/* Campo editável de fechamento */}
-                          {(() => {
-                            const lastFilled = [...rows].reverse().find((r) => r.total_followers != null && r.total_followers > 0);
-                            const closingVal = lastFilled?.total_followers ?? null;
-                            const displayStr = closingFollowersFocus
-                              ? closingFollowersInput
-                              : (closingVal != null ? closingVal.toLocaleString("pt-BR") : "");
-                            return (
-                              <input
-                                type="text" inputMode="numeric"
-                                disabled={!canWrite}
-                                placeholder="Ex: 173.457"
-                                value={displayStr}
-                                onFocus={() => {
-                                  setClosingFollowersFocus(true);
-                                  setClosingFollowersInput(closingVal != null ? String(closingVal) : "");
-                                }}
-                                onBlur={async () => {
-                                  setClosingFollowersFocus(false);
-                                  const val = parseInt(closingFollowersInput.replace(/\D/g, ""), 10);
-                                  if (!isNaN(val) && val > 0 && val !== closingVal) {
-                                    // Encontra o último dia com dados ou usa o último dia do mês
-                                    const days = daysInMonth(monthRef);
-                                    const lastDay = days[days.length - 1];
-                                    // Usa esse dia como âncora e propaga
-                                    propagateTotalFollowers(lastDay, val);
-                                  }
-                                }}
-                                onChange={(e) => setClosingFollowersInput(e.target.value.replace(/\D/g, ""))}
-                                className="w-32 h-8 rounded-lg border-2 border-blue-300 bg-white px-2 text-right text-sm tabular-nums text-blue-700 font-bold focus:outline-none focus:border-blue-500 disabled:opacity-30"
-                              />
-                            );
-                          })()}
-                        </td>
-                        <td colSpan={3} className="px-4 py-2.5">
-                          <p className="text-[10px] text-blue-500">
-                            Ao salvar, propaga automaticamente para todos os dias deste e de meses anteriores.
-                          </p>
-                        </td>
-                      </tr>
+                      {/* ── FECHAMENTO DO MÊS — linha alinhada na coluna correta ── */}
+                      {(() => {
+                        const lastFilled = [...rows].reverse().find((r) => r.total_followers != null && r.total_followers > 0);
+                        const closingVal = lastFilled?.total_followers ?? null;
+                        const [locked, setLocked] = [true, () => {}]; // sempre começa travado
+                        return (
+                          <tr className="border-t-2 border-blue-200 bg-blue-50/40">
+                            {/* DIA */}
+                            <td className="px-4 py-2.5">
+                              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Fechamento</span>
+                            </td>
+                            {/* VIEWS CSV — vazio */}
+                            <td />
+                            {/* VIEWS MANUAIS — vazio */}
+                            <td />
+                            {/* SEGUIDORES — total de ganhos do mês */}
+                            <td className="px-4 py-2.5 text-right tabular-nums text-emerald-600 text-sm font-semibold">
+                              {rows.reduce((s, r) => s + (r.actual_followers ?? 0), 0) > 0
+                                ? `+${rows.reduce((s, r) => s + (r.actual_followers ?? 0), 0).toLocaleString("pt-BR")}`
+                                : "—"}
+                            </td>
+                            {/* TOTAL SEGUIDORES — campo de fechamento com cadeado */}
+                            <td className="px-4 py-2.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {/* Cadeado: travado = leitura, destravado = edição */}
+                                <button
+                                  onClick={() => {
+                                    if (!canWrite) return;
+                                    setClosingFollowersFocus((v) => !v);
+                                    if (!closingFollowersFocus) {
+                                      setClosingFollowersInput(closingVal != null ? String(closingVal) : "");
+                                    }
+                                  }}
+                                  title={closingFollowersFocus ? "Travar valor" : "Destavar para editar"}
+                                  className="shrink-0 transition-colors"
+                                >
+                                  {closingFollowersFocus ? (
+                                    <svg className="h-3.5 w-3.5 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+                                      <path d="M17 8h-1V6c0-2.76-2.24-5-5-5S6 3.24 6 6v2H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-5 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM8.9 8V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2H8.9z"/>
+                                    </svg>
+                                  ) : (
+                                    <svg className="h-3.5 w-3.5 text-blue-300 hover:text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+                                      <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.65 1.35-3 3-3s3 1.35 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/>
+                                    </svg>
+                                  )}
+                                </button>
+
+                                {closingFollowersFocus ? (
+                                  <input
+                                    type="text" inputMode="numeric" autoFocus
+                                    value={closingFollowersInput}
+                                    onChange={(e) => setClosingFollowersInput(e.target.value.replace(/\D/g, ""))}
+                                    onBlur={async () => {
+                                      setClosingFollowersFocus(false);
+                                      const val = parseInt(closingFollowersInput.replace(/\D/g, ""), 10);
+                                      if (!isNaN(val) && val > 0) {
+                                        const days = daysInMonth(monthRef);
+                                        const lastDay = days[days.length - 1];
+                                        propagateTotalFollowers(lastDay, val);
+                                      }
+                                    }}
+                                    onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setClosingFollowersFocus(false); }}
+                                    className="w-28 h-7 rounded border-2 border-blue-400 bg-white px-2 text-right text-sm tabular-nums text-blue-700 font-bold focus:outline-none"
+                                  />
+                                ) : (
+                                  <span className={`text-sm font-bold tabular-nums ${closingVal ? "text-blue-600" : "text-muted-foreground/40"}`}>
+                                    {closingVal != null ? closingVal.toLocaleString("pt-BR") : "—"}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            {/* POSTS USD e REAL RECEBIDO — vazios */}
+                            {!isIG && <td />}
+                            <td />
+                            <td />
+                          </tr>
+                        );
+                      })()}
                     </tfoot>
                   </table>
                 </div>
