@@ -3739,8 +3739,8 @@ function AdminDashboard() {
                     </button>
 
                     {showPresetDropdown && (
-                      <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#EFEFEF] rounded-xl shadow-lg py-1 min-w-[200px]"
-                        style={{ boxShadow: "0 8px 32px rgba(0,0,0,.10)" }}>
+                      <div className="absolute top-full mt-1 z-50 bg-white border border-[#EFEFEF] rounded-xl shadow-lg py-1 min-w-[200px]"
+                        style={{ left: "-1px", boxShadow: "0 8px 32px rgba(0,0,0,.10)" }}>
                         {[
                           { key: "7d",   label: "Últimos 7 dias" },
                           { key: "28d",  label: "Últimos 28 dias" },
@@ -3763,7 +3763,7 @@ function AdminDashboard() {
                             <button
                               key={item.key}
                               onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); applyDatePreset(item.key); }}
-                              className={`w-full text-left px-4 py-2 text-sm transition-colors hover:bg-[#FFF5F0] ${datePreset === item.key ? "text-[#F44708] font-semibold bg-[#FFF5F0]" : "text-[#333]"}`}
+                              className={`w-full text-left px-3 py-2 text-sm transition-colors hover:bg-[#FFF5F0] ${datePreset === item.key ? "text-[#F44708] font-semibold bg-[#FFF5F0]" : "text-[#333]"}`}
                             >
                               {item.label}
                             </button>
