@@ -1188,53 +1188,51 @@ function PostsCarousel({
                   </div>
                 )}
 
-                {/* Gradient overlay */}
+                {/* Gradient overlay — forte embaixo */}
                 <div
                   className="absolute inset-0 pointer-events-none"
-                  style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 35%, transparent 50%, rgba(0,0,0,0.85) 100%)" }}
+                  style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, transparent 30%, rgba(0,0,0,0.75) 72%, rgba(0,0,0,0.92) 100%)" }}
                 />
 
-                {/* TOP: rank badge + platform */}
-                <div className="absolute top-2.5 left-2.5 right-2.5 flex items-start justify-between">
-                  {/* Rank */}
+                {/* TOP: rank + platform */}
+                <div className="absolute top-2 left-2 right-2 flex items-center justify-between">
                   <div
-                    className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow-md"
+                    className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow"
                     style={{ background: medal ?? rankBg(idx) }}
                   >
                     {idx < 3 ? ["🥇","🥈","🥉"][idx] : idx + 1}
                   </div>
-                  {/* Platform badge */}
                   <span
-                    className="text-[9px] font-bold text-white px-1.5 py-0.5 rounded-md"
-                    style={{ background: platColor + "CC" }}
+                    className="text-[9px] font-bold text-white px-1.5 py-0.5 rounded"
+                    style={{ background: platColor + "BB" }}
                   >
                     {platLabel}
                   </span>
                 </div>
 
-                {/* BOTTOM: views + collaborator */}
-                <div className="absolute bottom-0 left-0 right-0 px-2.5 pb-2.5 flex flex-col gap-1.5">
-                  {/* Views — destaque total */}
-                  <div className="flex items-center gap-1 self-end bg-white/95 backdrop-blur-sm rounded-full px-2 py-1 shadow-sm">
-                    <Eye className="h-3 w-3 text-[#FF5A00] shrink-0" />
-                    <span className="text-[10px] font-black text-[#111] tabular-nums">{fmt(post.views)}</span>
-                  </div>
-
+                {/* BOTTOM: colaborador à esquerda, views à direita — estilo TikTok */}
+                <div className="absolute bottom-0 left-0 right-0 px-2.5 pb-2.5 flex items-center justify-between gap-2">
                   {/* Colaborador */}
-                  {post.collaboratorName && (
-                    <div className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm rounded-full px-2 py-1 self-start">
+                  {post.collaboratorName ? (
+                    <div className="flex items-center gap-1.5 min-w-0">
                       {post.collaboratorAvatar ? (
-                        <img src={post.collaboratorAvatar} className="h-4 w-4 rounded-full object-cover shrink-0" alt="" />
+                        <img src={post.collaboratorAvatar} className="h-5 w-5 rounded-full object-cover shrink-0 border border-white/30" alt="" />
                       ) : (
-                        <div className="h-4 w-4 rounded-full bg-[#FF5A00] flex items-center justify-center shrink-0">
-                          <span className="text-[7px] font-black text-white">{post.collaboratorName[0]}</span>
+                        <div className="h-5 w-5 rounded-full bg-[#FF5A00] flex items-center justify-center shrink-0">
+                          <span className="text-[8px] font-black text-white">{post.collaboratorName[0]}</span>
                         </div>
                       )}
-                      <span className="text-[9px] font-semibold text-white truncate max-w-[90px]">
+                      <span className="text-[10px] font-semibold text-white/90 truncate">
                         {post.collaboratorName.split(" ")[0]}
                       </span>
                     </div>
-                  )}
+                  ) : <div />}
+
+                  {/* Views — sem fundo, estilo TikTok */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Eye className="h-3 w-3 text-white/80 shrink-0" />
+                    <span className="text-[11px] font-bold text-white tabular-nums drop-shadow-sm">{fmt(post.views)}</span>
+                  </div>
                 </div>
 
                 {/* Hover overlay */}
