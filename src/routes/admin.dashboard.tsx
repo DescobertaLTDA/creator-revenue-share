@@ -3706,16 +3706,20 @@ function AdminDashboard() {
                       {colabs.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
                     </select>
                   </div>
-                  <div className="flex flex-col gap-0.5 px-4 py-3">
-                    <label className="text-[9px] font-semibold uppercase tracking-wider text-[#9B9B9B]">De</label>
-                    <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
-                      className="border-0 bg-transparent text-xs font-medium text-[#1A0A00] focus:outline-none w-full" />
-                  </div>
-                  <div className="flex flex-col gap-0.5 px-4 py-3">
-                    <label className="text-[9px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Até</label>
-                    <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
-                      className="border-0 bg-transparent text-xs font-medium text-[#1A0A00] focus:outline-none w-full" />
-                  </div>
+                  {datePreset === "personalizado" && (
+                    <>
+                      <div className="flex flex-col gap-0.5 px-4 py-3">
+                        <label className="text-[9px] font-semibold uppercase tracking-wider text-[#9B9B9B]">De</label>
+                        <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
+                          className="border-0 bg-transparent text-xs font-medium text-[#1A0A00] focus:outline-none w-full" />
+                      </div>
+                      <div className="flex flex-col gap-0.5 px-4 py-3">
+                        <label className="text-[9px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Até</label>
+                        <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
+                          className="border-0 bg-transparent text-xs font-medium text-[#1A0A00] focus:outline-none w-full" />
+                      </div>
+                    </>
+                  )}
                   <div className="col-span-2 flex items-center justify-between px-4 py-3 border-t border-[#F0F0F0]">
                     <div className="flex items-center gap-2">
                       <label className="text-[9px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Dados Manuais</label>
@@ -3795,18 +3799,23 @@ function AdminDashboard() {
                     )}
                   </div>
 
-                  <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
-                  <div className="flex flex-col gap-0.5 py-3">
-                    <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">De</label>
-                    <input type="date" value={filterFrom} onChange={(e) => { setFilterFrom(e.target.value); setDatePreset("personalizado"); }}
-                      className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer" />
-                  </div>
-                  <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
-                  <div className="flex flex-col gap-0.5 py-3">
-                    <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Até</label>
-                    <input type="date" value={filterTo} onChange={(e) => { setFilterTo(e.target.value); setDatePreset("personalizado"); }}
-                      className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer" />
-                  </div>
+                  {/* DE / ATÉ — só visível quando Personalizado */}
+                  {datePreset === "personalizado" && (
+                    <>
+                      <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
+                      <div className="flex flex-col gap-0.5 py-3">
+                        <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">De</label>
+                        <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
+                          className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer" />
+                      </div>
+                      <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
+                      <div className="flex flex-col gap-0.5 py-3">
+                        <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Até</label>
+                        <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
+                          className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer" />
+                      </div>
+                    </>
+                  )}
                   <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
                   <div className="flex flex-col gap-0.5 py-3">
                     <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Dados Manuais</label>
