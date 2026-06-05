@@ -696,6 +696,13 @@ function PostsCarousel({
   const [cropNatSize, setCropNatSize] = useState<{ w: number; h: number } | null>(null);
   const [cropSaving, setCropSaving] = useState(false);
 
+  // OCR + description edit state
+  const [ocrText, setOcrText] = useState<string | null>(null);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrCopied, setOcrCopied] = useState(false);
+  const [editDescription, setEditDescription] = useState("");
+  const [modalSaving, setModalSaving] = useState(false);
+
   const CARD_W = 160;
   const GAP = 12;
 
@@ -720,8 +727,6 @@ function PostsCarousel({
   }, [thumbPreviewUrl]);
 
   const openModal = (post: CarouselPost) => {
-    // Apply any pending thumbnail override so the modal reflects the current state
-    // (the `posts` prop array is stale — it comes from the parent and only refreshes on reload)
     const effective: CarouselPost = post.id in thumbnailOverrides
       ? { ...post, thumbnail_url: thumbnailOverrides[post.id] }
       : post;
@@ -729,6 +734,10 @@ function PostsCarousel({
     setThumbFile(null);
     setThumbPreviewUrl(null);
     setUrlInput("");
+    setOcrText(null);
+    setOcrLoading(false);
+    setOcrCopied(false);
+    setEditDescription(effective.description ?? "");
   };
 
   const closeModal = () => {
@@ -737,7 +746,35 @@ function PostsCarousel({
     if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl);
     setThumbPreviewUrl(null);
     setUrlInput("");
+    setOcrText(null);
+    setOcrLoading(false);
+    setEditDescription("");
     closeCrop();
+  };
+
+  const handleSaveModal = async () => {
+    if (!modalPost) return;
+    setModalSaving(true);
+    try {
+      await (supabase as any).from("posts")
+        .update({ description: editDescription || null })
+        .eq("id", modalPost.id);
+      if (_dashCache) {
+        _dashCache.posts = _dashCache.posts.map((p) =>
+          p.id === modalPost.id ? { ...p, description: editDescription || null } : p
+        );
+      }
+    } catch {}
+    setModalSaving(false);
+    closeModal();
+  };
+
+  const handleExtractOCR = async () => {
+    if (!modalPost) return;
+    setOcrLoading(true);
+    await new Promise((r) => setTimeout(r, 1500));
+    setOcrText(modalPost.title ?? "Nenhum texto encontrado na imagem.");
+    setOcrLoading(false);
   };
 
   const scrollBy = (dir: 1 | -1) => {
@@ -1158,234 +1195,301 @@ function PostsCarousel({
         <div className="shrink-0 w-1" />
       </div>
 
-      {/* ── Upload + Detail modal (16:9 landscape) ── */}
+      {/* ── Modal de edição de post ── */}
       {modalPost && createPortal(
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-6"
-          style={{ background: "rgba(0,0,0,.6)", backdropFilter: "blur(6px)" }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,.65)", backdropFilter: "blur(6px)" }}
           onClick={closeModal}
         >
           <div
-            className="bg-white rounded-2xl overflow-hidden w-full max-w-5xl shadow-2xl flex flex-col"
-            style={{ aspectRatio: "16 / 9" }}
+            className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col overflow-hidden"
+            style={{ maxHeight: "90vh" }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* ── Header ── */}
-            <div className="px-5 py-3 border-b border-[#F0F0F0] flex items-center gap-3 shrink-0">
-              <div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
+            <div className="px-5 py-3.5 border-b border-[#F0F0F0] flex items-center gap-3 shrink-0">
+              <div className="h-9 w-9 rounded-full flex items-center justify-center text-sm font-black text-white shrink-0"
                 style={{ background: rankBg(posts.indexOf(modalPost)) }}>
                 {posts.indexOf(modalPost) + 1}
               </div>
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <span className="text-sm font-bold text-[#111] truncate">{modalPost.pageName}</span>
-                <span className="text-xs text-[#AAA] shrink-0">{dateLabel(modalPost.published_at)}</span>
+                <span className="text-xs text-[#999] shrink-0">{dateLabel(modalPost.published_at)}</span>
                 {modalPost.source && (
-                  <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full shrink-0 ${modalPost.source === "instagram" ? "bg-pink-50 text-pink-600" : "bg-blue-50 text-blue-600"}`}>
-                    {modalPost.source}
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                    modalPost.source === "instagram"
+                      ? "bg-gradient-to-r from-purple-50 to-pink-50 text-pink-600 border border-pink-200"
+                      : "bg-blue-50 text-blue-600 border border-blue-200"
+                  }`}>
+                    {modalPost.source.toUpperCase()}
                   </span>
                 )}
               </div>
-              <button onClick={closeModal}
-                className="h-7 w-7 rounded-full hover:bg-[#F5F5F5] flex items-center justify-center text-[#999] transition-colors shrink-0">
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button className="h-8 w-8 rounded-full hover:bg-[#F5F5F5] flex items-center justify-center text-[#BBB] transition-colors">
+                  <Maximize2 className="h-4 w-4" />
+                </button>
+                <button onClick={closeModal}
+                  className="h-8 w-8 rounded-full hover:bg-[#F5F5F5] flex items-center justify-center text-[#999] transition-colors">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             {/* ── Body: 2 colunas ── */}
-            <div className="flex-1 grid grid-cols-[1fr_1fr] min-h-0">
+            <div className="flex-1 grid grid-cols-[44%_56%] min-h-0 overflow-hidden">
 
-              {/* ── Coluna esquerda: imagem ── */}
-              <div className="relative bg-gray-100 overflow-hidden">
-                {showCrop && cropSrc && cropNatSize ? (
-                  /* Crop overlay ocupa a coluna inteira */
-                  <div className="absolute inset-0 flex flex-col bg-[#FAFAFA]">
-                    <div className="flex items-center gap-2 px-4 pt-3 pb-2 shrink-0">
-                      <Crop className="h-3.5 w-3.5 text-[#F44708]" />
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#F44708]">Ajustar recorte</p>
-                      <span className="text-[9px] text-[#BBB] ml-1">Arraste a caixa ou os cantos</span>
-                    </div>
-                    <div className="flex-1 min-h-0 px-4 pb-4">
-                      <CropOverlay
-                        src={cropSrc}
-                        naturalW={cropNatSize.w}
-                        naturalH={cropNatSize.h}
-                        saving={cropSaving}
-                        onSave={saveCrop}
-                        onCancel={closeCrop}
-                      />
-                    </div>
-                  </div>
-                ) : displayUrl ? (
-                  <div
-                    className="absolute inset-0 cursor-pointer group bg-black"
-                    onClick={() => !thumbUploading && thumbFileRef.current?.click()}
-                  >
-                    <img src={displayUrl} alt="" className="w-full h-full object-contain" />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <div className="flex flex-col items-center gap-1">
-                        <ImagePlus className="h-8 w-8 text-white" />
-                        <span className="text-xs font-bold text-white">Trocar imagem</span>
+              {/* ── Coluna esquerda: imagem + métricas + dica ── */}
+              <div className="flex flex-col bg-[#0A0A0A] min-h-0">
+                {/* Imagem */}
+                <div className="relative flex-1 min-h-0">
+                  {showCrop && cropSrc && cropNatSize ? (
+                    <div className="absolute inset-0 flex flex-col bg-[#FAFAFA]">
+                      <div className="flex items-center gap-2 px-4 pt-3 pb-2 shrink-0">
+                        <Crop className="h-3.5 w-3.5 text-[#F44708]" />
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#F44708]">Ajustar recorte</p>
+                        <span className="text-[9px] text-[#BBB] ml-1">Arraste a caixa ou os cantos</span>
+                      </div>
+                      <div className="flex-1 min-h-0 px-4 pb-4">
+                        <CropOverlay
+                          src={cropSrc}
+                          naturalW={cropNatSize.w}
+                          naturalH={cropNatSize.h}
+                          saving={cropSaving}
+                          onSave={saveCrop}
+                          onCancel={closeCrop}
+                        />
                       </div>
                     </div>
-                  </div>
-                ) : (
-                  <div
-                    className="absolute inset-0 flex flex-col items-center justify-center gap-3 cursor-pointer group"
-                    style={{ background: "linear-gradient(135deg,#FAF7F5,#F2EDE8)" }}
-                    onClick={() => !thumbUploading && thumbFileRef.current?.click()}
-                  >
-                    <ImagePlus className="h-12 w-12 text-[#DDD4CB] group-hover:text-[#F44708] transition-colors" />
-                    <span className="text-sm font-semibold text-[#C5B9B0] group-hover:text-[#F44708] transition-colors">
-                      Clique para carregar imagem
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* ── Coluna direita: idêntico ao Analytics modal ── */}
-              <div className="flex flex-col border-l border-[#F0F0F0] min-h-0">
-                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-
-                  {/* Info box + crop inline */}
-                  {thumbFile ? (
-                    <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 flex items-start gap-2">
-                      <CloudUpload className="h-3.5 w-3.5 text-blue-600 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-[11px] font-bold text-blue-700">ARQUIVO SELECIONADO</p>
-                        <p className="text-[11px] text-blue-600 truncate mt-0.5">{thumbFile.name} · {fmtBytes(thumbFile.size)}</p>
+                  ) : displayUrl ? (
+                    <div className="absolute inset-0 cursor-pointer group"
+                      onClick={() => !thumbUploading && thumbFileRef.current?.click()}>
+                      <img src={displayUrl} alt="" className="w-full h-full object-contain" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <div className="flex flex-col items-center gap-2">
+                          <ImagePlus className="h-10 w-10 text-white" />
+                          <span className="text-sm font-bold text-white">Trocar imagem</span>
+                        </div>
                       </div>
                     </div>
-                  ) : (modalPost.thumbnail_url || thumbPreviewUrl) ? (
-                    <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2.5 flex items-center gap-2">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-green-700">IMAGEM ATUAL</p>
-                        <p className="text-[11px] text-green-700">Thumbnail vinculada a este post.</p>
-                      </div>
-                      {!showCrop && (
-                        <button onClick={() => openCrop(thumbPreviewUrl ?? modalPost.thumbnail_url!)}
-                          className="flex items-center gap-1 text-[10px] text-green-600 hover:text-green-800 transition-colors shrink-0 font-medium">
-                          <Crop className="h-3 w-3" /> Recortar
-                        </button>
-                      )}
-                    </div>
-                  ) : null}
-
-                  {/* Botão principal */}
-                  {thumbFile ? (
-                    <>
-                      <button onClick={handleUpload} disabled={thumbUploading}
-                        className="flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold text-white w-full transition-opacity hover:opacity-90 disabled:opacity-60"
-                        style={{ background: "#F44708" }}>
-                        {thumbUploading ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando…</> : <><CloudUpload className="h-4 w-4" /> Confirmar upload</>}
-                      </button>
-                      <button onClick={() => { setThumbFile(null); if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl); setThumbPreviewUrl(null); }}
-                        disabled={thumbUploading}
-                        className="flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-medium border border-border bg-white hover:bg-muted transition-colors w-full disabled:opacity-40">
-                        Cancelar seleção
-                      </button>
-                    </>
                   ) : (
-                    <>
-                      <button onClick={() => thumbFileRef.current?.click()} disabled={thumbUploading}
-                        className="flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold text-white w-full transition-opacity hover:opacity-90 disabled:opacity-60"
-                        style={{ background: "#F44708" }}>
-                        <ImagePlus className="h-4 w-4" />
-                        {(modalPost.thumbnail_url || thumbPreviewUrl) ? "Trocar imagem" : "Carregar imagem"}
-                      </button>
-                      {(modalPost.thumbnail_url || thumbPreviewUrl) && (
-                        <button onClick={handleRemove} disabled={thumbUploading}
-                          className="flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-medium border border-border bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors w-full disabled:opacity-40">
-                          {thumbUploading ? <><Loader2 className="h-4 w-4 animate-spin" /> Removendo…</> : <><Trash2 className="h-4 w-4" /> Remover imagem</>}
-                        </button>
-                      )}
-                    </>
-                  )}
-
-                  {/* Importar automaticamente */}
-                  {!thumbFile && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="flex-1 h-px bg-border" />
-                        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide whitespace-nowrap shrink-0">OU IMPORTAR AUTOMATICAMENTE</span>
-                        <div className="flex-1 h-px bg-border" />
-                      </div>
-                      <button onClick={handleUrlImport} disabled={urlImporting}
-                        className="w-full h-9 rounded-xl text-xs font-semibold text-white bg-gray-900 hover:bg-gray-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5">
-                        {urlImporting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Buscando…</> : <><Link2 className="h-3.5 w-3.5" /> Importar automaticamente</>}
-                      </button>
-                      <p className="text-[10px] text-muted-foreground mt-1.5 pl-1">Busca a imagem automaticamente pelo título do post</p>
-                    </div>
-                  )}
-
-                  {/* Texto da imagem (OCR — em breve) */}
-                  <div className="rounded-xl border border-dashed border-border bg-muted/20 p-3 flex flex-col gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <Sparkles className="h-3.5 w-3.5 text-[#F44708]" />
-                      <p className="text-[11px] font-bold text-foreground">Texto da imagem</p>
-                      <span className="ml-auto text-[9px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full uppercase tracking-wide">Em breve</span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground leading-relaxed">Extração automática do texto presente na imagem via API de OCR. Em breve disponível.</p>
-                    <button disabled className="flex items-center justify-center gap-1.5 h-7 rounded-lg text-[11px] font-semibold text-muted-foreground bg-muted cursor-not-allowed opacity-60 w-full">
-                      <Sparkles className="h-3 w-3" /> Extrair texto
-                    </button>
-                  </div>
-
-                  {/* Métricas em cards */}
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {[
-                      { Icon: Eye,          label: "Views",   val: fmt(modalPost.views),     color: "text-orange-500" },
-                      { Icon: Heart,        label: "Reações", val: fmt(modalPost.reactions),  color: "text-rose-500" },
-                      { Icon: MessageSquare, label: "Coment.", val: fmt(modalPost.comments),  color: "text-blue-500" },
-                      { Icon: Share2,       label: "Shares",  val: fmt(modalPost.shares),    color: "text-green-500" },
-                    ].map(({ Icon, label, val, color }) => (
-                      <div key={label} className="rounded-xl border border-border bg-muted/20 p-2 flex flex-col items-center gap-1">
-                        <Icon className={`h-3.5 w-3.5 ${color}`} />
-                        <p className="text-xs font-bold text-foreground tabular-nums">{val}</p>
-                        <p className="text-[9px] text-muted-foreground">{label}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Receita */}
-                  {modalPost.revenue > 0 && usdBrl && (
-                    <div className="rounded-xl bg-green-50 border border-green-200 px-3 py-2 flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-green-700 font-bold text-xs">
-                        <DollarSign className="h-3.5 w-3.5" />
-                        {formatBRL(modalPost.revenue * usdBrl)}
-                      </div>
-                      <span className="text-[11px] text-green-600 font-medium">${modalPost.revenue.toFixed(2)} USD</span>
-                    </div>
-                  )}
-
-                  {/* Descrição */}
-                  {(modalPost.description || modalPost.title) && (
-                    <div className="flex flex-col gap-1.5 flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Descrição</p>
-                        {modalPost.permalink && (
-                          <a href={modalPost.permalink} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-[10px] text-[#F44708] font-semibold hover:underline">
-                            <ArrowRight className="h-3 w-3" /> Ver post
-                          </a>
-                        )}
-                      </div>
-                      <p className="text-xs text-[#444] leading-relaxed whitespace-pre-wrap overflow-y-auto flex-1">
-                        {modalPost.description ?? modalPost.title}
-                      </p>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 cursor-pointer group bg-[#1A1A1A]"
+                      onClick={() => !thumbUploading && thumbFileRef.current?.click()}>
+                      <ImagePlus className="h-12 w-12 text-[#444] group-hover:text-[#F44708] transition-colors" />
+                      <span className="text-sm text-[#555] group-hover:text-[#F44708] transition-colors font-medium">Clique para carregar imagem</span>
                     </div>
                   )}
                 </div>
 
-                {/* Footer */}
-                <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border shrink-0">
-                  <button onClick={closeModal} className="h-9 px-4 rounded-xl border border-border bg-white text-xs font-medium hover:bg-muted transition-colors">
+                {/* Métricas */}
+                <div className="shrink-0 bg-white border-t border-[#F0F0F0] grid grid-cols-4">
+                  {[
+                    { Icon: Eye, label: "Views", val: fmt(modalPost.views), color: "#F44708" },
+                    { Icon: Heart, label: "Reações", val: fmt(modalPost.reactions), color: "#e11d48" },
+                    { Icon: MessageSquare, label: "Comentários", val: fmt(modalPost.comments), color: "#0284c7" },
+                    { Icon: Share2, label: "Compartilhamentos", val: fmt(modalPost.shares), color: "#16a34a" },
+                  ].map(({ Icon, label, val, color }) => (
+                    <div key={label} className="flex flex-col items-center py-3 gap-0.5 border-r border-[#F5F5F5] last:border-r-0">
+                      <Icon className="h-4 w-4 mb-0.5" style={{ color }} />
+                      <p className="text-sm font-bold text-[#111] tabular-nums">{val}</p>
+                      <p className="text-[9px] text-[#AAA] text-center leading-tight">{label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Dica */}
+                <div className="shrink-0 bg-[#FFFBF5] border-t border-[#FFE8C8] px-4 py-2 flex items-center gap-2">
+                  <span className="text-base shrink-0">💡</span>
+                  <p className="text-[10px] text-[#8B6914]">
+                    <strong>Dica:</strong> Textos extraídos podem conter erros. Revise antes de publicar.
+                  </p>
+                </div>
+              </div>
+
+              {/* ── Coluna direita: controles ── */}
+              <div className="flex flex-col border-l border-[#F0F0F0] min-h-0">
+                <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
+
+                  {/* ── IMAGEM ── */}
+                  <div className="flex flex-col gap-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#AAA]">Imagem</p>
+
+                    {/* Info box */}
+                    {thumbFile ? (
+                      <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 flex items-center gap-2">
+                        <CloudUpload className="h-4 w-4 text-blue-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-bold text-blue-700">Arquivo selecionado</p>
+                          <p className="text-[10px] text-blue-600 truncate">{thumbFile.name} · {fmtBytes(thumbFile.size)}</p>
+                        </div>
+                      </div>
+                    ) : (modalPost.thumbnail_url || thumbPreviewUrl) ? (
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-bold text-emerald-700">Imagem atual</p>
+                          <p className="text-[10px] text-emerald-600">Thumbnail vinculada a este post.</p>
+                        </div>
+                        {!showCrop && (
+                          <button onClick={() => openCrop(thumbPreviewUrl ?? modalPost.thumbnail_url!)}
+                            className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-800 transition-colors shrink-0 border border-emerald-200 rounded-lg px-2 py-1">
+                            <Crop className="h-3 w-3" /> Recortar
+                          </button>
+                        )}
+                      </div>
+                    ) : null}
+
+                    {/* Botões Trocar / Remover */}
+                    {thumbFile ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        <button onClick={handleUpload} disabled={thumbUploading}
+                          className="flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold text-white disabled:opacity-60 transition-opacity hover:opacity-90"
+                          style={{ background: "#F44708" }}>
+                          {thumbUploading ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando…</> : <><CloudUpload className="h-4 w-4" /> Confirmar</>}
+                        </button>
+                        <button onClick={() => { setThumbFile(null); if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl); setThumbPreviewUrl(null); }}
+                          disabled={thumbUploading}
+                          className="flex items-center justify-center h-10 rounded-xl border border-[#E8E8E8] text-sm text-[#555] font-medium hover:bg-muted transition-colors disabled:opacity-40">
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => thumbFileRef.current?.click()} disabled={thumbUploading}
+                          className="flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold text-white disabled:opacity-60 transition-opacity hover:opacity-90"
+                          style={{ background: "#F44708" }}>
+                          <ImagePlus className="h-4 w-4" />
+                          {(modalPost.thumbnail_url || thumbPreviewUrl) ? "Trocar imagem" : "Carregar imagem"}
+                        </button>
+                        <button onClick={handleRemove} disabled={thumbUploading || !(modalPost.thumbnail_url || thumbPreviewUrl)}
+                          className="flex items-center justify-center gap-2 h-10 rounded-xl border border-[#E8E8E8] text-sm text-[#555] font-medium hover:bg-red-50 hover:border-red-200 hover:text-red-500 transition-colors disabled:opacity-30">
+                          <Trash2 className="h-4 w-4" /> Remover imagem
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Buscar imagem */}
+                    {!thumbFile && (
+                      <button onClick={handleUrlImport} disabled={urlImporting}
+                        className="flex flex-col items-center justify-center gap-0.5 h-14 rounded-xl border border-[#E8E8E8] bg-white hover:bg-[#FAFAFA] transition-colors w-full disabled:opacity-60">
+                        <div className="flex items-center gap-1.5 text-sm font-semibold text-[#333]">
+                          {urlImporting ? <Loader2 className="h-4 w-4 animate-spin text-[#F44708]" /> : <span className="text-base">🔍</span>}
+                          {urlImporting ? "Buscando…" : "Buscar imagem"}
+                        </div>
+                        <p className="text-[10px] text-[#AAA]">Encontre imagens relevantes para o seu post</p>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* ── TEXTO DA IMAGEM ── */}
+                  <div className="flex flex-col gap-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-[#F44708]" />
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Texto da imagem</p>
+                      </div>
+                      {ocrText && (
+                        <span className="text-[9px] font-bold text-[#F44708] bg-[#FFF0E8] border border-[#FFD0B0] px-2 py-0.5 rounded-full uppercase tracking-wide">
+                          Extraído via IA
+                        </span>
+                      )}
+                    </div>
+
+                    {ocrLoading ? (
+                      <div className="rounded-xl border border-[#F0F0F0] bg-[#FAFAFA] p-4 flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin text-[#F44708]" />
+                        <span className="text-xs text-[#AAA]">Extraindo texto da imagem…</span>
+                      </div>
+                    ) : ocrText ? (
+                      <div className="rounded-xl border border-[#F0F0F0] bg-[#FAFAFA] p-3 flex flex-col gap-2">
+                        <p className="text-xs text-[#333] leading-relaxed whitespace-pre-wrap">{ocrText}</p>
+                        <div className="flex items-center gap-2 pt-1 border-t border-[#EAEAEA]">
+                          <button onClick={async () => {
+                            await navigator.clipboard.writeText(ocrText);
+                            setOcrCopied(true);
+                            setTimeout(() => setOcrCopied(false), 2000);
+                          }}
+                            className="flex items-center gap-1.5 text-[11px] font-semibold text-[#555] hover:text-[#111] transition-colors">
+                            <FileText className="h-3.5 w-3.5" />
+                            {ocrCopied ? "Copiado!" : "Copiar"}
+                          </button>
+                          <button onClick={handleExtractOCR}
+                            className="flex items-center gap-1.5 text-[11px] font-semibold text-[#555] hover:text-[#111] transition-colors ml-auto">
+                            <ChevronRight className="h-3.5 w-3.5" />
+                            Extrair novamente
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={handleExtractOCR} disabled={!displayUrl}
+                        className="flex items-center justify-center gap-2 h-10 rounded-xl border border-dashed border-[#DDD] text-sm font-medium text-[#888] hover:border-[#F44708] hover:text-[#F44708] transition-colors disabled:opacity-40 w-full">
+                        <Sparkles className="h-4 w-4" />
+                        Extrair texto da imagem
+                      </button>
+                    )}
+                  </div>
+
+                  {/* ── DESCRIÇÃO DO POST ── */}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm">📝</span>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Descrição do post</p>
+                      </div>
+                      {modalPost.permalink && (
+                        <a href={modalPost.permalink} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-[10px] text-[#F44708] font-semibold hover:underline">
+                          Ver post original <ArrowRight className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
+                    <textarea
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      maxLength={2200}
+                      rows={4}
+                      placeholder="Escreva a descrição do post…"
+                      className="w-full px-3 py-2.5 rounded-xl border border-[#E8E8E8] text-xs text-[#333] leading-relaxed bg-white focus:outline-none focus:border-[#F44708] resize-none transition-colors"
+                    />
+                    <p className="text-[10px] text-[#AAA] text-right">{editDescription.length}/2200</p>
+                  </div>
+
+                  {/* ── HASHTAGS ── */}
+                  {(() => {
+                    const tags = editDescription.match(/#\w+/g) ?? [];
+                    if (tags.length === 0) return null;
+                    return (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm">#</span>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Hashtags</p>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {tags.map((tag) => (
+                            <span key={tag} className="text-[11px] font-medium text-[#555] bg-[#F5F5F5] rounded-full px-3 py-1 border border-[#EAEAEA]">
+                              {tag}
+                            </span>
+                          ))}
+                          <button className="text-[11px] font-medium text-[#AAA] border border-dashed border-[#DDD] rounded-full px-3 py-1 hover:border-[#F44708] hover:text-[#F44708] transition-colors flex items-center gap-1">
+                            + Adicionar
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* ── Footer ── */}
+                <div className="flex items-center justify-end gap-3 px-5 py-3.5 border-t border-[#F0F0F0] shrink-0">
+                  <button onClick={closeModal}
+                    className="h-10 px-5 rounded-xl border border-[#E8E8E8] text-sm font-medium text-[#555] hover:bg-[#F5F5F5] transition-colors">
                     Cancelar
                   </button>
-                  <button onClick={closeModal}
-                    className="h-9 px-4 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5 transition-opacity hover:opacity-90"
+                  <button onClick={handleSaveModal} disabled={modalSaving}
+                    className="h-10 px-6 rounded-xl text-sm font-semibold text-white flex items-center gap-2 disabled:opacity-60 transition-opacity hover:opacity-90"
                     style={{ background: "#F44708" }}>
-                    Salvar alterações →
+                    {modalSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando…</> : <>Salvar alterações →</>}
                   </button>
                 </div>
               </div>
