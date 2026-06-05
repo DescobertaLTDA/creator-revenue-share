@@ -10,7 +10,7 @@ import {
   Loader2, Play, ImageIcon, ChevronDown, ChevronRight,
   BarChart2, Zap, Target, Info, DollarSign, Users, Share2,
   MessageSquare, Bookmark, UserPlus,
-  X, Trash2, Link2, CheckCircle2,
+  X, Trash2, Link2, CheckCircle2, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -825,7 +825,7 @@ function PostEditModal({
                   </span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
-                <form onSubmit={handleApplyUrl} className="flex gap-2">
+                <div className="flex gap-2">
                   <div className="flex-1 relative">
                     <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
                     <input
@@ -833,16 +833,55 @@ function PostEditModal({
                       type="text"
                       value={imageUrlInput}
                       onChange={(e) => setImageUrlInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (!imageUrlInput.trim()) return;
+                          setPost((p) => ({ ...p, thumbnail_url: imageUrlInput.trim() }));
+                          setImgError(false);
+                          setImageUrlInput("");
+                        }
+                      }}
                       placeholder="URL da imagem (opcional)"
                       className="w-full h-8 pl-8 pr-2 rounded-lg border border-border bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#F44708]/30"
                     />
                   </div>
-                  <button type="submit" className="h-8 px-3 rounded-lg text-xs font-semibold text-white bg-gray-900 hover:bg-gray-700 transition-colors flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!imageUrlInput.trim()) return;
+                      setPost((p) => ({ ...p, thumbnail_url: imageUrlInput.trim() }));
+                      setImgError(false);
+                      setImageUrlInput("");
+                    }}
+                    className="h-8 px-3 rounded-lg text-xs font-semibold text-white bg-gray-900 hover:bg-gray-700 transition-colors flex items-center gap-1 shrink-0"
+                  >
                     <Link2 className="h-3 w-3" />
                     Importar
                   </button>
-                </form>
+                </div>
                 <p className="text-[10px] text-muted-foreground mt-1 pl-1">Sem URL: busca automática pelo Google</p>
+              </div>
+
+              {/* Texto da imagem (OCR — futuro) */}
+              <div className="rounded-xl border border-dashed border-border bg-muted/20 p-3 flex flex-col gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-[#F44708]" />
+                  <p className="text-[11px] font-bold text-foreground">Texto da imagem</p>
+                  <span className="ml-auto text-[9px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full uppercase tracking-wide">
+                    Em breve
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  Extração automática do texto presente na imagem via API de OCR. Em breve disponível.
+                </p>
+                <button
+                  disabled
+                  className="flex items-center justify-center gap-1.5 h-7 rounded-lg text-[11px] font-semibold text-muted-foreground bg-muted cursor-not-allowed opacity-60 w-full"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Extrair texto
+                </button>
               </div>
 
               {/* Metrics */}
