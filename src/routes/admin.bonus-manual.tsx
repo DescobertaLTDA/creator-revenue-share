@@ -580,60 +580,73 @@ function BonusManualPage() {
     );
   };
 
-  // ── Auto-propagate total_followers ──────────────────────────────────────────
+  // ── Auto-propagate total_followers — busca TODOS os meses do banco ──────────
   // Fórmula: total[dia] = total[dia+1] - ganho[dia]  (para trás)
   //          total[dia] = total[dia-1] + ganho[dia]  (para frente)
   const propagateTotalFollowers = useCallback(async (
     anchorDate: string,
-    anchorTotal: number,
-    currentRows: DayEntry[]
+    anchorTotal: number
   ) => {
     if (!selectedPageId || !profile) return;
 
-    const sorted = [...currentRows].sort((a, b) => a.date.localeCompare(b.date));
-    const anchorIdx = sorted.findIndex((r) => r.date === anchorDate);
+    // 1. Busca TODAS as entradas da página/plataforma (todos os meses)
+    const { data: allEntries, error } = await (supabase as any)
+      .from("daily_revenue_entries")
+      .select("entry_date, actual_followers, id")
+      .eq("page_id", selectedPageId)
+      .eq("platform", platform)
+      .order("entry_date", { ascending: true });
+
+    if (error || !allEntries) { toast.error("Erro ao buscar entradas"); return; }
+
+    // 2. Ordena por data e encontra âncora
+    const sorted: { entry_date: string; actual_followers: number | null }[] = allEntries;
+    const anchorIdx = sorted.findIndex((r: any) => r.entry_date === anchorDate);
     if (anchorIdx === -1) return;
 
     const computed: { date: string; total: number }[] = [];
-
-    // Inclui âncora
     computed.push({ date: anchorDate, total: anchorTotal });
 
     // ← Para trás: total[i] = total[i+1] - ganho[i]
     let running = anchorTotal;
     for (let i = anchorIdx - 1; i >= 0; i--) {
-      const gain = sorted[i].actual_followers ?? 0;
+      const gain = Number(sorted[i].actual_followers ?? 0);
       running = running - gain;
-      computed.push({ date: sorted[i].date, total: running });
+      computed.push({ date: sorted[i].entry_date, total: Math.max(0, running) });
     }
 
     // → Para frente: total[i] = total[i-1] + ganho[i]
     running = anchorTotal;
     for (let i = anchorIdx + 1; i < sorted.length; i++) {
-      const gain = sorted[i].actual_followers ?? 0;
+      const gain = Number(sorted[i].actual_followers ?? 0);
       running = running + gain;
-      computed.push({ date: sorted[i].date, total: running });
+      computed.push({ date: sorted[i].entry_date, total: running });
     }
 
-    // Atualiza UI
+    // 3. Atualiza UI (só para as linhas do mês atual visíveis)
     setRows((prev) => prev.map((r) => {
       const c = computed.find((x) => x.date === r.date);
       return c ? { ...r, total_followers: c.total, _db_total_followers: c.total } : r;
     }));
 
-    // Salva no banco
-    for (const { date, total } of computed) {
+    // 4. Salva tudo no banco em lotes de 20
+    const BATCH = 20;
+    for (let i = 0; i < computed.length; i += BATCH) {
+      const batch = computed.slice(i, i + BATCH);
       await (supabase as any)
         .from("daily_revenue_entries")
-        .upsert({
-          entry_date: date,
-          page_id: selectedPageId,
-          platform,
-          total_followers: total,
-          updated_at: new Date().toISOString(),
-          updated_by: profile.id,
-          created_by: profile.id,
-        }, { onConflict: "entry_date,page_id,platform" });
+        .upsert(
+          batch.map(({ date, total }) => ({
+            entry_date: date,
+            page_id: selectedPageId,
+            platform,
+            total_followers: total,
+            updated_at: new Date().toISOString(),
+            updated_by: profile.id,
+            created_by: profile.id,
+          })),
+          { onConflict: "entry_date,page_id,platform" }
+        );
     }
 
     toast.success(`Total Seguidores calculado para ${computed.length} dias`);
@@ -712,9 +725,9 @@ function BonusManualPage() {
       }));
       setTimeout(() => setRows((prev) => prev.map((r) => r.date === row.date ? { ...r, saved: false } : r)), 2000);
 
-      // Auto-propagate total_followers quando o campo foi editado
+      // Auto-propagate total_followers — atualiza todos os meses/páginas
       if (row.last_edited_field === "total_followers" && row.total_followers != null) {
-        propagateTotalFollowers(row.date, row.total_followers, rowsRef.current);
+        propagateTotalFollowers(row.date, row.total_followers);
       }
     }
   };
@@ -1147,13 +1160,6 @@ function BonusManualPage() {
                             {/* Total Seguidores */}
                             <td className="px-4 py-2.5 text-right">
                               <div className="flex items-center justify-end gap-1">
-                              {row.total_followers != null && row.total_followers > 0 && (
-                                <button
-                                  onClick={() => propagateTotalFollowers(row.date, row.total_followers!, rowsRef.current)}
-                                  title="Recalcular todos os dias com base nesse valor"
-                                  className="text-[9px] text-blue-400 hover:text-blue-600 transition-colors shrink-0"
-                                >↺</button>
-                              )}
                               <input
                                 type="text" inputMode="numeric" disabled={isFuture || !canWrite}
                                 placeholder="0"
