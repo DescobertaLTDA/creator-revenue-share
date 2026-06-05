@@ -3478,6 +3478,7 @@ function AdminDashboard() {
       )}
 
       {activeTab === "overview" && (
+        <>
         <div className="flex gap-5 items-start">
           {/* ── Main column ── */}
           <div className="flex-1 min-w-0 space-y-5">
@@ -4266,6 +4267,7 @@ function AdminDashboard() {
 
 
         </div>{/* end full-width content */}
+        </>
       )}
 
       {/* ── Audit Dialog ── */}
