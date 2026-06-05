@@ -1217,10 +1217,10 @@ function PostsCarousel({
                   </div>
                 ) : displayUrl ? (
                   <div
-                    className="absolute inset-0 cursor-pointer group"
+                    className="absolute inset-0 cursor-pointer group bg-black"
                     onClick={() => !thumbUploading && thumbFileRef.current?.click()}
                   >
-                    <img src={displayUrl} alt="" className="w-full h-full object-cover" />
+                    <img src={displayUrl} alt="" className="w-full h-full object-contain" />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
                       <div className="flex flex-col items-center gap-1">
                         <ImagePlus className="h-8 w-8 text-white" />
@@ -1246,7 +1246,7 @@ function PostsCarousel({
               <div className="flex flex-col border-l border-[#F0F0F0] min-h-0">
                 <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
 
-                  {/* Info box */}
+                  {/* Info box + crop inline */}
                   {thumbFile ? (
                     <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 flex items-start gap-2">
                       <CloudUpload className="h-3.5 w-3.5 text-blue-600 shrink-0 mt-0.5" />
@@ -1256,12 +1256,18 @@ function PostsCarousel({
                       </div>
                     </div>
                   ) : (modalPost.thumbnail_url || thumbPreviewUrl) ? (
-                    <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2.5 flex items-start gap-2">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0 mt-0.5" />
-                      <div>
+                    <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2.5 flex items-center gap-2">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                      <div className="flex-1 min-w-0">
                         <p className="text-[11px] font-bold text-green-700">IMAGEM ATUAL</p>
-                        <p className="text-[11px] text-green-700 mt-0.5">Thumbnail vinculada a este post.</p>
+                        <p className="text-[11px] text-green-700">Thumbnail vinculada a este post.</p>
                       </div>
+                      {!showCrop && (
+                        <button onClick={() => openCrop(thumbPreviewUrl ?? modalPost.thumbnail_url!)}
+                          className="flex items-center gap-1 text-[10px] text-green-600 hover:text-green-800 transition-colors shrink-0 font-medium">
+                          <Crop className="h-3 w-3" /> Recortar
+                        </button>
+                      )}
                     </div>
                   ) : null}
 
@@ -1294,14 +1300,6 @@ function PostsCarousel({
                         </button>
                       )}
                     </>
-                  )}
-
-                  {/* Ajustar recorte */}
-                  {!showCrop && !thumbFile && (modalPost.thumbnail_url || thumbPreviewUrl) && (
-                    <button onClick={() => openCrop(thumbPreviewUrl ?? modalPost.thumbnail_url!)}
-                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-[#F44708] transition-colors self-start -mt-1">
-                      <Crop className="h-3.5 w-3.5" /> Ajustar recorte
-                    </button>
                   )}
 
                   {/* Importar automaticamente */}
