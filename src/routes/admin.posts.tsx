@@ -699,6 +699,8 @@ function PostEditModal({
   const [description, setDescription] = useState(initialPost.description ?? "");
   const [saving, setSaving] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const revenue = postUsd(post);
   const brl = revenue * USD_TO_BRL;
@@ -807,7 +809,7 @@ function PostEditModal({
                 )}
               </div>
 
-              {/* Auto import via Google */}
+              {/* Auto import via edge function (same as Dashboard) */}
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <div className="flex-1 h-px bg-border" />
@@ -818,23 +820,44 @@ function PostEditModal({
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    const query = encodeURIComponent(
-                      [post.title, post.pages?.nome].filter(Boolean).join(" ")
-                    );
-                    window.open(
-                      `https://www.google.com/search?tbm=isch&q=${query}`,
-                      "_blank"
-                    );
+                  disabled={importing}
+                  onClick={async () => {
+                    setImporting(true);
+                    setImportMsg(null);
+                    try {
+                      const { data, error } = await (supabase as any).functions.invoke(
+                        "import-post-thumbnail",
+                        { body: { postId: post.id } }
+                      );
+                      if (error) throw new Error(error.message ?? "Erro na função");
+                      if (data?.error) throw new Error(data.error);
+                      const publicUrl: string = data.publicUrl;
+                      setPost((p) => ({ ...p, thumbnail_url: publicUrl }));
+                      setImgError(false);
+                      setImportMsg({ ok: true, text: "Imagem importada com sucesso!" });
+                    } catch (err: unknown) {
+                      setImportMsg({ ok: false, text: err instanceof Error ? err.message : "Erro ao importar" });
+                    } finally {
+                      setImporting(false);
+                    }
                   }}
-                  className="w-full h-9 rounded-xl text-xs font-semibold text-white bg-gray-900 hover:bg-gray-700 transition-colors flex items-center justify-center gap-1.5"
+                  className="w-full h-9 rounded-xl text-xs font-semibold text-white bg-gray-900 hover:bg-gray-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
                 >
-                  <Link2 className="h-3.5 w-3.5" />
-                  Buscar imagem no Google
+                  {importing
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Buscando...</>
+                    : <><Link2 className="h-3.5 w-3.5" /> Importar automaticamente</>
+                  }
                 </button>
-                <p className="text-[10px] text-muted-foreground mt-1.5 pl-1">
-                  Abre o Google Imagens com o título do post
-                </p>
+                {importMsg && (
+                  <p className={cn("text-[10px] mt-1.5 pl-1 font-medium", importMsg.ok ? "text-green-600" : "text-red-500")}>
+                    {importMsg.text}
+                  </p>
+                )}
+                {!importMsg && (
+                  <p className="text-[10px] text-muted-foreground mt-1.5 pl-1">
+                    Busca a imagem automaticamente pelo título do post
+                  </p>
+                )}
               </div>
 
               {/* Texto da imagem (OCR — futuro) */}
