@@ -1158,265 +1158,232 @@ function PostsCarousel({
         <div className="shrink-0 w-1" />
       </div>
 
-      {/* ── Upload + Detail modal — rendered in document.body via portal to bypass z-index/transform containment ── */}
+      {/* ── Upload + Detail modal (16:9 landscape) ── */}
       {modalPost && createPortal(
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-6"
           style={{ background: "rgba(0,0,0,.6)", backdropFilter: "blur(6px)" }}
           onClick={closeModal}
         >
           <div
-            className="bg-white rounded-2xl overflow-hidden w-full max-w-xl shadow-2xl flex flex-col"
-            style={{ maxHeight: "90vh" }}
+            className="bg-white rounded-2xl overflow-hidden w-full max-w-5xl shadow-2xl flex flex-col"
+            style={{ aspectRatio: "16 / 9" }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="px-5 pt-4 pb-3 border-b border-[#F0F0F0] flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-black text-white shrink-0"
-                  style={{ background: rankBg(posts.indexOf(modalPost)) }}>
-                  {posts.indexOf(modalPost) + 1}
-                </div>
-                <span className="text-xs font-semibold text-[#111] truncate">{modalPost.pageName}</span>
-                <span className="text-[10px] text-[#CCC] shrink-0">·</span>
-                <span className="text-[10px] text-[#AAA] shrink-0">{dateLabel(modalPost.published_at)}</span>
+            {/* ── Header ── */}
+            <div className="px-5 py-3 border-b border-[#F0F0F0] flex items-center gap-3 shrink-0">
+              <div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
+                style={{ background: rankBg(posts.indexOf(modalPost)) }}>
+                {posts.indexOf(modalPost) + 1}
+              </div>
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="text-sm font-bold text-[#111] truncate">{modalPost.pageName}</span>
+                <span className="text-xs text-[#AAA] shrink-0">{dateLabel(modalPost.published_at)}</span>
                 {modalPost.source && (
-                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0 ${modalPost.source === "instagram" ? "bg-pink-50 text-pink-600" : "bg-blue-50 text-blue-600"}`}>
+                  <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full shrink-0 ${modalPost.source === "instagram" ? "bg-pink-50 text-pink-600" : "bg-blue-50 text-blue-600"}`}>
                     {modalPost.source}
                   </span>
                 )}
               </div>
               <button onClick={closeModal}
-                className="h-7 w-7 rounded-full hover:bg-[#F5F5F5] flex items-center justify-center text-[#999] transition-colors shrink-0 ml-2">
+                className="h-7 w-7 rounded-full hover:bg-[#F5F5F5] flex items-center justify-center text-[#999] transition-colors shrink-0">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="overflow-y-auto flex-1">
-              {/* ── Crop overlay ─────────────────────────────────────────────── */}
-              {showCrop && cropSrc && cropNatSize && (
-                <div className="p-4 border-b border-[#F0F0F0] bg-[#FAFAFA]">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Crop className="h-3.5 w-3.5 text-[#F44708]" />
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#F44708]">Ajustar recorte</p>
-                    <span className="text-[9px] text-[#BBB] ml-1">Arraste a caixa ou os cantos</span>
-                  </div>
-                  <CropOverlay
-                    src={cropSrc}
-                    naturalW={cropNatSize.w}
-                    naturalH={cropNatSize.h}
-                    saving={cropSaving}
-                    onSave={saveCrop}
-                    onCancel={closeCrop}
-                  />
-                </div>
-              )}
+            {/* ── Body: 2 colunas ── */}
+            <div className="flex-1 grid grid-cols-[1fr_1fr] min-h-0">
 
-              {/* Image upload panel */}
-              <div className="p-5 border-b border-[#F0F0F0]">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#AAA]">Thumbnail</p>
-                  {/* Manual crop trigger — show when thumbnail exists and crop mode is off */}
+              {/* ── Coluna esquerda: imagem ── */}
+              <div className="relative bg-gray-100 overflow-hidden">
+                {showCrop && cropSrc && cropNatSize ? (
+                  /* Crop overlay ocupa a coluna inteira */
+                  <div className="absolute inset-0 flex flex-col bg-[#FAFAFA]">
+                    <div className="flex items-center gap-2 px-4 pt-3 pb-2 shrink-0">
+                      <Crop className="h-3.5 w-3.5 text-[#F44708]" />
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#F44708]">Ajustar recorte</p>
+                      <span className="text-[9px] text-[#BBB] ml-1">Arraste a caixa ou os cantos</span>
+                    </div>
+                    <div className="flex-1 min-h-0 px-4 pb-4">
+                      <CropOverlay
+                        src={cropSrc}
+                        naturalW={cropNatSize.w}
+                        naturalH={cropNatSize.h}
+                        saving={cropSaving}
+                        onSave={saveCrop}
+                        onCancel={closeCrop}
+                      />
+                    </div>
+                  </div>
+                ) : displayUrl ? (
+                  <div
+                    className="absolute inset-0 cursor-pointer group"
+                    onClick={() => !thumbUploading && thumbFileRef.current?.click()}
+                  >
+                    <img src={displayUrl} alt="" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <div className="flex flex-col items-center gap-1">
+                        <ImagePlus className="h-8 w-8 text-white" />
+                        <span className="text-xs font-bold text-white">Trocar imagem</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="absolute inset-0 flex flex-col items-center justify-center gap-3 cursor-pointer group"
+                    style={{ background: "linear-gradient(135deg,#FAF7F5,#F2EDE8)" }}
+                    onClick={() => !thumbUploading && thumbFileRef.current?.click()}
+                  >
+                    <ImagePlus className="h-12 w-12 text-[#DDD4CB] group-hover:text-[#F44708] transition-colors" />
+                    <span className="text-sm font-semibold text-[#C5B9B0] group-hover:text-[#F44708] transition-colors">
+                      Clique para carregar imagem
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Coluna direita: controles ── */}
+              <div className="flex flex-col border-l border-[#F0F0F0] min-h-0">
+                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+
+                  {/* Status / info box */}
+                  {thumbFile ? (
+                    <div className="rounded-xl border border-[#E8E8E8] bg-[#FAFAFA] px-3 py-2.5">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#AAA]">Arquivo selecionado</p>
+                      <p className="text-xs font-semibold text-[#111] truncate mt-0.5">{thumbFile.name}</p>
+                      <p className="text-[10px] text-[#999]">{fmtBytes(thumbFile.size)}</p>
+                    </div>
+                  ) : modalPost.thumbnail_url ? (
+                    <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5 flex items-start gap-2">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-[10px] font-bold text-emerald-700">IMAGEM ATUAL</p>
+                        <p className="text-[10px] text-emerald-700 mt-0.5">Thumbnail vinculada a este post.</p>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Crop button */}
                   {!showCrop && (modalPost.thumbnail_url || thumbPreviewUrl) && (
                     <button
                       onClick={() => openCrop(thumbPreviewUrl ?? modalPost.thumbnail_url!)}
-                      className="flex items-center gap-1 text-[9px] font-semibold text-[#AAA] hover:text-[#F44708] transition-colors"
+                      className="flex items-center gap-1.5 text-xs text-[#AAA] hover:text-[#F44708] transition-colors self-start"
                     >
-                      <Crop className="h-3 w-3" /> Ajustar recorte
+                      <Crop className="h-3.5 w-3.5" /> Ajustar recorte
                     </button>
                   )}
-                </div>
-                <div className="flex gap-4 items-start">
-                  {/* Image preview / drop zone */}
-                  <div
-                    className="shrink-0 rounded-xl overflow-hidden border-2 border-dashed cursor-pointer transition-colors group"
-                    style={{
-                      width: 120, height: 160,
-                      borderColor: displayUrl ? "transparent" : "#E8E8E8",
-                      background: displayUrl ? "#111" : "linear-gradient(135deg,#FAF7F5,#F2EDE8)",
-                    }}
-                    onClick={() => !thumbUploading && thumbFileRef.current?.click()}
-                    title="Clique para selecionar imagem"
-                  >
-                    {displayUrl ? (
-                      <div className="relative w-full h-full">
-                        <img src={displayUrl} alt="" className="w-full h-full object-contain" />
-                        {/* hover overlay */}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                          <div className="flex flex-col items-center gap-1">
-                            <ImagePlus className="h-5 w-5 text-white" />
-                            <span className="text-[9px] font-bold text-white">Trocar</span>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center gap-2 group-hover:bg-[#FFF0E8]/50 transition-colors">
-                        <ImagePlus className="h-7 w-7 text-[#DDD4CB] group-hover:text-[#F44708] transition-colors" />
-                        <span className="text-[8px] font-semibold text-[#C5B9B0] group-hover:text-[#F44708] text-center px-2 leading-tight transition-colors">
-                          Clique para carregar
-                        </span>
-                      </div>
-                    )}
-                  </div>
 
-                  {/* Right side: file info + actions */}
-                  <div className="flex-1 flex flex-col gap-3">
-                    {/* File selected info */}
+                  {/* Action buttons */}
+                  <div className="flex flex-col gap-2">
                     {thumbFile ? (
-                      <div className="rounded-xl border border-[#E8E8E8] bg-[#FAFAFA] p-3 space-y-1">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#AAA]">Arquivo selecionado</p>
-                        <p className="text-xs font-semibold text-[#111] truncate" title={thumbFile.name}>{thumbFile.name}</p>
-                        <p className="text-[10px] text-[#999]">{fmtBytes(thumbFile.size)}</p>
-                      </div>
-                    ) : modalPost.thumbnail_url ? (
-                      <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 space-y-1">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Imagem atual</p>
-                        <p className="text-[10px] text-emerald-700">Thumbnail já vinculada a este post.</p>
-                        <p className="text-[10px] text-emerald-600">Clique na imagem para trocar.</p>
-                      </div>
+                      <>
+                        <button onClick={handleUpload} disabled={thumbUploading}
+                          className="flex items-center justify-center gap-2 h-9 rounded-xl bg-[#F44708] text-white text-xs font-bold hover:bg-[#D93D07] disabled:opacity-60 transition-colors w-full">
+                          {thumbUploading
+                            ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Salvando…</>
+                            : <><CloudUpload className="h-3.5 w-3.5" /> Confirmar upload</>}
+                        </button>
+                        <button
+                          onClick={() => { setThumbFile(null); if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl); setThumbPreviewUrl(null); }}
+                          disabled={thumbUploading}
+                          className="flex items-center justify-center h-9 rounded-xl border border-[#E8E8E8] text-[#999] text-xs font-medium hover:text-[#555] transition-colors disabled:opacity-40 w-full">
+                          Cancelar seleção
+                        </button>
+                      </>
                     ) : (
-                      <div className="rounded-xl border border-[#F0F0F0] bg-[#FAFAFA] p-3 space-y-1">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#AAA]">Sem imagem</p>
-                        <p className="text-[10px] text-[#BBB]">Clique na área ao lado ou no botão abaixo para selecionar uma imagem.</p>
-                        <p className="text-[10px] text-[#CCC]">JPG, PNG ou WebP · máx 5 MB</p>
-                      </div>
-                    )}
-
-                    {/* Action buttons */}
-                    <div className="flex flex-col gap-2">
-                      {thumbFile ? (
-                        <>
-                          <button
-                            onClick={handleUpload}
-                            disabled={thumbUploading}
-                            className="flex items-center justify-center gap-2 h-9 rounded-xl bg-[#F44708] text-white text-xs font-bold hover:bg-[#D93D07] disabled:opacity-60 transition-colors"
-                          >
+                      <>
+                        <button onClick={() => thumbFileRef.current?.click()} disabled={thumbUploading}
+                          className="flex items-center justify-center gap-2 h-9 rounded-xl bg-[#F44708] text-white text-xs font-bold hover:bg-[#D93D07] disabled:opacity-60 transition-colors w-full">
+                          <ImagePlus className="h-3.5 w-3.5" />
+                          {modalPost.thumbnail_url ? "Trocar imagem" : "Carregar imagem"}
+                        </button>
+                        {modalPost.thumbnail_url && (
+                          <button onClick={handleRemove} disabled={thumbUploading}
+                            className="flex items-center justify-center gap-2 h-9 rounded-xl border border-red-200 text-red-500 text-xs font-medium hover:bg-red-50 transition-colors disabled:opacity-40 w-full">
                             {thumbUploading
-                              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Salvando…</>
-                              : <><CloudUpload className="h-3.5 w-3.5" /> Confirmar upload</>
-                            }
+                              ? <><Loader2 className="h-3 w-3 animate-spin" /> Removendo…</>
+                              : <><Trash2 className="h-3 w-3" /> Remover imagem</>}
                           </button>
-                          <button
-                            onClick={() => { setThumbFile(null); if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl); setThumbPreviewUrl(null); }}
-                            disabled={thumbUploading}
-                            className="flex items-center justify-center gap-2 h-8 rounded-xl border border-[#E8E8E8] text-[#999] text-xs font-medium hover:border-[#CCC] hover:text-[#555] transition-colors disabled:opacity-40"
-                          >
-                            Cancelar seleção
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => thumbFileRef.current?.click()}
-                            disabled={thumbUploading}
-                            className="flex items-center justify-center gap-2 h-9 rounded-xl bg-[#F44708] text-white text-xs font-bold hover:bg-[#D93D07] disabled:opacity-60 transition-colors"
-                          >
-                            <ImagePlus className="h-3.5 w-3.5" />
-                            {modalPost.thumbnail_url ? "Trocar imagem" : "Carregar imagem"}
-                          </button>
-                          {modalPost.thumbnail_url && (
-                            <button
-                              onClick={handleRemove}
-                              disabled={thumbUploading}
-                              className="flex items-center justify-center gap-2 h-8 rounded-xl border border-red-200 text-red-500 text-xs font-medium hover:bg-red-50 transition-colors disabled:opacity-40"
-                            >
-                              {thumbUploading
-                                ? <><Loader2 className="h-3 w-3 animate-spin" /> Removendo…</>
-                                : <><Trash2 className="h-3 w-3" /> Remover imagem</>
-                              }
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-
-                    {/* ── URL import ─────────────────────────────────────── */}
-                    {!thumbFile && (
-                      <div className="mt-1 space-y-1.5">
-                        <p className="text-[9px] font-bold uppercase tracking-wider text-[#CCC]">ou importar automaticamente</p>
-                        <div className="flex gap-1.5">
-                          <div className="relative flex-1">
-                            <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-[#CCC] pointer-events-none" />
-                            <input
-                              type="url"
-                              placeholder="URL do post ou da imagem (opcional)"
-                              value={urlInput}
-                              onChange={(e) => setUrlInput(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === "Enter") handleUrlImport(); }}
-                              disabled={urlImporting}
-                              className="w-full h-8 pl-7 pr-2 rounded-lg border border-[#E8E8E8] text-[10px] text-[#333] placeholder:text-[#CCC] focus:outline-none focus:border-[#F44708] disabled:opacity-50 transition-colors"
-                            />
-                          </div>
-                          <button
-                            onClick={handleUrlImport}
-                            disabled={urlImporting}
-                            className="h-8 px-3 rounded-lg bg-[#111] text-white text-[10px] font-bold hover:bg-[#333] disabled:opacity-40 transition-colors shrink-0 flex items-center gap-1.5"
-                          >
-                            {urlImporting
-                              ? <Loader2 className="h-3 w-3 animate-spin" />
-                              : <Link2 className="h-3 w-3" />
-                            }
-                            {urlImporting ? "Buscando…" : "Importar"}
-                          </button>
-                        </div>
-                        {!urlInput.trim() && (
-                          <p className="text-[9px] text-[#AAA]">Sem URL: busca automática pelo Google</p>
                         )}
-                      </div>
+                      </>
                     )}
                   </div>
-                </div>
-              </div>
 
-              {/* Post details */}
-              <div className="p-5 space-y-4">
-                {/* Stats */}
-                <div className="grid grid-cols-4 gap-2">
-                  {[
-                    { icon: Eye, label: "Views", val: fmt(modalPost.views), color: "#F44708" },
-                    { icon: Heart, label: "Reações", val: fmt(modalPost.reactions), color: "#e11d48" },
-                    { icon: MessageSquare, label: "Coment.", val: fmt(modalPost.comments), color: "#0284c7" },
-                    { icon: Share2, label: "Shares", val: fmt(modalPost.shares), color: "#16a34a" },
-                  ].map(({ icon: Icon, label, val, color }) => (
-                    <div key={label} className="rounded-xl border border-[#F0F0F0] p-2 text-center">
-                      <Icon className="h-3 w-3 mx-auto mb-0.5" style={{ color }} />
-                      <p className="text-[11px] font-bold text-[#111] tabular-nums">{val}</p>
-                      <p className="text-[9px] text-[#AAA]">{label}</p>
+                  {/* URL import */}
+                  {!thumbFile && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="flex-1 h-px bg-[#F0F0F0]" />
+                        <span className="text-[9px] font-bold text-[#CCC] uppercase tracking-wide whitespace-nowrap shrink-0">OU IMPORTAR AUTOMATICAMENTE</span>
+                        <div className="flex-1 h-px bg-[#F0F0F0]" />
+                      </div>
+                      <div className="flex gap-1.5">
+                        <div className="relative flex-1">
+                          <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-[#CCC] pointer-events-none" />
+                          <input
+                            type="url"
+                            placeholder="URL do post ou da imagem (opcional)"
+                            value={urlInput}
+                            onChange={(e) => setUrlInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") handleUrlImport(); }}
+                            disabled={urlImporting}
+                            className="w-full h-8 pl-7 pr-2 rounded-lg border border-[#E8E8E8] text-[10px] text-[#333] placeholder:text-[#CCC] focus:outline-none focus:border-[#F44708] disabled:opacity-50 transition-colors"
+                          />
+                        </div>
+                        <button onClick={handleUrlImport} disabled={urlImporting}
+                          className="h-8 px-3 rounded-lg bg-[#111] text-white text-[10px] font-bold hover:bg-[#333] disabled:opacity-40 transition-colors shrink-0 flex items-center gap-1.5">
+                          {urlImporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Link2 className="h-3 w-3" />}
+                          {urlImporting ? "Buscando…" : "Importar"}
+                        </button>
+                      </div>
+                      {!urlInput.trim() && <p className="text-[9px] text-[#AAA] mt-1 pl-1">Sem URL: busca automática pelo Google</p>}
                     </div>
-                  ))}
+                  )}
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[
+                      { icon: Eye, label: "Views", val: fmt(modalPost.views), color: "#F44708" },
+                      { icon: Heart, label: "Reações", val: fmt(modalPost.reactions), color: "#e11d48" },
+                      { icon: MessageSquare, label: "Coment.", val: fmt(modalPost.comments), color: "#0284c7" },
+                      { icon: Share2, label: "Shares", val: fmt(modalPost.shares), color: "#16a34a" },
+                    ].map(({ icon: Icon, label, val, color }) => (
+                      <div key={label} className="rounded-xl border border-[#F0F0F0] p-2 flex flex-col items-center gap-1">
+                        <Icon className="h-3.5 w-3.5" style={{ color }} />
+                        <p className="text-xs font-bold text-[#111] tabular-nums">{val}</p>
+                        <p className="text-[9px] text-[#AAA]">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Revenue */}
+                  {modalPost.revenue > 0 && usdBrl && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
+                      <DollarSign className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                      <span className="text-xs font-bold text-emerald-700">{formatBRL(modalPost.revenue * usdBrl)}</span>
+                      <span className="text-[10px] text-emerald-600 ml-auto">${modalPost.revenue.toFixed(2)} USD</span>
+                    </div>
+                  )}
+
+                  {/* Description */}
+                  {(modalPost.description || modalPost.title) && (
+                    <div className="flex flex-col gap-1.5 flex-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#AAA]">Descrição</p>
+                      <p className="text-xs text-[#444] leading-relaxed whitespace-pre-wrap overflow-y-auto flex-1">
+                        {modalPost.description ?? modalPost.title}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Permalink */}
+                  {modalPost.permalink && (
+                    <a href={modalPost.permalink} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-[11px] text-[#F44708] font-semibold hover:underline shrink-0">
+                      <ArrowRight className="h-3 w-3" />
+                      Ver post original
+                    </a>
+                  )}
                 </div>
-
-                {/* Revenue */}
-                {modalPost.revenue > 0 && usdBrl && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
-                    <DollarSign className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                    <span className="text-xs font-bold text-emerald-700">{formatBRL(modalPost.revenue * usdBrl)}</span>
-                    <span className="text-[10px] text-emerald-600 ml-auto">${modalPost.revenue.toFixed(2)} USD</span>
-                  </div>
-                )}
-
-                {/* Description */}
-                {(modalPost.description || modalPost.title) && (
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#AAA] mb-2">Descrição</p>
-                    <p className="text-xs text-[#444] leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto">
-                      {modalPost.description ?? modalPost.title}
-                    </p>
-                  </div>
-                )}
-
-                {/* Permalink */}
-                {modalPost.permalink && (
-                  <a
-                    href={modalPost.permalink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-[11px] text-[#F44708] font-semibold hover:underline"
-                  >
-                    <ArrowRight className="h-3 w-3" />
-                    Ver post original
-                  </a>
-                )}
               </div>
             </div>
           </div>
