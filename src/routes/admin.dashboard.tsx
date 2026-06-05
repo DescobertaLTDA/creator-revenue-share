@@ -1974,14 +1974,14 @@ function AdminDashboard() {
     };
 
     const now = Date.now();
-    if (_dashCache && now - _dashCache.ts < CACHE_TTL) {
-      // State already populated from cache via lazy useState initialisers.
-      // Silently refresh in background so data stays fresh.
+    if (_dashCache && now - _dashCache.ts < CACHE_TTL && !filterFrom && !filterTo) {
+      // Use cache only on initial mount (no filter active).
+      // If the user changed the date filter, always reload fresh.
       doLoad(true);
     } else {
       doLoad(false);
     }
-  }, []);
+  }, [filterFrom, filterTo, filterPage, filterColab]);
 
   // Fetch daily revenue entries whenever the date filter changes
   useEffect(() => {
