@@ -1213,20 +1213,30 @@ function PostsCarousel({
                     className="absolute inset-0 w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#111]">
-                    <FileText className="h-6 w-6 text-[#333]" />
-                    <button
-                      onClick={(e) => handleAutoSearchImage(post, e)}
-                      disabled={isSearching}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold text-white transition-all disabled:opacity-60 hover:scale-105 active:scale-95"
-                      style={{ background: "#FF5A00" }}
-                    >
-                      {isSearching
-                        ? <><Loader2 className="h-3 w-3 animate-spin" /> Buscando...</>
-                        : <><span>🔍</span> Buscar imagem</>
-                      }
-                    </button>
-                  </div>
+                  /* Card sem imagem — toda área é clicável */
+                  <button
+                    className="absolute inset-0 flex flex-col items-center justify-center gap-3 w-full transition-colors"
+                    style={{ background: isSearching ? "#0A0A0A" : "#141414", cursor: isSearching ? "default" : "pointer" }}
+                    onClick={(e) => handleAutoSearchImage(post, e)}
+                    disabled={isSearching}
+                  >
+                    {isSearching ? (
+                      <>
+                        <Loader2 className="h-6 w-6 text-[#FF5A00] animate-spin" />
+                        <span className="text-[11px] font-semibold text-white/60">Buscando imagem…</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="h-10 w-10 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center">
+                          <ImagePlus className="h-4 w-4 text-white/40" />
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="text-[11px] font-bold text-white/80">Buscar imagem</span>
+                          <span className="text-[9px] text-white/35">Clique para importar</span>
+                        </div>
+                      </>
+                    )}
+                  </button>
                 )}
 
                 {/* Gradient overlay — forte embaixo */}
@@ -1276,8 +1286,8 @@ function PostsCarousel({
                   </div>
                 </div>
 
-                {/* Hover overlay */}
-                <div className="absolute inset-0 bg-[#FF5A00]/0 group-hover:bg-[#FF5A00]/10 transition-colors duration-200 rounded-[16px]" />
+                {/* Hover overlay — pointer-events-none para não bloquear cliques nos botões */}
+                <div className="absolute inset-0 bg-[#FF5A00]/0 group-hover:bg-[#FF5A00]/8 transition-colors duration-200 rounded-[16px] pointer-events-none" />
               </div>
 
               {/* ── Info abaixo ── */}
