@@ -577,6 +577,77 @@ function BonusManualPage() {
     );
   };
 
+  // ── Auto-propagate total_followers ──────────────────────────────────────────
+  // When a day's total is known, calculate all other days from daily gains.
+  const propagateTotalFollowers = useCallback(async (
+    anchorDate: string,
+    anchorTotal: number,
+    currentRows: DayEntry[]
+  ) => {
+    if (!selectedPageId || !profile) return;
+
+    // Sort rows by date
+    const sorted = [...currentRows].sort((a, b) => a.date.localeCompare(b.date));
+    const anchorIdx = sorted.findIndex((r) => r.date === anchorDate);
+    if (anchorIdx === -1) return;
+
+    // Compute totals for all rows
+    const computed: { date: string; total: number }[] = [];
+
+    // Propagate backwards (anchor → first row)
+    let runningTotal = anchorTotal;
+    for (let i = anchorIdx; i >= 0; i--) {
+      const row = sorted[i];
+      if (i < anchorIdx) {
+        // Subtract this row's gain going back (gain on day i+1 is the delta from i to i+1)
+        const nextRow = sorted[i + 1];
+        const gain = nextRow.actual_followers ?? 0;
+        runningTotal = runningTotal - gain;
+      }
+      if (row.actual_followers !== null || i === anchorIdx) {
+        computed.push({ date: row.date, total: runningTotal });
+      }
+    }
+
+    // Propagate forwards (anchor → last row)
+    runningTotal = anchorTotal;
+    for (let i = anchorIdx + 1; i < sorted.length; i++) {
+      const row = sorted[i];
+      const gain = row.actual_followers ?? 0;
+      runningTotal = runningTotal + gain;
+      if (row.actual_followers !== null) {
+        computed.push({ date: row.date, total: runningTotal });
+      }
+    }
+
+    if (computed.length === 0) return;
+
+    // Update rows in UI
+    setRows((prev) => prev.map((r) => {
+      const c = computed.find((x) => x.date === r.date);
+      return c ? { ...r, total_followers: c.total, _db_total_followers: c.total, dirty: false } : r;
+    }));
+
+    // Upsert all computed rows to DB
+    const upserts = computed.map(({ date, total }) => ({
+      entry_date: date,
+      page_id: selectedPageId,
+      platform,
+      total_followers: total,
+      updated_at: new Date().toISOString(),
+      updated_by: profile.id,
+      created_by: profile.id,
+    }));
+
+    for (const u of upserts) {
+      await (supabase as any)
+        .from("daily_revenue_entries")
+        .upsert(u, { onConflict: "entry_date,page_id,platform" });
+    }
+
+    toast.success(`Total Seguidores calculado para ${computed.length} dias`);
+  }, [selectedPageId, platform, profile]);
+
   const saveRow = async (row: DayEntry) => {
     if (!selectedPageId || !profile) return;
     setRows((prev) => prev.map((r) => r.date === row.date ? { ...r, saving: true } : r));
@@ -649,6 +720,14 @@ function BonusManualPage() {
         };
       }));
       setTimeout(() => setRows((prev) => prev.map((r) => r.date === row.date ? { ...r, saved: false } : r)), 2000);
+
+      // Auto-propagate total_followers to other days when field was edited
+      if (row.last_edited_field === "total_followers" && row.total_followers != null) {
+        setRows((currentRows) => {
+          propagateTotalFollowers(row.date, row.total_followers!, currentRows);
+          return currentRows;
+        });
+      }
     }
   };
 
