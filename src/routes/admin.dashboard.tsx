@@ -733,6 +733,13 @@ function PostsCarousel({
     return () => { if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl); };
   }, [thumbPreviewUrl]);
 
+  // Reset scroll ao início quando a lista de posts muda (troca de filtro)
+  useEffect(() => {
+    if (trackRef.current) {
+      trackRef.current.scrollLeft = 0;
+    }
+  }, [posts]);
+
   const openModal = (post: CarouselPost) => {
     const effective: CarouselPost = post.id in thumbnailOverrides
       ? { ...post, thumbnail_url: thumbnailOverrides[post.id] }
