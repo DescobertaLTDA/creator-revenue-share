@@ -1297,10 +1297,10 @@ function PostsCarousel({
                       </div>
                     </div>
                   ) : (
-                    <div className="flex justify-center">
+                    <div>
                       <div
-                        className="relative rounded-2xl overflow-hidden bg-[#F8F8F8] group cursor-pointer"
-                        style={{ width: "160px", aspectRatio: "9/16" }}
+                        className="relative rounded-2xl overflow-hidden bg-[#F8F8F8] group cursor-pointer w-full"
+                        style={{ aspectRatio: "4/3" }}
                         onClick={() => !thumbUploading && thumbFileRef.current?.click()}
                       >
                         {displayUrl ? (
