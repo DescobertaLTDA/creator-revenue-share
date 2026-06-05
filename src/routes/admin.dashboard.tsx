@@ -3666,6 +3666,20 @@ function AdminDashboard() {
             </div>
           </div>
 
+          </div>{/* end left column */}
+
+          {/* ── Sidebar só ao lado do Hero ── */}
+          <div className="hidden xl:block w-[280px] shrink-0 sticky top-4">
+            <RealtimeWidget
+              filterPage={filterPage}
+              pages={pages.map((p) => ({ id: p.id, name: p.name }))}
+            />
+          </div>
+        </div>{/* end hero flex row */}
+
+        {/* ════ FILTER BAR + CONTEÚDO FULL-WIDTH ════ */}
+        <div className="space-y-5">
+
           {/* ═══════════════ FILTER BAR ═══════════════ */}
           {/* Helper to render page options */}
           {(() => {
@@ -3707,20 +3721,16 @@ function AdminDashboard() {
                       {colabs.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
                     </select>
                   </div>
-                  {datePreset === "personalizado" && (
-                    <>
-                      <div className="flex flex-col gap-0.5 px-4 py-3">
-                        <label className="text-[9px] font-semibold uppercase tracking-wider text-[#9B9B9B]">De</label>
-                        <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
-                          className="border-0 bg-transparent text-xs font-medium text-[#1A0A00] focus:outline-none w-full" />
-                      </div>
-                      <div className="flex flex-col gap-0.5 px-4 py-3">
-                        <label className="text-[9px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Até</label>
-                        <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
-                          className="border-0 bg-transparent text-xs font-medium text-[#1A0A00] focus:outline-none w-full" />
-                      </div>
-                    </>
-                  )}
+                  <div className="flex flex-col gap-0.5 px-4 py-3">
+                    <label className="text-[9px] font-semibold uppercase tracking-wider text-[#9B9B9B]">De</label>
+                    <input type="date" value={filterFrom} onChange={(e) => { setFilterFrom(e.target.value); setDatePreset("personalizado"); }}
+                      className="border-0 bg-transparent text-xs font-medium text-[#1A0A00] focus:outline-none w-full" />
+                  </div>
+                  <div className="flex flex-col gap-0.5 px-4 py-3">
+                    <label className="text-[9px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Até</label>
+                    <input type="date" value={filterTo} onChange={(e) => { setFilterTo(e.target.value); setDatePreset("personalizado"); }}
+                      className="border-0 bg-transparent text-xs font-medium text-[#1A0A00] focus:outline-none w-full" />
+                  </div>
                   <div className="col-span-2 flex items-center justify-between px-4 py-3 border-t border-[#F0F0F0]">
                     <div className="flex items-center gap-2">
                       <label className="text-[9px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Dados Manuais</label>
@@ -3796,40 +3806,20 @@ function AdminDashboard() {
                             </button>
                           )
                         )}
-
-                        {/* DE/ATÉ aparecem dentro do dropdown quando Personalizado */}
-                        {datePreset === "personalizado" && (
-                          <div className="px-3 pb-2 pt-1 border-t border-[#F5F5F5] mt-1 flex flex-col gap-2">
-                            <div className="flex gap-2">
-                              <div className="flex flex-col gap-0.5 flex-1">
-                                <label className="text-[9px] font-bold uppercase tracking-wider text-[#9B9B9B]">De</label>
-                                <input
-                                  type="date" value={filterFrom}
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                  onChange={(e) => setFilterFrom(e.target.value)}
-                                  className="w-full h-8 rounded-lg border border-[#EFEFEF] px-2 text-xs text-[#1A0A00] focus:outline-none focus:border-[#F44708]"
-                                />
-                              </div>
-                              <div className="flex flex-col gap-0.5 flex-1">
-                                <label className="text-[9px] font-bold uppercase tracking-wider text-[#9B9B9B]">Até</label>
-                                <input
-                                  type="date" value={filterTo}
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                  onChange={(e) => setFilterTo(e.target.value)}
-                                  className="w-full h-8 rounded-lg border border-[#EFEFEF] px-2 text-xs text-[#1A0A00] focus:outline-none focus:border-[#F44708]"
-                                />
-                              </div>
-                            </div>
-                            <button
-                              onMouseDown={(e) => { e.preventDefault(); setShowPresetDropdown(false); }}
-                              className="w-full h-8 rounded-lg text-xs font-semibold text-white bg-[#F44708] hover:bg-[#D93D07] transition-colors"
-                            >
-                              Aplicar
-                            </button>
-                          </div>
-                        )}
                       </div>
                     )}
+                  </div>
+                  <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
+                  <div className="flex flex-col gap-0.5 py-3">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">De</label>
+                    <input type="date" value={filterFrom} onChange={(e) => { setFilterFrom(e.target.value); setDatePreset("personalizado"); }}
+                      className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer" />
+                  </div>
+                  <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
+                  <div className="flex flex-col gap-0.5 py-3">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Até</label>
+                    <input type="date" value={filterTo} onChange={(e) => { setFilterTo(e.target.value); setDatePreset("personalizado"); }}
+                      className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer" />
                   </div>
                   <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
                   <div className="flex flex-col gap-0.5 py-3">
@@ -3853,20 +3843,6 @@ function AdminDashboard() {
               </div>
             );
           })()}
-
-          </div>{/* end left column */}
-
-          {/* ── Sidebar só ao lado do Hero + Filter ── */}
-          <div className="hidden xl:block w-[280px] shrink-0 sticky top-4">
-            <RealtimeWidget
-              filterPage={filterPage}
-              pages={pages.map((p) => ({ id: p.id, name: p.name }))}
-            />
-          </div>
-        </div>{/* end hero+filter flex row */}
-
-        {/* ════ CONTEÚDO FULL-WIDTH ════ */}
-        <div className="space-y-5">
 
           {/* ═══════════════ 4 KPI CARDS (YouTube Studio style) ═══════════════ */}
           <div className="bg-white border border-[#E0E0E0] rounded-2xl overflow-hidden">
