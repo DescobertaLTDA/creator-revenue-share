@@ -699,7 +699,6 @@ function PostEditModal({
   const [description, setDescription] = useState(initialPost.description ?? "");
   const [saving, setSaving] = useState(false);
   const [imgError, setImgError] = useState(false);
-  const [imageUrlInput, setImageUrlInput] = useState("");
 
   const revenue = postUsd(post);
   const brl = revenue * USD_TO_BRL;
@@ -710,14 +709,6 @@ function PostEditModal({
     document.addEventListener("keydown", h);
     return () => document.removeEventListener("keydown", h);
   }, [onClose]);
-
-  const handleApplyUrl = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    if (!imageUrlInput.trim()) return;
-    setPost((p) => ({ ...p, thumbnail_url: imageUrlInput.trim() }));
-    setImgError(false);
-    setImageUrlInput("");
-  }, [imageUrlInput]);
 
   const handleSave = useCallback(async () => {
     setSaving(true);
@@ -816,7 +807,7 @@ function PostEditModal({
                 )}
               </div>
 
-              {/* URL import */}
+              {/* Auto import via Google */}
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <div className="flex-1 h-px bg-border" />
@@ -825,42 +816,25 @@ function PostEditModal({
                   </span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
-                <div className="flex gap-2">
-                  <div className="flex-1 relative">
-                    <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
-                    <input
-                      id="img-url-input"
-                      type="text"
-                      value={imageUrlInput}
-                      onChange={(e) => setImageUrlInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          if (!imageUrlInput.trim()) return;
-                          setPost((p) => ({ ...p, thumbnail_url: imageUrlInput.trim() }));
-                          setImgError(false);
-                          setImageUrlInput("");
-                        }
-                      }}
-                      placeholder="URL da imagem (opcional)"
-                      className="w-full h-8 pl-8 pr-2 rounded-lg border border-border bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#F44708]/30"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!imageUrlInput.trim()) return;
-                      setPost((p) => ({ ...p, thumbnail_url: imageUrlInput.trim() }));
-                      setImgError(false);
-                      setImageUrlInput("");
-                    }}
-                    className="h-8 px-3 rounded-lg text-xs font-semibold text-white bg-gray-900 hover:bg-gray-700 transition-colors flex items-center gap-1 shrink-0"
-                  >
-                    <Link2 className="h-3 w-3" />
-                    Importar
-                  </button>
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-1 pl-1">Sem URL: busca automática pelo Google</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const query = encodeURIComponent(
+                      [post.title, post.pages?.nome].filter(Boolean).join(" ")
+                    );
+                    window.open(
+                      `https://www.google.com/search?tbm=isch&q=${query}`,
+                      "_blank"
+                    );
+                  }}
+                  className="w-full h-9 rounded-xl text-xs font-semibold text-white bg-gray-900 hover:bg-gray-700 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Link2 className="h-3.5 w-3.5" />
+                  Buscar imagem no Google
+                </button>
+                <p className="text-[10px] text-muted-foreground mt-1.5 pl-1">
+                  Abre o Google Imagens com o título do post
+                </p>
               </div>
 
               {/* Texto da imagem (OCR — futuro) */}
