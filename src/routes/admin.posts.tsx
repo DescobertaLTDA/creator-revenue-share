@@ -949,7 +949,7 @@ function PostEditModal({
 // ─── Top posts table ──────────────────────────────────────────────────────────
 
 function TopPostsPanel({ posts, isIG, onEditPost }: {
-  posts: { id: string; title: string | null; pageName: string; date: string; views: number; revenue: number; reactions: number; isVideo: boolean; watchAvg: number }[];
+  posts: { id: string; title: string | null; description: string | null; thumbnail_url: string | null; pageName: string; date: string; views: number; revenue: number; reactions: number; isVideo: boolean; watchAvg: number }[];
   isIG: boolean;
   onEditPost?: (postId: string) => void;
 }) {
@@ -978,6 +978,10 @@ function TopPostsPanel({ posts, isIG, onEditPost }: {
             {posts.map((p, idx) => {
               const maxV = posts[0]?.views || 1;
               const barW = Math.round((p.views / maxV) * 100);
+              // Nome: título → primeiros 70 chars da descrição → ID fallback
+              const displayName = p.title
+                || (p.description ? p.description.replace(/\s+/g, " ").trim().slice(0, 70) + (p.description.length > 70 ? "…" : "")  : null)
+                || `Post ${p.id.slice(-8)}`;
               return (
                 <tr
                   key={p.id}
@@ -994,10 +998,20 @@ function TopPostsPanel({ posts, isIG, onEditPost }: {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <p className="font-semibold text-foreground truncate max-w-[220px]">
-                      {p.title ?? `Post ${p.id.slice(-8)}`}
-                    </p>
-                    <p className="text-muted-foreground mt-0.5">{p.pageName} · {p.date}</p>
+                    <div className="flex items-center gap-3">
+                      {/* Thumbnail miniatura */}
+                      <div className="shrink-0 w-12 h-8 rounded-md overflow-hidden bg-muted/40 flex items-center justify-center">
+                        {p.thumbnail_url ? (
+                          <img src={p.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <ImageIcon className="h-3.5 w-3.5 text-muted-foreground/40" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-foreground truncate max-w-[280px]">{displayName}</p>
+                        <p className="text-muted-foreground mt-0.5">{p.pageName} · {p.date}</p>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold",
@@ -1169,6 +1183,8 @@ function AnalyticsPage() {
       .map((p) => ({
         id: p.id,
         title: p.title,
+        description: p.description,
+        thumbnail_url: p.thumbnail_url,
         pageName: p.pages?.nome ?? "—",
         date: p.published_at?.slice(0, 10) ?? "—",
         views: p._views,
