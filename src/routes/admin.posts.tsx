@@ -763,7 +763,8 @@ function PostEditModal({
 
             {/* Image 16:9 */}
             <div
-              className="relative rounded-xl overflow-hidden bg-gray-100 w-full aspect-video cursor-pointer mb-3"
+              className="relative rounded-xl overflow-hidden bg-gray-100 w-full cursor-pointer mb-3"
+              style={{ aspectRatio: "16 / 9" }}
               onClick={() => document.getElementById("img-url-input")?.focus()}
             >
               {post.thumbnail_url && !imgError ? (
