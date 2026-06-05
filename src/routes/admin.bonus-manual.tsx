@@ -328,6 +328,8 @@ function BonusManualPage() {
   const [auditLoading, setAuditLoading] = useState(false);
   const [followersFocusDate, setFollowersFocusDate] = useState<string | null>(null);
   const [totalFollowersFocusDate, setTotalFollowersFocusDate] = useState<string | null>(null);
+  const [closingFollowersInput, setClosingFollowersInput] = useState<string>("");
+  const [closingFollowersFocus, setClosingFollowersFocus] = useState(false);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   // Ref always pointing to latest rows — used for propagation without stale closure
   const rowsRef = useRef<DayEntry[]>([]);
@@ -1213,9 +1215,80 @@ function BonusManualPage() {
                         <td className="px-4 py-3 text-right tabular-nums text-emerald-600">
                           {(() => { const t = rows.reduce((s, r) => s + (r.actual_followers ?? 0), 0); return t > 0 ? t.toLocaleString("pt-BR") : "—"; })()}
                         </td>
+                        {/* Fechamento — mostra o último total_followers preenchido do mês */}
+                        <td className="px-4 py-3 text-right">
+                          {(() => {
+                            const lastFilled = [...rows].reverse().find((r) => r.total_followers != null && r.total_followers > 0);
+                            const displayVal = lastFilled?.total_followers ?? null;
+                            return displayVal != null ? (
+                              <span className="text-blue-600 font-bold tabular-nums text-sm">
+                                {displayVal.toLocaleString("pt-BR")}
+                              </span>
+                            ) : <span className="text-muted-foreground/40 text-xs">—</span>;
+                          })()}
+                        </td>
                         {!isIG && <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">${totalPosts.toFixed(2)}</td>}
                         <td className="px-4 py-3 text-right tabular-nums">${totalActual.toFixed(2)}</td>
                         <td />
+                      </tr>
+
+                      {/* ── FECHAMENTO DO MÊS ── */}
+                      <tr className="border-t border-blue-100 bg-blue-50/60">
+                        <td colSpan={3} className="px-4 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <div className="h-5 w-5 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
+                              <svg className="h-3 w-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                              </svg>
+                            </div>
+                            <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">
+                              Fechamento do Mês
+                            </span>
+                            <span className="text-[10px] text-blue-500">
+                              · Total de seguidores no último dia de {monthRef.slice(0, 7).replace("-", "/")}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          {/* Campo editável de fechamento */}
+                          {(() => {
+                            const lastFilled = [...rows].reverse().find((r) => r.total_followers != null && r.total_followers > 0);
+                            const closingVal = lastFilled?.total_followers ?? null;
+                            const displayStr = closingFollowersFocus
+                              ? closingFollowersInput
+                              : (closingVal != null ? closingVal.toLocaleString("pt-BR") : "");
+                            return (
+                              <input
+                                type="text" inputMode="numeric"
+                                disabled={!canWrite}
+                                placeholder="Ex: 173.457"
+                                value={displayStr}
+                                onFocus={() => {
+                                  setClosingFollowersFocus(true);
+                                  setClosingFollowersInput(closingVal != null ? String(closingVal) : "");
+                                }}
+                                onBlur={async () => {
+                                  setClosingFollowersFocus(false);
+                                  const val = parseInt(closingFollowersInput.replace(/\D/g, ""), 10);
+                                  if (!isNaN(val) && val > 0 && val !== closingVal) {
+                                    // Encontra o último dia com dados ou usa o último dia do mês
+                                    const days = daysInMonth(monthRef);
+                                    const lastDay = days[days.length - 1];
+                                    // Usa esse dia como âncora e propaga
+                                    propagateTotalFollowers(lastDay, val);
+                                  }
+                                }}
+                                onChange={(e) => setClosingFollowersInput(e.target.value.replace(/\D/g, ""))}
+                                className="w-32 h-8 rounded-lg border-2 border-blue-300 bg-white px-2 text-right text-sm tabular-nums text-blue-700 font-bold focus:outline-none focus:border-blue-500 disabled:opacity-30"
+                              />
+                            );
+                          })()}
+                        </td>
+                        <td colSpan={3} className="px-4 py-2.5">
+                          <p className="text-[10px] text-blue-500">
+                            Ao salvar, propaga automaticamente para todos os dias deste e de meses anteriores.
+                          </p>
+                        </td>
                       </tr>
                     </tfoot>
                   </table>
