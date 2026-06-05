@@ -1797,7 +1797,7 @@ function AdminDashboard() {
       case "28d":  { const d = new Date(today); d.setDate(d.getDate() - 27);  setFilterFrom(ymd(d)); setFilterTo(todayStr); break; }
       case "90d":  { const d = new Date(today); d.setDate(d.getDate() - 89);  setFilterFrom(ymd(d)); setFilterTo(todayStr); break; }
       case "365d": { const d = new Date(today); d.setDate(d.getDate() - 364); setFilterFrom(ymd(d)); setFilterTo(todayStr); break; }
-      case "tudo": { setFilterFrom("2020-01-01"); setFilterTo(todayStr); break; }
+      case "tudo": { setFilterFrom("2000-01-01"); setFilterTo(todayStr); break; }
       case "ano-atual": { setFilterFrom(`${today.getFullYear()}-01-01`); setFilterTo(todayStr); break; }
       case "ano-anterior": { const y = today.getFullYear() - 1; setFilterFrom(`${y}-01-01`); setFilterTo(`${y}-12-31`); break; }
       case "este-mes": { setFilterFrom(`${today.getFullYear()}-${pad(today.getMonth() + 1)}-01`); setFilterTo(todayStr); break; }
@@ -1910,10 +1910,12 @@ function AdminDashboard() {
     };
 
     const doLoad = async (background: boolean) => {
-      // Scope posts query to current filter range to avoid paginating ALL historical posts.
+      // Scope posts query to current filter range.
+      // For "Todo o período" (filterFrom <= 2000), busca sem restrição de data inicial.
       // Extra 90-day buffer back so collaborator bonus computation has prior-month data.
+      const isTudoOPeriodo = filterFrom <= "2001-01-01";
       const dateFrom = (() => {
-        if (!filterFrom) return "2020-01-01";
+        if (!filterFrom || isTudoOPeriodo) return null;
         const d = new Date(filterFrom);
         d.setDate(d.getDate() - 90);
         return d.toISOString().slice(0, 10);
@@ -1922,11 +1924,14 @@ function AdminDashboard() {
 
       const [posts, pas, { data: pagesData }, { data: colabsData }, { data: rulesData }, { data: imports }] =
         await Promise.all([
-          fetchAllRows<RawPost>(() =>
-            supabase.from("posts").select(
+          fetchAllRows<RawPost>(() => {
+            let q = supabase.from("posts").select(
               "id, page_id, published_at, monetization_approx, estimated_usd, views, reach, reactions, comments, shares, title, description, post_type, permalink, source, thumbnail_url"
-            ).gte("published_at", dateFrom).lte("published_at", dateTo + "T23:59:59")
-          ),
+            );
+            if (dateFrom) q = (q as any).gte("published_at", dateFrom);
+            q = (q as any).lte("published_at", dateTo + "T23:59:59");
+            return q;
+          }),
           fetchAllRows<PostAuthorRow>(() =>
             supabase.from("post_authors").select("post_id, collaborator_id")
           ),
