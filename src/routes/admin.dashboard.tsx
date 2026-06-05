@@ -3664,7 +3664,7 @@ function AdminDashboard() {
             );
 
             return (
-              <div className="bg-white border border-[#EFEFEF] rounded-2xl overflow-hidden" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
+              <div className="bg-white border border-[#EFEFEF] rounded-2xl relative" style={{ boxShadow: "0 4px 20px rgba(0,0,0,.04)" }}>
 
                 {/* ── Mobile grid (< sm) ── */}
                 <div className="sm:hidden grid grid-cols-2 divide-x divide-y divide-[#F0F0F0]">
