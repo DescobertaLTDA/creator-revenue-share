@@ -3853,6 +3853,20 @@ function AdminDashboard() {
             );
           })()}
 
+          </div>{/* end left column */}
+
+          {/* ── Sidebar só ao lado do Hero + Filter ── */}
+          <div className="hidden xl:block w-[280px] shrink-0 sticky top-4">
+            <RealtimeWidget
+              filterPage={filterPage}
+              pages={pages.map((p) => ({ id: p.id, name: p.name }))}
+            />
+          </div>
+        </div>{/* end hero+filter flex row */}
+
+        {/* ════ CONTEÚDO FULL-WIDTH ════ */}
+        <div className="space-y-5">
+
           {/* ═══════════════ 4 KPI CARDS (YouTube Studio style) ═══════════════ */}
           <div className="bg-white border border-[#E0E0E0] rounded-2xl overflow-hidden">
             {/* Stats row */}
@@ -4251,16 +4265,7 @@ function AdminDashboard() {
           </div>
 
 
-          </div>{/* end main column */}
-
-          {/* ── Right sidebar: Realtime Widget ── */}
-          <div className="hidden xl:block w-[280px] shrink-0 sticky top-4 space-y-0">
-            <RealtimeWidget
-              filterPage={filterPage}
-              pages={pages.map((p) => ({ id: p.id, name: p.name }))}
-            />
-          </div>
-        </div>
+        </div>{/* end full-width content */}
       )}
 
       {/* ── Audit Dialog ── */}
