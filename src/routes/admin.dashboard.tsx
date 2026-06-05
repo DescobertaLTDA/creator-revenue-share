@@ -1,4 +1,5 @@
 ﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { RealtimeWidget } from "@/components/app/RealtimeWidget";
 import { useEffect, useState, useMemo, lazy, Suspense, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -3477,7 +3478,9 @@ function AdminDashboard() {
       )}
 
       {activeTab === "overview" && (
-        <>
+        <div className="flex gap-5 items-start">
+          {/* ── Main column ── */}
+          <div className="flex-1 min-w-0 space-y-5">
 
           {/* ═══════════════ HERO CARD ═══════════════ */}
           <div className="rounded-2xl overflow-hidden text-white" style={{ background: "linear-gradient(135deg, #FF6B00 0%, #E85500 100%)", boxShadow: "0 8px 32px rgba(255,107,0,.22)" }}>
@@ -4225,7 +4228,16 @@ function AdminDashboard() {
           </div>
 
 
-        </>
+          </div>{/* end main column */}
+
+          {/* ── Right sidebar: Realtime Widget ── */}
+          <div className="hidden xl:block w-[280px] shrink-0 sticky top-4 space-y-0">
+            <RealtimeWidget
+              filterPage={filterPage}
+              pages={pages.map((p) => ({ id: p.id, name: p.name }))}
+            />
+          </div>
+        </div>
       )}
 
       {/* ── Audit Dialog ── */}

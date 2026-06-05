@@ -36,6 +36,7 @@ interface DayEntry {
   views: number;
   actual_views: number | null;
   actual_followers: number | null;
+  total_followers: number | null;
   actual_revenue: number | null;
   distribution_mode: string;
   note: string;
@@ -46,10 +47,11 @@ interface DayEntry {
   views_editors: FieldEditor[];
   followers_editors: FieldEditor[];
   revenue_editors: FieldEditor[];
-  last_edited_field: "views" | "followers" | "revenue" | null;
+  last_edited_field: "views" | "followers" | "revenue" | "total_followers" | null;
   _db_views: number | null;
   _db_followers: number | null;
   _db_revenue: number | null;
+  _db_total_followers: number | null;
 }
 
 interface AuditEntry {
@@ -325,6 +327,7 @@ function BonusManualPage() {
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
   const [followersFocusDate, setFollowersFocusDate] = useState<string | null>(null);
+  const [totalFollowersFocusDate, setTotalFollowersFocusDate] = useState<string | null>(null);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const isIG = platform === "instagram";
@@ -399,6 +402,7 @@ function BonusManualPage() {
           views: viewsByDay[date] ?? 0,
           actual_views: db?.actual_views ?? null,
           actual_followers: db?.actual_followers ?? null,
+          total_followers: db?.total_followers ?? null,
           actual_revenue: db?.actual_revenue_usd ?? null,
           distribution_mode: db?.distribution_mode ?? "hybrid",
           note: db?.note ?? "",
@@ -413,6 +417,7 @@ function BonusManualPage() {
           _db_views: db?.actual_views ?? null,
           _db_followers: db?.actual_followers ?? null,
           _db_revenue: db?.actual_revenue_usd ?? null,
+          _db_total_followers: db?.total_followers ?? null,
         };
       });
     },
@@ -443,7 +448,7 @@ function BonusManualPage() {
       postsQuery,
       (supabase as any)
         .from("daily_revenue_entries")
-        .select("id, entry_date, actual_revenue_usd, actual_views, actual_followers, distribution_mode, note, updated_by")
+        .select("id, entry_date, actual_revenue_usd, actual_views, actual_followers, total_followers, distribution_mode, note, updated_by")
         .eq("page_id", pageId)
         .eq("platform", plat)
         .gte("entry_date", from)
@@ -580,6 +585,7 @@ function BonusManualPage() {
       actual_views: row._db_views,
       actual_followers: row._db_followers,
       actual_revenue_usd: row._db_revenue,
+      total_followers: row._db_total_followers,
     };
 
     const payload = {
@@ -589,6 +595,7 @@ function BonusManualPage() {
       actual_revenue_usd: row.actual_revenue,
       actual_views: row.actual_views,
       actual_followers: row.actual_followers,
+      total_followers: row.total_followers,
       distribution_mode: row.distribution_mode,
       note: row.note.trim() || null,
       updated_at: new Date().toISOString(),
@@ -638,6 +645,7 @@ function BonusManualPage() {
           _db_views: row.actual_views,
           _db_followers: row.actual_followers,
           _db_revenue: row.actual_revenue,
+          _db_total_followers: row.total_followers,
         };
       }));
       setTimeout(() => setRows((prev) => prev.map((r) => r.date === row.date ? { ...r, saved: false } : r)), 2000);
@@ -677,6 +685,20 @@ function BonusManualPage() {
     updateRow(row.date, { actual_followers: val, last_edited_field: "followers" });
     clearTimeout(saveTimers.current[row.date + "_followers"]);
     saveTimers.current[row.date + "_followers"] = setTimeout(() => {
+      setRows((prev) => {
+        const updated = prev.find((r) => r.date === row.date);
+        if (updated) saveRow(updated);
+        return prev;
+      });
+    }, 800);
+  };
+
+  const handleTotalFollowersChange = (row: DayEntry, raw: string) => {
+    const digits = raw.replace(/\D/g, "");
+    const val = digits === "" ? null : parseInt(digits, 10);
+    updateRow(row.date, { total_followers: val, last_edited_field: "total_followers" });
+    clearTimeout(saveTimers.current[row.date + "_total_followers"]);
+    saveTimers.current[row.date + "_total_followers"] = setTimeout(() => {
       setRows((prev) => {
         const updated = prev.find((r) => r.date === row.date);
         if (updated) saveRow(updated);
@@ -1000,6 +1022,7 @@ function BonusManualPage() {
                         <th className="text-right px-4 py-3 font-medium">Views CSV</th>
                         <th className="text-right px-4 py-3 font-medium text-[#F44708]">Views manuais</th>
                         <th className="text-right px-4 py-3 font-medium text-emerald-600">{followersLabel}</th>
+                        <th className="text-right px-4 py-3 font-medium text-blue-600">Total Seguidores</th>
                         {!isIG && <th className="text-right px-4 py-3 font-medium">Posts (USD)</th>}
                         <th className="text-right px-4 py-3 font-medium">Real recebido (USD)</th>
                         <th className="w-8 px-4 py-3" />
@@ -1053,6 +1076,20 @@ function BonusManualPage() {
                                 />
                                 <AvatarStack editors={row.followers_editors} />
                               </div>
+                            </td>
+                            {/* Total Seguidores */}
+                            <td className="px-4 py-2.5 text-right">
+                              <input
+                                type="text" inputMode="numeric" disabled={isFuture || !canWrite}
+                                placeholder="0"
+                                value={totalFollowersFocusDate === row.date
+                                  ? (row.total_followers ?? "")
+                                  : (row.total_followers != null ? row.total_followers.toLocaleString("pt-BR") : "")}
+                                onFocus={() => setTotalFollowersFocusDate(row.date)}
+                                onBlur={() => { setTotalFollowersFocusDate(null); handleFieldBlur(row); }}
+                                onChange={(e) => handleTotalFollowersChange(row, e.target.value)}
+                                className="w-28 h-7 rounded border border-input bg-background px-2 text-right text-sm tabular-nums text-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-500/40 disabled:opacity-30"
+                              />
                             </td>
                             {!isIG && (
                               <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
