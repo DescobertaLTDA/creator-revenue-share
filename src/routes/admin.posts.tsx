@@ -733,171 +733,177 @@ function PostEditModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-6"
+      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col">
-
+      {/*
+        Modal 16:9: max-w-5xl (~1024px) → height = 1024 × 9/16 = 576px
+        Layout: header fixo + corpo em 2 colunas (imagem | controles)
+      */}
+      <div
+        className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col overflow-hidden"
+        style={{ aspectRatio: "16 / 9" }}
+      >
         {/* ── Header ── */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-border shrink-0">
-          <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ background: "#F44708" }}>
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
+          <div className="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ background: "#F44708" }}>
             {postIndex + 1}
           </div>
-          <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
             <p className="font-bold text-sm truncate">{post.pages?.nome ?? "Página"}</p>
             <span className="text-xs text-muted-foreground shrink-0">{fmtDate(post.published_at)}</span>
             <PlatformBadge source={post.source} />
           </div>
-          <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors shrink-0">
+          <button onClick={onClose} className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors shrink-0">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* ── Body ── */}
-        <div className="p-5 flex flex-col gap-5">
+        {/* ── Body: 2 colunas ── */}
+        <div className="flex-1 grid grid-cols-[1fr_1fr] min-h-0">
 
-          {/* Thumbnail section */}
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Thumbnail</p>
+          {/* ── Coluna esquerda: imagem ocupa tudo ── */}
+          <div className="relative bg-gray-100 overflow-hidden">
+            {post.thumbnail_url && !imgError ? (
+              <img
+                src={post.thumbnail_url}
+                alt="Thumbnail"
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={() => setImgError(true)}
+              />
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-gray-300">
+                <ImageIcon className="h-14 w-14" />
+                <p className="text-sm text-gray-400">Sem imagem</p>
+              </div>
+            )}
+          </div>
 
-            {/* Image 16:9 — fixed h-[195px] = ~16:9 on max-w-lg modal */}
-            <div
-              className="relative rounded-xl overflow-hidden bg-gray-100 w-full h-[195px] cursor-pointer mb-3"
-              onClick={() => document.getElementById("img-url-input")?.focus()}
-            >
+          {/* ── Coluna direita: controles, scrollável ── */}
+          <div className="flex flex-col border-l border-border min-h-0">
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+
+              {/* Info box */}
               {post.thumbnail_url && !imgError ? (
-                <img src={post.thumbnail_url} alt="Thumbnail" className="w-full h-full object-cover" onError={() => setImgError(true)} />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-gray-300">
-                  <ImageIcon className="h-10 w-10" />
-                  <p className="text-xs text-gray-400">Sem imagem</p>
+                <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2.5 flex items-start gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[11px] font-bold text-green-700">IMAGEM ATUAL</p>
+                    <p className="text-[11px] text-green-700 mt-0.5">Thumbnail vinculada a este post.</p>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Buttons */}
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => document.getElementById("img-url-input")?.focus()}
+                  className="flex items-center justify-center gap-2 h-9 rounded-xl text-sm font-semibold text-white w-full transition-opacity hover:opacity-90"
+                  style={{ background: "#F44708" }}
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  Trocar imagem
+                </button>
+                {post.thumbnail_url && (
+                  <button
+                    onClick={() => { setPost((p) => ({ ...p, thumbnail_url: null })); setImgError(false); }}
+                    className="flex items-center justify-center gap-2 h-9 rounded-xl text-sm font-medium border border-border bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors w-full"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Remover imagem
+                  </button>
+                )}
+              </div>
+
+              {/* URL import */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide whitespace-nowrap shrink-0">
+                    OU IMPORTAR AUTOMATICAMENTE
+                  </span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+                <form onSubmit={handleApplyUrl} className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+                    <input
+                      id="img-url-input"
+                      type="text"
+                      value={imageUrlInput}
+                      onChange={(e) => setImageUrlInput(e.target.value)}
+                      placeholder="URL da imagem (opcional)"
+                      className="w-full h-8 pl-8 pr-2 rounded-lg border border-border bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#F44708]/30"
+                    />
+                  </div>
+                  <button type="submit" className="h-8 px-3 rounded-lg text-xs font-semibold text-white bg-gray-900 hover:bg-gray-700 transition-colors flex items-center gap-1 shrink-0">
+                    <Link2 className="h-3 w-3" />
+                    Importar
+                  </button>
+                </form>
+                <p className="text-[10px] text-muted-foreground mt-1 pl-1">Sem URL: busca automática pelo Google</p>
+              </div>
+
+              {/* Metrics */}
+              <div className="grid grid-cols-4 gap-1.5">
+                {([
+                  { Icon: Eye,           label: "Views",   value: post.views,     color: "text-orange-500" },
+                  { Icon: Heart,         label: "Reações", value: post.reactions, color: "text-rose-500" },
+                  { Icon: MessageSquare, label: "Coment.", value: post.comments,  color: "text-blue-500" },
+                  { Icon: Share2,        label: "Shares",  value: post.shares,    color: "text-green-500" },
+                ] as const).map(({ Icon, label, value, color }) => (
+                  <div key={label} className="rounded-xl border border-border bg-muted/20 p-2 flex flex-col items-center gap-1">
+                    <Icon className={cn(`h-3.5 w-3.5 ${color}`)} />
+                    <p className="text-xs font-bold text-foreground tabular-nums">{fmtV(Number(value ?? 0))}</p>
+                    <p className="text-[9px] text-muted-foreground">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Revenue */}
+              {revenue > 0 && (
+                <div className="rounded-xl bg-green-50 border border-green-200 px-3 py-2 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-green-700 font-bold text-xs">
+                    <DollarSign className="h-3.5 w-3.5" />
+                    {`R$ ${brl.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                  </div>
+                  <span className="text-[11px] text-green-600 font-medium">${revenue.toFixed(2)} USD</span>
                 </div>
               )}
+
+              {/* Description */}
+              <div className="flex flex-col gap-1.5 flex-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Descrição</p>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  maxLength={2200}
+                  placeholder="Escreva a descrição do post..."
+                  className="flex-1 w-full min-h-[80px] px-3 py-2 rounded-xl border border-border text-xs leading-relaxed bg-white focus:outline-none focus:ring-2 focus:ring-[#F44708]/30 resize-none"
+                />
+                <p className="text-[10px] text-muted-foreground text-right">{description.length}/2200</p>
+              </div>
             </div>
 
-            {/* Info box */}
-            {post.thumbnail_url && !imgError ? (
-              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-start gap-2 mb-3">
-                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-xs font-bold text-green-700 mb-0.5">IMAGEM ATUAL</p>
-                  <p className="text-xs text-green-700">Thumbnail já vinculada a este post.</p>
-                  <p className="text-[11px] text-green-600 mt-0.5">Clique na imagem para trocar.</p>
-                </div>
-              </div>
-            ) : null}
-
-            {/* Buttons */}
-            <div className="flex flex-col gap-2 mb-4">
+            {/* ── Footer ── */}
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border shrink-0">
+              <button onClick={onClose} className="h-9 px-4 rounded-xl border border-border bg-white text-xs font-medium hover:bg-muted transition-colors">
+                Cancelar
+              </button>
               <button
-                onClick={() => document.getElementById("img-url-input")?.focus()}
-                className="flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold text-white w-full transition-opacity hover:opacity-90"
+                onClick={handleSave}
+                disabled={saving}
+                className="h-9 px-4 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5 transition-opacity disabled:opacity-60"
                 style={{ background: "#F44708" }}
               >
-                <ImageIcon className="h-4 w-4" />
-                Trocar imagem
+                {saving
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Salvando...</>
+                  : <>Salvar alterações →</>
+                }
               </button>
-              {post.thumbnail_url && (
-                <button
-                  onClick={() => { setPost((p) => ({ ...p, thumbnail_url: null })); setImgError(false); }}
-                  className="flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-medium border border-border bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors w-full"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Remover imagem
-                </button>
-              )}
             </div>
-
-            {/* URL import */}
-            <div className="flex items-center gap-2 mb-2">
-              <div className="flex-1 h-px bg-border" />
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide whitespace-nowrap shrink-0">
-                OU IMPORTAR AUTOMATICAMENTE
-              </span>
-              <div className="flex-1 h-px bg-border" />
-            </div>
-            <form onSubmit={handleApplyUrl} className="flex gap-2">
-              <div className="flex-1 relative">
-                <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                <input
-                  id="img-url-input"
-                  type="text"
-                  value={imageUrlInput}
-                  onChange={(e) => setImageUrlInput(e.target.value)}
-                  placeholder="URL do post ou da imagem (opcional)"
-                  className="w-full h-9 pl-9 pr-3 rounded-xl border border-border bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#F44708]/30"
-                />
-              </div>
-              <button
-                type="submit"
-                className="h-9 px-4 rounded-xl text-xs font-semibold text-white bg-gray-900 hover:bg-gray-700 transition-colors flex items-center gap-1.5 shrink-0"
-              >
-                <Link2 className="h-3.5 w-3.5" />
-                Importar
-              </button>
-            </form>
-            <p className="text-[10px] text-muted-foreground mt-1.5 pl-1">Sem URL: busca automática pelo Google</p>
           </div>
-
-          {/* Metrics */}
-          <div className="grid grid-cols-4 gap-2">
-            {([
-              { Icon: Eye,          label: "Views",   value: post.views,     color: "text-orange-500" },
-              { Icon: Heart,        label: "Reações", value: post.reactions, color: "text-rose-500" },
-              { Icon: MessageSquare, label: "Coment.", value: post.comments,  color: "text-blue-500" },
-              { Icon: Share2,       label: "Shares",  value: post.shares,    color: "text-green-500" },
-            ] as const).map(({ Icon, label, value, color }) => (
-              <div key={label} className="rounded-xl border border-border bg-muted/20 p-2.5 flex flex-col items-center gap-1.5">
-                <Icon className={cn(`h-4 w-4 ${color}`)} />
-                <p className="text-sm font-bold text-foreground tabular-nums">{fmtV(Number(value ?? 0))}</p>
-                <p className="text-[10px] text-muted-foreground">{label}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Revenue */}
-          {revenue > 0 && (
-            <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-green-700 font-bold text-sm">
-                <DollarSign className="h-4 w-4" />
-                {`R$ ${brl.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-              </div>
-              <span className="text-xs text-green-600 font-medium">${revenue.toFixed(2)} USD</span>
-            </div>
-          )}
-
-          {/* Description */}
-          <div className="flex flex-col gap-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Descrição</p>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={6}
-              maxLength={2200}
-              placeholder="Escreva a descrição do post..."
-              className="w-full px-3 py-2.5 rounded-xl border border-border text-xs leading-relaxed bg-white focus:outline-none focus:ring-2 focus:ring-[#F44708]/30 resize-none"
-            />
-            <p className="text-[11px] text-muted-foreground text-right">{description.length}/2200</p>
-          </div>
-        </div>
-
-        {/* ── Footer ── */}
-        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-border shrink-0">
-          <button onClick={onClose} className="h-10 px-5 rounded-xl border border-border bg-white text-sm font-medium hover:bg-muted transition-colors">
-            Cancelar
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="h-10 px-5 rounded-xl text-sm font-semibold text-white flex items-center gap-2 transition-opacity disabled:opacity-60"
-            style={{ background: "#F44708" }}
-          >
-            {saving
-              ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando...</>
-              : <>Salvar alterações <span>→</span></>
-            }
-          </button>
         </div>
       </div>
     </div>
