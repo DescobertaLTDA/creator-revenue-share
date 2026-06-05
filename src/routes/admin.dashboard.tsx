@@ -15,7 +15,7 @@ import {
   Target, Zap, Users, X, CloudUpload,
   Heart, MessageSquare, Share2, Maximize2, Calendar, Trophy,
   Flame, Hourglass, BarChart2, FileText,
-  Loader2, ImagePlus, Trash2, Link2, Crop, Sparkles,
+  Loader2, ImagePlus, Trash2, Link2, Crop, Sparkles, ChevronDown,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
