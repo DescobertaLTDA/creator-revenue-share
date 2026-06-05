@@ -1762,9 +1762,57 @@ function AdminDashboard() {
   const [filterColab, setFilterColab] = useState("all");
   const [filterFrom, setFilterFrom] = useState(() => {
     const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`; // 1st of current month
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
   });
   const [filterTo, setFilterTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [datePreset, setDatePreset] = useState("este-mes");
+  const [showPresetDropdown, setShowPresetDropdown] = useState(false);
+  const presetDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close preset dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (presetDropdownRef.current && !presetDropdownRef.current.contains(e.target as Node))
+        setShowPresetDropdown(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const applyDatePreset = (preset: string) => {
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    switch (preset) {
+      case "7d":   { const d = new Date(today); d.setDate(d.getDate() - 6);   setFilterFrom(ymd(d)); setFilterTo(todayStr); break; }
+      case "28d":  { const d = new Date(today); d.setDate(d.getDate() - 27);  setFilterFrom(ymd(d)); setFilterTo(todayStr); break; }
+      case "90d":  { const d = new Date(today); d.setDate(d.getDate() - 89);  setFilterFrom(ymd(d)); setFilterTo(todayStr); break; }
+      case "365d": { const d = new Date(today); d.setDate(d.getDate() - 364); setFilterFrom(ymd(d)); setFilterTo(todayStr); break; }
+      case "tudo": { setFilterFrom("2020-01-01"); setFilterTo(todayStr); break; }
+      case "ano-atual": { setFilterFrom(`${today.getFullYear()}-01-01`); setFilterTo(todayStr); break; }
+      case "ano-anterior": { const y = today.getFullYear() - 1; setFilterFrom(`${y}-01-01`); setFilterTo(`${y}-12-31`); break; }
+      case "este-mes": { setFilterFrom(`${today.getFullYear()}-${pad(today.getMonth() + 1)}-01`); setFilterTo(todayStr); break; }
+      case "mes-anterior": { const f = new Date(today.getFullYear(), today.getMonth() - 1, 1); const l = new Date(today.getFullYear(), today.getMonth(), 0); setFilterFrom(ymd(f)); setFilterTo(ymd(l)); break; }
+      case "dois-meses": { const f = new Date(today.getFullYear(), today.getMonth() - 2, 1); const l = new Date(today.getFullYear(), today.getMonth() - 1, 0); setFilterFrom(ymd(f)); setFilterTo(ymd(l)); break; }
+      default: break; // personalizado — não altera datas
+    }
+    setDatePreset(preset);
+    setShowPresetDropdown(false);
+  };
+
+  const presetLabel = (() => {
+    const mn = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+    const t = new Date();
+    const map: Record<string, string> = {
+      "7d": "Últimos 7 dias", "28d": "Últimos 28 dias", "90d": "Últimos 90 dias",
+      "365d": "Últimos 365 dias", "tudo": "Todo o período",
+      "ano-atual": String(t.getFullYear()), "ano-anterior": String(t.getFullYear() - 1),
+      "este-mes": mn[t.getMonth()], "mes-anterior": mn[(t.getMonth() + 11) % 12],
+      "dois-meses": mn[(t.getMonth() + 10) % 12], "personalizado": "Personalizado",
+    };
+    return map[datePreset] ?? "Período";
+  })();
 
   const usdIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -3677,15 +3725,63 @@ function AdminDashboard() {
                     </select>
                   </div>
                   <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
+
+                  {/* ── Seletor de período rápido ── */}
+                  <div ref={presetDropdownRef} className="relative flex flex-col gap-0.5 py-3">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Período</label>
+                    <button
+                      onClick={() => setShowPresetDropdown((v) => !v)}
+                      className="flex items-center gap-1.5 text-sm font-medium text-[#1A0A00] focus:outline-none min-w-[130px] text-left"
+                    >
+                      <span className="flex-1">{presetLabel}</span>
+                      <ChevronDown className={`h-3.5 w-3.5 text-[#9B9B9B] transition-transform shrink-0 ${showPresetDropdown ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {showPresetDropdown && (
+                      <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#EFEFEF] rounded-xl shadow-lg py-1 min-w-[200px]"
+                        style={{ boxShadow: "0 8px 32px rgba(0,0,0,.10)" }}>
+                        {[
+                          { key: "7d",   label: "Últimos 7 dias" },
+                          { key: "28d",  label: "Últimos 28 dias" },
+                          { key: "90d",  label: "Últimos 90 dias" },
+                          { key: "365d", label: "Últimos 365 dias" },
+                          { key: "tudo", label: "Todo o período" },
+                          null,
+                          { key: "ano-atual",    label: String(new Date().getFullYear()) },
+                          { key: "ano-anterior", label: String(new Date().getFullYear() - 1) },
+                          null,
+                          { key: "este-mes",    label: ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][new Date().getMonth()] },
+                          { key: "mes-anterior", label: ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][(new Date().getMonth() + 11) % 12] },
+                          { key: "dois-meses",   label: ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][(new Date().getMonth() + 10) % 12] },
+                          null,
+                          { key: "personalizado", label: "Personalizado" },
+                        ].map((item, i) =>
+                          item === null ? (
+                            <div key={i} className="h-px bg-[#F5F5F5] my-1" />
+                          ) : (
+                            <button
+                              key={item.key}
+                              onClick={() => applyDatePreset(item.key)}
+                              className={`w-full text-left px-4 py-2 text-sm transition-colors hover:bg-[#FFF5F0] ${datePreset === item.key ? "text-[#F44708] font-semibold bg-[#FFF5F0]" : "text-[#333]"}`}
+                            >
+                              {item.label}
+                            </button>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
                   <div className="flex flex-col gap-0.5 py-3">
                     <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">De</label>
-                    <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
+                    <input type="date" value={filterFrom} onChange={(e) => { setFilterFrom(e.target.value); setDatePreset("personalizado"); }}
                       className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer" />
                   </div>
                   <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
                   <div className="flex flex-col gap-0.5 py-3">
                     <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Até</label>
-                    <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
+                    <input type="date" value={filterTo} onChange={(e) => { setFilterTo(e.target.value); setDatePreset("personalizado"); }}
                       className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer" />
                   </div>
                   <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
