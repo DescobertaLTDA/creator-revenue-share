@@ -1222,19 +1222,19 @@ function PostsCarousel({
           style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(8px)" }}
           onClick={closeModal}
         >
-          {/* Modal container — 1500×900 */}
+          {/* Modal container — 1100×720 */}
           <div
             className="bg-white flex flex-col overflow-hidden"
             style={{
-              width: "min(1500px, calc(100vw - 32px))",
-              height: "min(900px, calc(100vh - 32px))",
-              borderRadius: "24px",
-              boxShadow: "0 20px 80px rgba(0,0,0,0.15)",
+              width: "min(1100px, calc(100vw - 32px))",
+              height: "min(720px, calc(100vh - 32px))",
+              borderRadius: "20px",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* ════ HEADER ════ */}
-            <div className="flex items-center gap-5 px-8 border-b border-[#EEEEEE] shrink-0" style={{ height: "80px" }}>
+            <div className="flex items-center gap-4 px-6 border-b border-[#EEEEEE] shrink-0" style={{ height: "60px" }}>
               {/* Número */}
               <div className="h-10 w-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
                 style={{ background: "#FF5A00" }}>
@@ -1242,7 +1242,7 @@ function PostsCarousel({
               </div>
               {/* Info */}
               <div className="flex items-center gap-4 flex-1 min-w-0">
-                <h2 className="font-bold text-[#111111] truncate leading-none" style={{ fontSize: "22px" }}>
+                <h2 className="font-bold text-[#111111] truncate leading-none" style={{ fontSize: "17px" }}>
                   {modalPost.pageName}
                 </h2>
                 <span className="text-sm text-[#777777] shrink-0">{dateLabel(modalPost.published_at)}</span>
@@ -1272,10 +1272,10 @@ function PostsCarousel({
             <div className="flex-1 grid min-h-0 overflow-hidden" style={{ gridTemplateColumns: "40% 60%" }}>
 
               {/* ── COLUNA ESQUERDA: Preview ── */}
-              <div className="flex flex-col min-h-0 overflow-y-auto p-8 gap-6 bg-[#F8F8F8]">
+              <div className="flex flex-col min-h-0 overflow-y-auto p-5 gap-4 bg-[#F8F8F8]">
 
                 {/* Preview card */}
-                <div className="rounded-[20px] border border-[#EEEEEE] bg-white p-5 flex flex-col gap-4">
+                <div className="rounded-2xl border border-[#EEEEEE] bg-white p-4 flex flex-col gap-3">
                   <p className="text-xs font-semibold text-[#777777] uppercase tracking-wider">Prévia do Post</p>
 
                   {/* Imagem 9:16 */}
@@ -1300,7 +1300,7 @@ function PostsCarousel({
                     <div className="flex justify-center">
                       <div
                         className="relative rounded-2xl overflow-hidden bg-[#F8F8F8] group cursor-pointer"
-                        style={{ width: "220px", aspectRatio: "9/16" }}
+                        style={{ width: "160px", aspectRatio: "9/16" }}
                         onClick={() => !thumbUploading && thumbFileRef.current?.click()}
                       >
                         {displayUrl ? (
@@ -1350,10 +1350,10 @@ function PostsCarousel({
 
               {/* ── COLUNA DIREITA: Edição ── */}
               <div className="flex flex-col border-l border-[#EEEEEE] min-h-0">
-                <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-5">
+                <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
 
                   {/* ── BLOCO 1: GERENCIAR IMAGEM ── */}
-                  <div className="rounded-2xl border border-[#EEEEEE] bg-white p-6 flex flex-col gap-4">
+                  <div className="rounded-xl border border-[#EEEEEE] bg-white p-4 flex flex-col gap-3">
                     <div>
                       <p className="text-sm font-bold text-[#111111]">Imagem</p>
                       <p className="text-xs text-[#777777] mt-0.5">Gerencie a thumbnail deste post</p>
@@ -1432,7 +1432,7 @@ function PostsCarousel({
                   </div>
 
                   {/* ── BLOCO 2: OCR ── */}
-                  <div className="rounded-2xl p-6 flex flex-col gap-4" style={{ background: "#FFF9F4", border: "1px solid #FFE2CC" }}>
+                  <div className="rounded-xl p-4 flex flex-col gap-3" style={{ background: "#FFF9F4", border: "1px solid #FFE2CC" }}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Sparkles className="h-4 w-4" style={{ color: "#FF5A00" }} />
@@ -1493,7 +1493,7 @@ function PostsCarousel({
                   </div>
 
                   {/* ── BLOCO 3: DESCRIÇÃO ── */}
-                  <div className="rounded-2xl border border-[#EEEEEE] bg-white p-6 flex flex-col gap-4">
+                  <div className="rounded-xl border border-[#EEEEEE] bg-white p-4 flex flex-col gap-3">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-bold text-[#111111]">Descrição do Post</p>
                       {modalPost.permalink && (
@@ -1511,7 +1511,7 @@ function PostsCarousel({
                         maxLength={2200}
                         placeholder="Escreva a descrição do post…"
                         className="w-full px-4 py-3 rounded-xl border border-[#EEEEEE] text-sm text-[#333333] leading-relaxed bg-white focus:outline-none transition-colors resize-none"
-                        style={{ minHeight: "180px", focusBorderColor: "#FF5A00" } as any}
+                        style={{ minHeight: "110px", focusBorderColor: "#FF5A00" } as any}
                         onFocus={(e) => { e.target.style.borderColor = "#FF5A00"; }}
                         onBlur={(e) => { e.target.style.borderColor = "#EEEEEE"; }}
                       />
@@ -1527,7 +1527,7 @@ function PostsCarousel({
                   </div>
 
                   {/* ── BLOCO 4: HASHTAGS ── */}
-                  <div className="rounded-2xl border border-[#EEEEEE] bg-white p-6 flex flex-col gap-4">
+                  <div className="rounded-xl border border-[#EEEEEE] bg-white p-4 flex flex-col gap-3">
                     <p className="text-sm font-bold text-[#111111]">Hashtags</p>
                     <div className="flex flex-wrap gap-2 items-center">
                       {hashtags.length === 0 && !showAddHashtag && (
@@ -1573,7 +1573,7 @@ function PostsCarousel({
                 </div>
 
                 {/* ════ FOOTER FIXO ════ */}
-                <div className="shrink-0 border-t border-[#EEEEEE] bg-white px-8 py-5 flex items-center justify-between">
+                <div className="shrink-0 border-t border-[#EEEEEE] bg-white px-5 py-3 flex items-center justify-between">
                   {/* Alterações pendentes */}
                   <div>
                     {pendingChanges > 0 ? (
@@ -1590,12 +1590,12 @@ function PostsCarousel({
                   {/* Botões */}
                   <div className="flex items-center gap-3">
                     <button onClick={closeModal}
-                      className="h-[52px] px-6 rounded-[14px] border text-sm font-medium text-[#555555] hover:bg-[#F8F8F8] transition-colors"
+                      className="h-10 px-5 rounded-xl border text-sm font-medium text-[#555555] hover:bg-[#F8F8F8] transition-colors"
                       style={{ borderColor: "#DDDDDD" }}>
                       Cancelar
                     </button>
                     <button onClick={handleSaveModal} disabled={modalSaving}
-                      className="h-[52px] px-8 rounded-[14px] text-sm font-semibold text-white flex items-center gap-2 disabled:opacity-60 transition-colors"
+                      className="h-10 px-6 rounded-xl text-sm font-semibold text-white flex items-center gap-2 disabled:opacity-60 transition-colors"
                       style={{ background: modalSaving ? "#FF5A00" : "#FF5A00" }}
                       onMouseEnter={(e) => !modalSaving && ((e.target as HTMLElement).style.background = "#E65000")}
                       onMouseLeave={(e) => !modalSaving && ((e.target as HTMLElement).style.background = "#FF5A00")}>
