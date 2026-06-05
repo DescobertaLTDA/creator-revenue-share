@@ -330,6 +330,7 @@ function BonusManualPage() {
   const [totalFollowersFocusDate, setTotalFollowersFocusDate] = useState<string | null>(null);
   const [closingFollowersInput, setClosingFollowersInput] = useState<string>("");
   const [closingFollowersFocus, setClosingFollowersFocus] = useState(false);
+  const [closingLocked, setClosingLocked] = useState(true); // começa travado
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   // Ref always pointing to latest rows — used for propagation without stale closure
   const rowsRef = useRef<DayEntry[]>([]);
@@ -1236,55 +1237,58 @@ function BonusManualPage() {
                       {(() => {
                         const lastFilled = [...rows].reverse().find((r) => r.total_followers != null && r.total_followers > 0);
                         const closingVal = lastFilled?.total_followers ?? null;
-                        const [locked, setLocked] = [true, () => {}]; // sempre começa travado
                         return (
                           <tr className="border-t-2 border-blue-200 bg-blue-50/40">
-                            {/* DIA */}
                             <td className="px-4 py-2.5">
                               <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Fechamento</span>
                             </td>
-                            {/* VIEWS CSV — vazio */}
-                            <td />
-                            {/* VIEWS MANUAIS — vazio */}
-                            <td />
-                            {/* SEGUIDORES — total de ganhos do mês */}
+                            <td /><td />
+                            {/* SEGUIDORES — total de ganhos */}
                             <td className="px-4 py-2.5 text-right tabular-nums text-emerald-600 text-sm font-semibold">
-                              {rows.reduce((s, r) => s + (r.actual_followers ?? 0), 0) > 0
-                                ? `+${rows.reduce((s, r) => s + (r.actual_followers ?? 0), 0).toLocaleString("pt-BR")}`
-                                : "—"}
+                              {(() => { const t = rows.reduce((s, r) => s + (r.actual_followers ?? 0), 0); return t > 0 ? `+${t.toLocaleString("pt-BR")}` : "—"; })()}
                             </td>
-                            {/* TOTAL SEGUIDORES — campo de fechamento com cadeado */}
+                            {/* TOTAL SEGUIDORES — com cadeado funcional */}
                             <td className="px-4 py-2.5 text-right">
                               <div className="flex items-center justify-end gap-1.5">
-                                {/* Cadeado: travado = leitura, destravado = edição */}
+                                {/* Cadeado: clique alterna travado/destravado */}
                                 <button
                                   onClick={() => {
                                     if (!canWrite) return;
-                                    setClosingFollowersFocus((v) => !v);
-                                    if (!closingFollowersFocus) {
+                                    if (closingLocked) {
+                                      // Destravar: habilita edição
+                                      setClosingLocked(false);
+                                      setClosingFollowersFocus(true);
                                       setClosingFollowersInput(closingVal != null ? String(closingVal) : "");
+                                    } else {
+                                      // Travar: salva e trava
+                                      setClosingLocked(true);
+                                      setClosingFollowersFocus(false);
                                     }
                                   }}
-                                  title={closingFollowersFocus ? "Travar valor" : "Destavar para editar"}
+                                  title={closingLocked ? "Clique para editar o valor de fechamento" : "Clique para travar o valor"}
                                   className="shrink-0 transition-colors"
                                 >
-                                  {closingFollowersFocus ? (
-                                    <svg className="h-3.5 w-3.5 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
-                                      <path d="M17 8h-1V6c0-2.76-2.24-5-5-5S6 3.24 6 6v2H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-5 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM8.9 8V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2H8.9z"/>
+                                  {closingLocked ? (
+                                    /* 🔒 Travado */
+                                    <svg className="h-4 w-4 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+                                      <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
                                     </svg>
                                   ) : (
-                                    <svg className="h-3.5 w-3.5 text-blue-300 hover:text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+                                    /* 🔓 Aberto */
+                                    <svg className="h-4 w-4 text-orange-400" viewBox="0 0 24 24" fill="currentColor">
                                       <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.65 1.35-3 3-3s3 1.35 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/>
                                     </svg>
                                   )}
                                 </button>
 
-                                {closingFollowersFocus ? (
+                                {/* Input visível só quando destravado */}
+                                {!closingLocked ? (
                                   <input
                                     type="text" inputMode="numeric" autoFocus
                                     value={closingFollowersInput}
                                     onChange={(e) => setClosingFollowersInput(e.target.value.replace(/\D/g, ""))}
-                                    onBlur={async () => {
+                                    onBlur={() => {
+                                      setClosingLocked(true);
                                       setClosingFollowersFocus(false);
                                       const val = parseInt(closingFollowersInput.replace(/\D/g, ""), 10);
                                       if (!isNaN(val) && val > 0) {
@@ -1293,8 +1297,11 @@ function BonusManualPage() {
                                         propagateTotalFollowers(lastDay, val);
                                       }
                                     }}
-                                    onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setClosingFollowersFocus(false); }}
-                                    className="w-28 h-7 rounded border-2 border-blue-400 bg-white px-2 text-right text-sm tabular-nums text-blue-700 font-bold focus:outline-none"
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                                      if (e.key === "Escape") { setClosingLocked(true); setClosingFollowersFocus(false); }
+                                    }}
+                                    className="w-28 h-7 rounded border-2 border-orange-300 bg-white px-2 text-right text-sm tabular-nums text-blue-700 font-bold focus:outline-none focus:border-orange-400"
                                   />
                                 ) : (
                                   <span className={`text-sm font-bold tabular-nums ${closingVal ? "text-blue-600" : "text-muted-foreground/40"}`}>
@@ -1303,10 +1310,8 @@ function BonusManualPage() {
                                 )}
                               </div>
                             </td>
-                            {/* POSTS USD e REAL RECEBIDO — vazios */}
                             {!isIG && <td />}
-                            <td />
-                            <td />
+                            <td /><td />
                           </tr>
                         );
                       })()}
