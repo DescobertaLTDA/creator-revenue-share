@@ -1899,6 +1899,9 @@ function AdminDashboard() {
   }, []);
 
   useEffect(() => {
+    // Computed at effect scope so both doLoad and cache check can use it
+    const isTudoOPeriodo = filterFrom <= "2001-01-01";
+
     const applyCache = (cache: DashCache) => {
       setAllPosts(cache.posts);
       setPostAuthors(cache.postAuthors);
@@ -1912,8 +1915,6 @@ function AdminDashboard() {
     const doLoad = async (background: boolean) => {
       // Scope posts query to current filter range.
       // For "Todo o período" (filterFrom <= 2000), busca sem restrição de data inicial.
-      // Extra 90-day buffer back so collaborator bonus computation has prior-month data.
-      const isTudoOPeriodo = filterFrom <= "2001-01-01";
       const dateFrom = (() => {
         if (!filterFrom || isTudoOPeriodo) return null;
         const d = new Date(filterFrom);
