@@ -761,33 +761,32 @@ function PostEditModal({
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Thumbnail</p>
 
-            {/* Image + info */}
-            <div className="flex gap-3 mb-3">
-              <div className="relative rounded-xl overflow-hidden bg-gray-100 shrink-0 w-[110px] h-[110px] cursor-pointer" onClick={() => document.getElementById("img-url-input")?.focus()}>
-                {post.thumbnail_url && !imgError ? (
-                  <img src={post.thumbnail_url} alt="Thumbnail" className="w-full h-full object-cover" onError={() => setImgError(true)} />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-300">
-                    <ImageIcon className="h-8 w-8" />
-                  </div>
-                )}
-              </div>
+            {/* Image 16:9 */}
+            <div
+              className="relative rounded-xl overflow-hidden bg-gray-100 w-full aspect-video cursor-pointer mb-3"
+              onClick={() => document.getElementById("img-url-input")?.focus()}
+            >
               {post.thumbnail_url && !imgError ? (
-                <div className="flex-1 bg-green-50 border border-green-200 rounded-xl p-3 flex flex-col gap-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
-                    <span className="text-xs font-bold text-green-700">IMAGEM ATUAL</span>
-                  </div>
-                  <p className="text-xs text-green-700">Thumbnail já vinculada a este post.</p>
-                  <p className="text-[11px] text-green-600">Clique na imagem para trocar.</p>
-                </div>
+                <img src={post.thumbnail_url} alt="Thumbnail" className="w-full h-full object-cover" onError={() => setImgError(true)} />
               ) : (
-                <div className="flex-1 bg-muted/40 border border-border rounded-xl p-3 flex flex-col items-center justify-center gap-1.5">
-                  <ImageIcon className="h-6 w-6 text-gray-300" />
-                  <p className="text-xs text-muted-foreground text-center">Nenhuma imagem vinculada.</p>
+                <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-gray-300">
+                  <ImageIcon className="h-10 w-10" />
+                  <p className="text-xs text-gray-400">Sem imagem</p>
                 </div>
               )}
             </div>
+
+            {/* Info box */}
+            {post.thumbnail_url && !imgError ? (
+              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-start gap-2 mb-3">
+                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-green-700 mb-0.5">IMAGEM ATUAL</p>
+                  <p className="text-xs text-green-700">Thumbnail já vinculada a este post.</p>
+                  <p className="text-[11px] text-green-600 mt-0.5">Clique na imagem para trocar.</p>
+                </div>
+              </div>
+            ) : null}
 
             {/* Buttons */}
             <div className="flex flex-col gap-2 mb-4">
