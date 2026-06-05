@@ -761,10 +761,9 @@ function PostEditModal({
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Thumbnail</p>
 
-            {/* Image 16:9 */}
+            {/* Image 16:9 — fixed h-[195px] = ~16:9 on max-w-lg modal */}
             <div
-              className="relative rounded-xl overflow-hidden bg-gray-100 w-full cursor-pointer mb-3"
-              style={{ aspectRatio: "16 / 9" }}
+              className="relative rounded-xl overflow-hidden bg-gray-100 w-full h-[195px] cursor-pointer mb-3"
               onClick={() => document.getElementById("img-url-input")?.focus()}
             >
               {post.thumbnail_url && !imgError ? (
