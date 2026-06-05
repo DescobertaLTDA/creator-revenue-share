@@ -583,7 +583,8 @@ function BonusManualPage() {
     );
   };
 
-  // ── Auto-propagate total_followers — busca TODOS os meses do banco ──────────
+  // ── Auto-propagate total_followers — APENAS dentro do mês atual ──────────────
+  // Não cruza para meses anteriores/posteriores (o fechamento do mês anterior é sagrado).
   // Fórmula: total[dia] = total[dia+1] - ganho[dia]  (para trás)
   //          total[dia] = total[dia-1] + ganho[dia]  (para frente)
   const propagateTotalFollowers = useCallback(async (
@@ -592,33 +593,39 @@ function BonusManualPage() {
   ) => {
     if (!selectedPageId || !profile) return;
 
-    // 1. Busca TODAS as entradas da página/plataforma (todos os meses)
-    const { data: allEntries, error } = await (supabase as any)
+    // Limita ao mês exibido
+    const days = daysInMonth(monthRef);
+    const firstDay = days[0];
+    const lastDay = days[days.length - 1];
+
+    // Busca só as entradas do mês atual
+    const { data: monthEntries, error } = await (supabase as any)
       .from("daily_revenue_entries")
-      .select("entry_date, actual_followers, id")
+      .select("entry_date, actual_followers")
       .eq("page_id", selectedPageId)
       .eq("platform", platform)
+      .gte("entry_date", firstDay)
+      .lte("entry_date", lastDay)
       .order("entry_date", { ascending: true });
 
-    if (error || !allEntries) { toast.error("Erro ao buscar entradas"); return; }
+    if (error || !monthEntries) { toast.error("Erro ao buscar entradas do mês"); return; }
 
-    // 2. Ordena por data e encontra âncora
-    const sorted: { entry_date: string; actual_followers: number | null }[] = allEntries;
+    const sorted: { entry_date: string; actual_followers: number | null }[] = monthEntries;
     const anchorIdx = sorted.findIndex((r: any) => r.entry_date === anchorDate);
     if (anchorIdx === -1) return;
 
     const computed: { date: string; total: number }[] = [];
     computed.push({ date: anchorDate, total: anchorTotal });
 
-    // ← Para trás: total[i] = total[i+1] - ganho[i]
+    // ← Para trás (dentro do mês): total[i] = total[i+1] - ganho[i]
     let running = anchorTotal;
     for (let i = anchorIdx - 1; i >= 0; i--) {
       const gain = Number(sorted[i].actual_followers ?? 0);
-      running = running - gain;
-      computed.push({ date: sorted[i].entry_date, total: Math.max(0, running) });
+      running = Math.max(0, running - gain);
+      computed.push({ date: sorted[i].entry_date, total: running });
     }
 
-    // → Para frente: total[i] = total[i-1] + ganho[i]
+    // → Para frente (dentro do mês): total[i] = total[i-1] + ganho[i]
     running = anchorTotal;
     for (let i = anchorIdx + 1; i < sorted.length; i++) {
       const gain = Number(sorted[i].actual_followers ?? 0);
@@ -626,13 +633,13 @@ function BonusManualPage() {
       computed.push({ date: sorted[i].entry_date, total: running });
     }
 
-    // 3. Atualiza UI (só para as linhas do mês atual visíveis)
+    // Atualiza UI
     setRows((prev) => prev.map((r) => {
       const c = computed.find((x) => x.date === r.date);
       return c ? { ...r, total_followers: c.total, _db_total_followers: c.total } : r;
     }));
 
-    // 4. Salva tudo no banco em lotes de 20
+    // Salva no banco (apenas o mês atual)
     const BATCH = 20;
     for (let i = 0; i < computed.length; i += BATCH) {
       const batch = computed.slice(i, i + BATCH);
@@ -652,8 +659,8 @@ function BonusManualPage() {
         );
     }
 
-    toast.success(`Total Seguidores calculado para ${computed.length} dias`);
-  }, [selectedPageId, platform, profile]);
+    toast.success(`Total Seguidores calculado para ${computed.length} dias de ${monthRef}`);
+  }, [selectedPageId, platform, profile, monthRef]);
 
   const saveRow = async (row: DayEntry) => {
     if (!selectedPageId || !profile) return;
