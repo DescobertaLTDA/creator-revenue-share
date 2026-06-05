@@ -3765,7 +3765,7 @@ function AdminDashboard() {
                     </button>
 
                     {showPresetDropdown && (
-                      <div className="absolute top-full mt-1 z-50 bg-white border border-[#EFEFEF] rounded-xl shadow-lg py-1 min-w-[200px]"
+                      <div className="absolute top-full mt-1 z-50 bg-white border border-[#EFEFEF] rounded-xl shadow-lg py-1 min-w-[220px]"
                         style={{ left: "-1px", boxShadow: "0 8px 32px rgba(0,0,0,.10)" }}>
                         {[
                           { key: "7d",   label: "Últimos 7 dias" },
@@ -3795,27 +3795,41 @@ function AdminDashboard() {
                             </button>
                           )
                         )}
+
+                        {/* DE/ATÉ aparecem dentro do dropdown quando Personalizado */}
+                        {datePreset === "personalizado" && (
+                          <div className="px-3 pb-2 pt-1 border-t border-[#F5F5F5] mt-1 flex flex-col gap-2">
+                            <div className="flex gap-2">
+                              <div className="flex flex-col gap-0.5 flex-1">
+                                <label className="text-[9px] font-bold uppercase tracking-wider text-[#9B9B9B]">De</label>
+                                <input
+                                  type="date" value={filterFrom}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onChange={(e) => setFilterFrom(e.target.value)}
+                                  className="w-full h-8 rounded-lg border border-[#EFEFEF] px-2 text-xs text-[#1A0A00] focus:outline-none focus:border-[#F44708]"
+                                />
+                              </div>
+                              <div className="flex flex-col gap-0.5 flex-1">
+                                <label className="text-[9px] font-bold uppercase tracking-wider text-[#9B9B9B]">Até</label>
+                                <input
+                                  type="date" value={filterTo}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onChange={(e) => setFilterTo(e.target.value)}
+                                  className="w-full h-8 rounded-lg border border-[#EFEFEF] px-2 text-xs text-[#1A0A00] focus:outline-none focus:border-[#F44708]"
+                                />
+                              </div>
+                            </div>
+                            <button
+                              onMouseDown={(e) => { e.preventDefault(); setShowPresetDropdown(false); }}
+                              className="w-full h-8 rounded-lg text-xs font-semibold text-white bg-[#F44708] hover:bg-[#D93D07] transition-colors"
+                            >
+                              Aplicar
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-
-                  {/* DE / ATÉ — só visível quando Personalizado */}
-                  {datePreset === "personalizado" && (
-                    <>
-                      <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
-                      <div className="flex flex-col gap-0.5 py-3">
-                        <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">De</label>
-                        <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
-                          className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer" />
-                      </div>
-                      <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
-                      <div className="flex flex-col gap-0.5 py-3">
-                        <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Até</label>
-                        <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
-                          className="border-0 bg-transparent text-sm font-medium text-[#1A0A00] focus:outline-none cursor-pointer" />
-                      </div>
-                    </>
-                  )}
                   <div className="w-px h-8 bg-[#F0F0F0] shrink-0" />
                   <div className="flex flex-col gap-0.5 py-3">
                     <label className="text-[10px] font-semibold uppercase tracking-wider text-[#9B9B9B]">Dados Manuais</label>
