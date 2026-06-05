@@ -1928,8 +1928,11 @@ function AdminDashboard() {
             let q = supabase.from("posts").select(
               "id, page_id, published_at, monetization_approx, estimated_usd, views, reach, reactions, comments, shares, title, description, post_type, permalink, source, thumbnail_url"
             );
-            if (dateFrom) q = (q as any).gte("published_at", dateFrom);
-            q = (q as any).lte("published_at", dateTo + "T23:59:59");
+            // Para "Todo o período", sem nenhum filtro de data (inclui published_at NULL)
+            if (!isTudoOPeriodo) {
+              if (dateFrom) q = (q as any).gte("published_at", dateFrom);
+              q = (q as any).lte("published_at", dateTo + "T23:59:59");
+            }
             return q;
           }),
           fetchAllRows<PostAuthorRow>(() =>
@@ -1973,12 +1976,15 @@ function AdminDashboard() {
       if (!background) setLoading(false);
     };
 
+    // Sempre faz reload quando os filtros mudam — cache é só para re-navegação sem filtro
     const now = Date.now();
-    if (_dashCache && now - _dashCache.ts < CACHE_TTL && !filterFrom && !filterTo) {
-      // Use cache only on initial mount (no filter active).
-      // If the user changed the date filter, always reload fresh.
-      doLoad(true);
+    const cacheOk = _dashCache
+      && now - _dashCache.ts < CACHE_TTL
+      && !isTudoOPeriodo; // nunca usa cache para "Todo o período"
+    if (cacheOk) {
+      doLoad(true); // background refresh
     } else {
+      setLoading(true);
       doLoad(false);
     }
   }, [filterFrom, filterTo, filterPage, filterColab]);
